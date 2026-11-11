@@ -48,6 +48,7 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 | `20261111000450_send_message_hardening.sql` | `private.is_valid_regex` plus the CHECK constraint on `word_filter.pattern`. Bidi and Unicode-whitespace handling, and the 1120-char pre-check. |
 | `20261111000460_word_filter_grants.sql` | Grants `service_role` usage on schema `private` and execute on `private.is_valid_regex`, so inserts into `word_filter` pass the CHECK. |
 | `20261111000500_reports.sql` | `private.clean_text` (shared control/bidi strip + Unicode trim; `send_message` uses it too), `report_user(target_nickname, message_id, reason) returns bigint` with snapshot and auto-mute |
+| `20261111000550_reports_staff_exempt.sql` | `report_user` redefined: moderators and admins are exempt from auto-mute |
 
 ## Tests
 
@@ -75,7 +76,7 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 - Bidi controls are stripped as well, which goes beyond the spec's "control characters".
 - `word_filter.pattern` must be a valid regex, enforced by a CHECK constraint, so one bad row can't break every send. The CHECK runs with the inserting role's privileges, so `service_role` is granted `usage` on `private` and `execute` on `private.is_valid_regex`. Nothing on `private` goes to public, anon or authenticated.
 - `report_user` check order: not_authenticated, no_profile, banned, empty/too_long (reason cleaned with `private.clean_text`), target lookup (`not_found`), `cannot_report_self`, message checks (`not_found` if purged or not the target's), `already_reported` (same reporter+target within 10 min, any status). Snapshot context: up to 10 nearest messages within +-5 min in the message's room/instance, or the target's current instance's last 10 (empty if no occupancy). Soft-deleted lines are included with `"deleted": true`.
-- Auto-mute: 3 distinct reporters in 10 min sets `muted_until = greatest(existing, now()+24h)` and logs one `auto_mute` (actor null, `details.report_ids`); skipped if already muted for 23h+. Reports are serialized per target by an advisory lock.
+- Auto-mute: 3 distinct reporters in 10 min sets `muted_until = greatest(existing, now()+24h)` and logs one `auto_mute` (actor null, `details.report_ids`); skipped if already muted for 23h+. Moderators and admins are exempt (reports are filed, no mute, no `auto_mute` row). Reports are serialized per target by an advisory lock.
 
 ## Next up / owner actions
 

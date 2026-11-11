@@ -1,6 +1,6 @@
 begin;
 \ir _helpers.psql
-select plan(27);
+select plan(33);
 
 select tests.create_user('rep1') as r1 \gset
 select tests.create_user('rep2') as r2 \gset
@@ -11,6 +11,8 @@ select tests.create_user('bad_one') as bd \gset
 select tests.create_user('noroom') as nr \gset
 select tests.create_user('ban_rep') as br \gset
 update public.profiles set banned_at = now() where id = :'br';
+select tests.create_user('modtarget', 'moderator') as mt \gset
+select tests.create_user('admtarget', 'admin') as at \gset
 select tests.create_auth_user() as np \gset
 
 insert into public.occupancy (user_id, room, instance) values (:'v', 'lobby', 1);
@@ -83,6 +85,18 @@ select tests.login_as(:'r1');
 select lives_ok($$select public.report_user('villain', null, 'still rude')$$, 'report after 10 min allowed');
 select tests.logout();
 select is((select count(*)::int from public.mod_actions where target_id = :'v' and action = 'auto_mute'), 1, 'no second auto_mute while muted');
+
+-- staff are exempt from auto-mute
+select tests.login_as(:'r1'); select public.report_user('modtarget', null, 'x'); select public.report_user('admtarget', null, 'x');
+select tests.login_as(:'r2'); select public.report_user('modtarget', null, 'x'); select public.report_user('admtarget', null, 'x');
+select tests.login_as(:'r3'); select public.report_user('modtarget', null, 'x'); select public.report_user('admtarget', null, 'x');
+select tests.logout();
+select is((select count(*)::int from public.reports where target_id = :'mt'), 3, 'moderator: 3 reports filed');
+select is((select muted_until from public.profiles where id = :'mt'), null, 'moderator not muted');
+select is((select count(*)::int from public.mod_actions where target_id = :'mt'), 0, 'moderator: no auto_mute row');
+select is((select count(*)::int from public.reports where target_id = :'at'), 3, 'admin: 3 reports filed');
+select is((select muted_until from public.profiles where id = :'at'), null, 'admin not muted');
+select is((select count(*)::int from public.mod_actions where target_id = :'at'), 0, 'admin: no auto_mute row');
 
 select * from finish();
 rollback;
