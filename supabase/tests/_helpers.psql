@@ -1,0 +1,37 @@
+-- Shared pgTAP helpers. Loaded with: \ir _helpers.psql  (inside begin; ... rollback;)
+-- Not named *.sql so pg_prove does not run it as a test file.
+create schema if not exists tests;
+
+create or replace function tests.create_user(
+  nick text,
+  role public.app_role default 'user',
+  github_age interval default '1 year'
+) returns uuid language plpgsql as $$
+declare uid uuid := gen_random_uuid();
+begin
+  insert into auth.users (id, instance_id, aud, role, email, created_at, updated_at)
+  values (uid, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          nick || '@test.local', now(), now());
+  insert into public.profiles (id, github_id, nickname, role, github_created_at, rules_accepted_at)
+  values (uid, (random() * 1e12)::bigint, nick, role, now() - github_age, now());
+  return uid;
+end $$;
+
+create or replace function tests.login_as(uid uuid) returns void language plpgsql as $$
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', uid, 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claim.sub', uid::text, true);
+  set local role authenticated;
+end $$;
+
+create or replace function tests.logout() returns void language plpgsql as $$
+begin
+  reset role;
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('request.jwt.claim.sub', '', true);
+end $$;
+
+-- logout()/login_as() are called while already running as authenticated/anon
+grant usage on schema tests to public;
+grant execute on all functions in schema tests to public;
