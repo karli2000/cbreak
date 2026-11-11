@@ -46,6 +46,7 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 | `20261111000300_rooms.sql` | `join_room`, `heartbeat`, `leave_room`, `room_counts` |
 | `20261111000400_send_message.sql` | Schema `private`, `private.broadcast`, `send_message` |
 | `20261111000450_send_message_hardening.sql` | `private.is_valid_regex` plus the CHECK constraint on `word_filter.pattern`. Bidi and Unicode-whitespace handling, and the 1120-char pre-check. |
+| `20261111000460_word_filter_grants.sql` | Grants `service_role` usage on schema `private` and execute on `private.is_valid_regex`, so inserts into `word_filter` pass the CHECK. |
 
 ## Tests
 
@@ -71,7 +72,7 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 - `heartbeat` on a stale row is refused (`not_in_room`) if its instance has refilled to 50, so the client re-joins. Banned users get `banned` from `heartbeat`.
 - `E'hi\x1b[2Jthere'` is stored as `hi[2Jthere`. Control characters are stripped, but the printable remains of the escape sequence stay, and they are harmless without ESC.
 - Bidi controls are stripped as well, which goes beyond the spec's "control characters".
-- `word_filter.pattern` must be a valid regex, enforced by a CHECK constraint, so one bad row can't break every send.
+- `word_filter.pattern` must be a valid regex, enforced by a CHECK constraint, so one bad row can't break every send. The CHECK runs with the inserting role's privileges, so `service_role` is granted `usage` on `private` and `execute` on `private.is_valid_regex`. Nothing on `private` goes to public, anon or authenticated.
 
 ## Next up / owner actions
 

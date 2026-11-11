@@ -1,6 +1,6 @@
 begin;
 \ir _helpers.psql
-select plan(31);
+select plan(34);
 
 select tests.create_user('alice') as a \gset
 select tests.create_user('newbie', 'user', '5 days') as n \gset
@@ -138,6 +138,16 @@ select tests.login_as(:'a');
 select lives_ok($$select public.send_message('old account ok')$$, 'old account ok 5 s after last');
 select tests.login_as(:'yo');
 select lives_ok($$select public.send_message('young account ok')$$, 'young account ok 11 s after last');
+select tests.logout();
+
+-- service_role can insert filter patterns; authenticated cannot call the validator
+select tests.logout();
+set local role service_role;
+select lives_ok($$insert into public.word_filter (pattern) values ('zzgood')$$, 'service_role inserts valid pattern');
+select throws_ok($$insert into public.word_filter (pattern) values ('b[a@d')$$, '23514', null, 'service_role: malformed regex rejected');
+reset role;
+select tests.login_as(:'a');
+select throws_ok($$select private.is_valid_regex('x')$$, '42501', null, 'authenticated denied on private');
 select tests.logout();
 
 select * from finish();
