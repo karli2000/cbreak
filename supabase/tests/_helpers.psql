@@ -35,3 +35,18 @@ end $$;
 -- logout()/login_as() are called while already running as authenticated/anon
 grant usage on schema tests to public;
 grant execute on all functions in schema tests to public;
+
+-- auth user + github identity but NO profile (for first-claim tests)
+create or replace function tests.create_auth_user(gh_id bigint default (random() * 1e12)::bigint)
+returns uuid language plpgsql as $$
+declare uid uuid := gen_random_uuid();
+begin
+  insert into auth.users (id, instance_id, aud, role, email, created_at, updated_at)
+  values (uid, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          uid || '@test.local', now(), now());
+  insert into auth.identities (id, provider_id, user_id, identity_data, provider, created_at, updated_at)
+  values (gen_random_uuid(), gh_id::text, uid,
+          jsonb_build_object('sub', gh_id::text), 'github', now(), now());
+  return uid;
+end $$;
+grant execute on function tests.create_auth_user(bigint) to public;
