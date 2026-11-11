@@ -51,6 +51,7 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 | `20261111000550_reports_staff_exempt.sql` | `report_user` redefined: moderators and admins are exempt from auto-mute |
 | `20261111000600_moderation.sql` | `private.require_rank_over(target, min_role)`, `private.log_action`. RPCs `mod_delete_message`, `mod_mute`, `mod_unmute`, `mod_ban`, `mod_resolve_report`, `mod_lookup_user`, `admin_unban`, `admin_set_role`, `admin_upsert_room`, `admin_add_filter`, `admin_remove_filter` |
 | `20261111000650_moderation_fixes.sql` | `is_staff`/`is_admin` return false for banned users. `private.require_rank_over` raises `banned` for a banned caller. `mod_resolve_report` enforces rank over the report's target |
+| `20261111000700_realtime_policies.sql` | RLS on `realtime.messages`: `room_members_read` (SELECT) and `room_members_presence` (INSERT, `extension = 'presence'` only). Both require a `room:%` topic, a non-banned caller, and the caller's occupancy topic = `realtime.topic()` or `is_staff()` |
 
 ## Tests
 
@@ -61,6 +62,8 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
   - `tests.login_as(uid)` and `tests.logout()`
 - Use `throws_ok(sql, 'P0001', '<code>')` for RPC errors.
 - Work test-first: write the failing test, watch it fail (RED), implement, then confirm it passes (GREEN).
+- Integration tests (`tests/integration/*.test.ts`, `bun test`) run against the live stack. `_env.ts` reads URL/keys from `bunx supabase status -o json`, or from `SUPABASE_URL`/`SUPABASE_ANON_KEY`/`SUPABASE_SERVICE_ROLE_KEY` when all three are set (hosted runs). It exports `adminClient()`, `userClient(nick, role?)` (email user `<nick>_<runId>@test.local`, nickname `<nick>_<runId>`, rules accepted, role set via service role), `cleanup()` (remove channels, delete users) and `warmUpRealtime()`.
+- Channels: `client.channel(topic, { config: { private: true, presence: { key: userId } } })`. An unauthorized join comes back as `CHANNEL_ERROR` only after ~5 s, so integration tests use a 20 s timeout.
 
 ## Workflow
 
@@ -82,12 +85,14 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 - Moderation rank rule: `private.require_rank_over(target, min_role)` raises `forbidden` unless the caller's role is at least `min_role` and strictly above the target's, so nobody can act on themselves and admins can't touch other admins. `not_found` for a missing target. Checks run before argument validation (a plain user gets `forbidden` first).
 - Every mutating moderation/admin RPC writes exactly one `mod_actions` row (action = function name). `mod_lookup_user` is read-only and writes none. Reasons are cleaned and cut to 500 chars.
 - `mod_delete_message`: `not_found` if missing or already deleted; author rank is checked (a null author needs only a moderator role). `mod_ban` broadcasts `kicked` to the target's topic before deleting occupancy, and skips it if the target isn't in a room. `mod_resolve_report` rejects status `open` with `forbidden`; re-resolving is allowed. `admin_add_filter` maps invalid regex (and the CHECK's 23514) to `invalid_pattern` and is idempotent on an existing pattern.
+- Realtime authorization (Task 8): read and presence-write need the caller's current occupancy topic (or staff); banned users never pass. Client broadcasts are refused by RLS, and so is `realtime.send()` called as `authenticated`/`anon` (it is security invoker and inserts `extension = 'broadcast'`). Only `private.broadcast` (security definer) sends chat. `realtime` is not an exposed PostgREST schema and `pg_graphql` is off, so `realtime.send` is not reachable over HTTP anyway.
+- Realtime caches the policy result per channel join (re-checked only on join or a new access token). A banned or room-switching user keeps an already-joined channel until it is closed; `mod_ban` sends `kicked` and the client must leave. A re-join is refused.
+- After `db reset` Realtime starts replicating `realtime.messages` lazily on the first client connection, and a DB broadcast sent before that is lost. Integration tests call `warmUpRealtime()` in `beforeAll` (throw-away room `itest-<runId>`, sends until one message arrives, then deletes room, messages and user).
 - Banned staff lose all powers: `require_rank_over` raises `banned`, and `is_staff()`/`is_admin()` are false (so RLS reads of reports/mod_actions/word_filter return nothing). `mod_resolve_report` requires rank over the report's target (reports against moderators need an admin, reports against admins can't be resolved via this RPC).
 
 ## Next up / owner actions
 
 - Plan 1 remaining tasks:
-  - Task 8: realtime policies and integration tests
   - Task 9: retention
   - Task 10: `github-age` edge function
 - Spike S1: the owner runs the mod-pane spike in their WSL terminal.
