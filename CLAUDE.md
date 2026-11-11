@@ -50,6 +50,7 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 | `20261111000500_reports.sql` | `private.clean_text` (shared control/bidi strip + Unicode trim; `send_message` uses it too), `report_user(target_nickname, message_id, reason) returns bigint` with snapshot and auto-mute |
 | `20261111000550_reports_staff_exempt.sql` | `report_user` redefined: moderators and admins are exempt from auto-mute |
 | `20261111000600_moderation.sql` | `private.require_rank_over(target, min_role)`, `private.log_action`. RPCs `mod_delete_message`, `mod_mute`, `mod_unmute`, `mod_ban`, `mod_resolve_report`, `mod_lookup_user`, `admin_unban`, `admin_set_role`, `admin_upsert_room`, `admin_add_filter`, `admin_remove_filter` |
+| `20261111000650_moderation_fixes.sql` | `is_staff`/`is_admin` return false for banned users. `private.require_rank_over` raises `banned` for a banned caller. `mod_resolve_report` enforces rank over the report's target |
 
 ## Tests
 
@@ -81,6 +82,7 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 - Moderation rank rule: `private.require_rank_over(target, min_role)` raises `forbidden` unless the caller's role is at least `min_role` and strictly above the target's, so nobody can act on themselves and admins can't touch other admins. `not_found` for a missing target. Checks run before argument validation (a plain user gets `forbidden` first).
 - Every mutating moderation/admin RPC writes exactly one `mod_actions` row (action = function name). `mod_lookup_user` is read-only and writes none. Reasons are cleaned and cut to 500 chars.
 - `mod_delete_message`: `not_found` if missing or already deleted; author rank is checked (a null author needs only a moderator role). `mod_ban` broadcasts `kicked` to the target's topic before deleting occupancy, and skips it if the target isn't in a room. `mod_resolve_report` rejects status `open` with `forbidden`; re-resolving is allowed. `admin_add_filter` maps invalid regex (and the CHECK's 23514) to `invalid_pattern` and is idempotent on an existing pattern.
+- Banned staff lose all powers: `require_rank_over` raises `banned`, and `is_staff()`/`is_admin()` are false (so RLS reads of reports/mod_actions/word_filter return nothing). `mod_resolve_report` requires rank over the report's target (reports against moderators need an admin, reports against admins can't be resolved via this RPC).
 
 ## Next up / owner actions
 
