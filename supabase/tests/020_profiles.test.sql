@@ -1,6 +1,6 @@
 begin;
 \ir _helpers.psql
-select plan(22);
+select plan(24);
 
 select tests.create_auth_user(4242) as u1 \gset
 select tests.create_user('other') as u2 \gset
@@ -26,6 +26,7 @@ select throws_ok($$select public.claim_nickname('Admin')$$, 'P0001', 'nickname_r
 select is((public.claim_nickname('Max_K')).nickname::text, 'max_k', 'claim lowercases');
 select tests.logout();
 select is((select github_id from public.profiles where id = :'u1'), 4242::bigint, 'github_id copied from identity');
+select is((select nickname_changed_at from public.profiles where id = :'u1'), null, 'first claim does not stamp nickname_changed_at');
 select is((select rules_accepted_at from public.profiles where id = :'u1'), null, 'rules not accepted yet');
 
 select tests.login_as(:'u1');
@@ -37,15 +38,16 @@ select tests.logout();
 select tests.login_as(:'u2');
 select throws_ok($$select public.claim_nickname('MAX_K')$$, 'P0001', 'nickname_taken', 'case-insensitive collision');
 
--- rename too soon, then after 31 days
+-- first rename is free, second is too soon, then ok after 31 days
 select tests.logout();
 select tests.login_as(:'u1');
-select throws_ok($$select public.claim_nickname('max')$$, 'P0001', 'nickname_change_too_soon', 'rename within 30 days');
+select is((public.claim_nickname('max_r')).nickname::text, 'max_r', 'first rename right after claim succeeds');
+select throws_ok($$select public.claim_nickname('max')$$, 'P0001', 'nickname_change_too_soon', 'second rename within 30 days');
 select tests.logout();
 update public.profiles set nickname_changed_at = now() - interval '31 days' where id = :'u1';
 select tests.login_as(:'u1');
 select is((public.claim_nickname('max')).nickname::text, 'max', 'rename after 31 days');
-select is(public.nickname_available('max_k'), true, 'old name freed');
+select is(public.nickname_available('max_r'), true, 'old name freed');
 
 -- accept_rules
 select public.accept_rules();

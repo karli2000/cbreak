@@ -22,6 +22,7 @@ declare
   n text := lower(coalesce(nick, ''));
   p public.profiles;
   gh bigint;
+  cname text;
 begin
   if uid is null then raise exception 'not_authenticated'; end if;
 
@@ -56,11 +57,15 @@ begin
     else
       select i.provider_id::bigint into gh
       from auth.identities i where i.user_id = uid and i.provider = 'github' limit 1;
-      insert into public.profiles (id, github_id, nickname, nickname_changed_at)
-      values (uid, gh, n, now()) returning * into p;
+      insert into public.profiles (id, github_id, nickname)
+      values (uid, gh, n) returning * into p;
     end if;
   exception when unique_violation then
-    raise exception 'nickname_taken';
+    get stacked diagnostics cname = constraint_name;
+    if cname = 'profiles_nickname_key' then
+      raise exception 'nickname_taken';
+    end if;
+    raise;
   end;
   return p;
 end $$;
