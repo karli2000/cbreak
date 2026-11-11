@@ -49,6 +49,7 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 | `20261111000460_word_filter_grants.sql` | Grants `service_role` usage on schema `private` and execute on `private.is_valid_regex`, so inserts into `word_filter` pass the CHECK. |
 | `20261111000500_reports.sql` | `private.clean_text` (shared control/bidi strip + Unicode trim; `send_message` uses it too), `report_user(target_nickname, message_id, reason) returns bigint` with snapshot and auto-mute |
 | `20261111000550_reports_staff_exempt.sql` | `report_user` redefined: moderators and admins are exempt from auto-mute |
+| `20261111000600_moderation.sql` | `private.require_rank_over(target, min_role)`, `private.log_action`. RPCs `mod_delete_message`, `mod_mute`, `mod_unmute`, `mod_ban`, `mod_resolve_report`, `mod_lookup_user`, `admin_unban`, `admin_set_role`, `admin_upsert_room`, `admin_add_filter`, `admin_remove_filter` |
 
 ## Tests
 
@@ -77,11 +78,13 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 - `word_filter.pattern` must be a valid regex, enforced by a CHECK constraint, so one bad row can't break every send. The CHECK runs with the inserting role's privileges, so `service_role` is granted `usage` on `private` and `execute` on `private.is_valid_regex`. Nothing on `private` goes to public, anon or authenticated.
 - `report_user` check order: not_authenticated, no_profile, banned, empty/too_long (reason cleaned with `private.clean_text`), target lookup (`not_found`), `cannot_report_self`, message checks (`not_found` if purged or not the target's), `already_reported` (same reporter+target within 10 min, any status). Snapshot context: up to 10 nearest messages within +-5 min in the message's room/instance, or the target's current instance's last 10 (empty if no occupancy). Soft-deleted lines are included with `"deleted": true`.
 - Auto-mute: 3 distinct reporters in 10 min sets `muted_until = greatest(existing, now()+24h)` and logs one `auto_mute` (actor null, `details.report_ids`); skipped if already muted for 23h+. Moderators and admins are exempt (reports are filed, no mute, no `auto_mute` row). Reports are serialized per target by an advisory lock.
+- Moderation rank rule: `private.require_rank_over(target, min_role)` raises `forbidden` unless the caller's role is at least `min_role` and strictly above the target's, so nobody can act on themselves and admins can't touch other admins. `not_found` for a missing target. Checks run before argument validation (a plain user gets `forbidden` first).
+- Every mutating moderation/admin RPC writes exactly one `mod_actions` row (action = function name). `mod_lookup_user` is read-only and writes none. Reasons are cleaned and cut to 500 chars.
+- `mod_delete_message`: `not_found` if missing or already deleted; author rank is checked (a null author needs only a moderator role). `mod_ban` broadcasts `kicked` to the target's topic before deleting occupancy, and skips it if the target isn't in a room. `mod_resolve_report` rejects status `open` with `forbidden`; re-resolving is allowed. `admin_add_filter` maps invalid regex (and the CHECK's 23514) to `invalid_pattern` and is idempotent on an existing pattern.
 
 ## Next up / owner actions
 
 - Plan 1 remaining tasks:
-  - Task 7: moderation RPCs
   - Task 8: realtime policies and integration tests
   - Task 9: retention
   - Task 10: `github-age` edge function
