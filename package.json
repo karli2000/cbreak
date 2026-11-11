@@ -1,0 +1,21 @@
+{
+  "name": "coffebreak",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "db:start": "bunx supabase start",
+    "db:reset": "bunx supabase db reset",
+    "db:test": "bunx supabase db reset && bunx supabase test db",
+    "test:int": "bun test tests/integration"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "supabase": "^3.1.0"
+  },
+  "peerDependencies": {
+    "typescript": "^7"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.119.0"
+  }
+}
