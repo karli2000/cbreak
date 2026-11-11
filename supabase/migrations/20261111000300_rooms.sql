@@ -33,7 +33,10 @@ begin
   if inst is null then
     -- smallest positive integer with no live occupants
     select g into inst
-    from generate_series(1, 1000000) g
+    from generate_series(1, (
+      select count(distinct o2.instance)::int + 1 from public.occupancy o2
+      where o2.room = room_slug and o2.user_id <> uid
+        and o2.last_seen > now() - interval '90 seconds')) g
     where not exists (
       select 1 from public.occupancy o
       where o.room = room_slug and o.instance = g and o.user_id <> uid
@@ -58,12 +61,29 @@ create function public.heartbeat() returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
   uid uuid := auth.uid();
+  p public.profiles;
   o public.occupancy;
   n int;
 begin
   if uid is null then raise exception 'not_authenticated'; end if;
-  update public.occupancy set last_seen = now() where user_id = uid returning * into o;
+  select * into p from public.profiles where id = uid;
+  if not found then raise exception 'no_profile'; end if;
+  if p.banned_at is not null then raise exception 'banned'; end if;
+
+  select * into o from public.occupancy where user_id = uid;
   if not found then raise exception 'not_in_room'; end if;
+
+  if o.last_seen <= now() - interval '90 seconds' then
+    -- stale row: re-check capacity under the same lock as join_room
+    perform pg_advisory_xact_lock(hashtext('room:' || o.room));
+    select count(*) into n from public.occupancy x
+    where x.room = o.room and x.instance = o.instance and x.user_id <> uid
+      and x.last_seen > now() - interval '90 seconds';
+    -- raising rolls back any delete, but a stale row is never counted anyway
+    if n >= 50 then raise exception 'not_in_room'; end if;
+  end if;
+
+  update public.occupancy set last_seen = now() where user_id = uid;
   select count(*) into n from public.occupancy x
   where x.room = o.room and x.instance = o.instance
     and x.last_seen > now() - interval '90 seconds';

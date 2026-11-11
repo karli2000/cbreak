@@ -1,6 +1,6 @@
 begin;
 \ir _helpers.psql
-select plan(17);
+select plan(24);
 
 select tests.create_user('alice') as a \gset
 select tests.create_user('bob') as b \gset
@@ -79,6 +79,44 @@ select throws_ok($$select public.join_room('shut')$$, 'P0001', 'room_closed', 'c
 -- leave / heartbeat
 select public.leave_room();
 select throws_ok($$select public.heartbeat()$$, 'P0001', 'not_in_room', 'heartbeat after leaving');
+select tests.logout();
+
+-- fix round 1
+select tests.logout();
+delete from public.occupancy;
+select tests.create_auth_user() as np \gset
+select tests.login_as(:'np');
+select throws_ok($$select public.join_room('lobby')$$, 'P0001', 'no_profile', 'join without profile');
+select tests.logout();
+
+-- tie-break: equal live counts -> lower number
+insert into public.occupancy (user_id, room, instance)
+select tests.create_user('t1_' || g), 'lobby', 1 from generate_series(1, 5) g;
+insert into public.occupancy (user_id, room, instance)
+select tests.create_user('t2_' || g), 'lobby', 2 from generate_series(1, 5) g;
+select tests.login_as(:'b');
+select is((public.join_room('lobby'))->>'instance', '1', 'tie goes to lower instance');
+select tests.logout();
+
+-- stale own row with space: refreshed
+update public.occupancy set last_seen = now() - interval '5 minutes' where user_id = :'b';
+select tests.login_as(:'b');
+select is((public.heartbeat())->>'instance', '1', 'stale row with space is refreshed');
+select tests.logout();
+select ok((select last_seen > now() - interval '10 seconds' from public.occupancy where user_id = :'b'), 'last_seen refreshed');
+
+-- stale own row, instance refilled to 50 live others
+update public.occupancy set last_seen = now() - interval '5 minutes' where user_id = :'b';
+insert into public.occupancy (user_id, room, instance)
+select tests.create_user('u' || g), 'lobby', 1 from generate_series(1, 45) g;  -- 5 + 45 = 50 others
+select tests.login_as(:'b');
+select throws_ok($$select public.heartbeat()$$, 'P0001', 'not_in_room', 'stale row in full instance is rejected');
+select tests.logout();
+select ok((select last_seen < now() - interval '1 minute' from public.occupancy where user_id = :'b'), 'stale row not refreshed');
+
+-- banned heartbeat
+select tests.login_as(:'bn');
+select throws_ok($$select public.heartbeat()$$, 'P0001', 'banned', 'banned heartbeat');
 select tests.logout();
 
 select * from finish();
