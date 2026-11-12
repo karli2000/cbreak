@@ -21,6 +21,8 @@ const PANE = 'coffee'
 const STDERR_KEEP = 2000
 const CLOSE_TIMEOUT_MS = 3000
 const TOAST_MS = 8000
+/** A `bun --version` that has not answered by then counts as no Bun there (a shim may prompt or hang). */
+const PROBE_TIMEOUT_MS = 3000
 
 let controller: Controller | null = null
 /** The Port over the newest `$` an event hook received (validation forbids keeping `$` itself). */
@@ -92,7 +94,10 @@ function portOver($: Engine): Port {
 function spawnHelper($: Engine, onEvent: (e: HelperEvent) => void, onExit: (info: ExitInfo) => void): void {
   const start = { cancelled: false }
   starting = start
-  argvLookup ??= findHelperArgv($).catch(() => null)
+  argvLookup ??= findHelperArgv($).catch((err: unknown) => {
+    $.ui.log(`coffeebreak: bun lookup failed: ${err instanceof Error ? err.message : String(err)}`, { to: 'debug' })
+    return null
+  })
   void argvLookup.then((argv) => {
     if (starting === start) starting = null
     if (start.cancelled) return onExit({ code: null, signal: null, stderr: '' })
@@ -112,34 +117,52 @@ function spawnHelper($: Engine, onEvent: (e: HelperEvent) => void, onExit: (info
   })
 }
 
-/** `COFFEEBREAK_HELPER_SRC=1` → the source; else the bundle via `bun` on PATH (≥ 1.2), else ~/.bun/bin/bun. */
+/**
+ * `COFFEEBREAK_HELPER_SRC=1` → the source; else the bundle via `bun` on PATH, else via ~/.bun/bin/bun
+ * (each must answer `--version` with ≥ 1.2 within PROBE_TIMEOUT_MS).
+ */
 async function findHelperArgv($: Engine): Promise<string[] | null> {
-  const fromSource = (await $.env.get('COFFEEBREAK_HELPER_SRC').catch(() => undefined)) === '1'
-  const pathBun = !fromSource && (await bunOnPath($))
+  const fromSource = (await $.env.get('COFFEEBREAK_HELPER_SRC')) === '1'
+  const pathBun = !fromSource && (await bunVersionAt($, 'bun'))
   const homeBun = fromSource || pathBun ? null : await bunInHome($)
   return helperArgv($.plugin.root, { pathBun, homeBun, fromSource })
 }
 
-/** A one-off `bun --version`: true when it exits 0 with a version of at least 1.2. */
-async function bunOnPath($: Engine): Promise<boolean> {
+/**
+ * A one-off `<bin> --version`: true when it exits 0 with a version of at least 1.2. A spawn that
+ * cannot start is false; one that does not answer within PROBE_TIMEOUT_MS is killed and false.
+ */
+async function bunVersionAt($: Engine, bin: string): Promise<boolean> {
+  let probe: HookStream<ProcessSpawnChunk, ProcessSpawnResult>
   try {
-    const probe = $.process.spawn({ argv: ['bun', '--version'] })
+    probe = $.process.spawn({ argv: [bin, '--version'] })
+  } catch {
+    return false
+  }
+  let timedOut = false
+  let timer: Timer | null = null
+  const timeout = new Promise<false>((r) => {
+    timer = $.clock.after(PROBE_TIMEOUT_MS, () => {
+      timedOut = true
+      r(false)
+    })
+  })
+  const ran = (async () => {
     let out = ''
     for await (const chunk of probe) if (chunk.stream === 'stdout') out += chunk.text
     const res = await probe.result
     return res.code === 0 && bunVersionOk(out)
-  } catch {
-    return false // not on PATH (the spawn cannot start) or refused
-  }
+  })().catch(() => false) // not there (the first pull rejects) or refused
+  const ok = await Promise.race([ran, timeout])
+  ;(timer as Timer | null)?.cancel()
+  // return() kills the child; it settles once the pending read does, so it is not awaited
+  if (timedOut) probe.return({ code: null, signal: null }).catch(() => {})
+  return ok
 }
 
 async function bunInHome($: Engine): Promise<string | null> {
-  try {
-    const path = homeBunPath(await $.env.get('HOME'))
-    return path && (await $.fs.exists(path)) ? path : null
-  } catch {
-    return null
-  }
+  const path = homeBunPath(await $.env.get('HOME'))
+  return path && (await $.fs.exists(path)) && (await bunVersionAt($, path)) ? path : null
 }
 
 /** Reads the helper's NDJSON stdout until it ends. Leaving the loop (or `return()`) kills the child. */

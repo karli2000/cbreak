@@ -44,13 +44,16 @@ class FakeHelper {
 }
 
 /**
- * Where Bun is: `path` answers `bun --version` with that version (null: the spawn cannot start),
- * `home` says whether ~/.bun/bin/bun exists, `src` sets COFFEEBREAK_HELPER_SRC=1.
+ * Where Bun is. `path`: what `bun --version` prints (null: the spawn cannot start, 'hang': it never
+ * answers). `home`: the same for ~/.bun/bin/bun, null when it does not exist. `src` sets
+ * COFFEEBREAK_HELPER_SRC=1.
  */
-type Bun = { path: string | null; home: boolean; src?: boolean }
+type Version = string | null | 'hang'
+type Bun = { path: Version; home: Version; src?: boolean }
+const HOME_BUN = `${HOME}/.bun/bin/bun`
 
 /** Answers everything beneath the plugin and records what reaches the outside world. */
-function world(on: On, bun: Bun = { path: '1.4.4', home: false }) {
+function world(on: On, bun: Bun = { path: '1.4.4', home: null }) {
   const clock = mock.clock(on)
   mock.store(on)
   mock.env(on, bun.src ? { HOME, COFFEEBREAK_HELPER_SRC: '1' } : { HOME })
@@ -68,7 +71,7 @@ function world(on: On, bun: Bun = { path: '1.4.4', home: false }) {
   }
   on('fs.exists', async (_$, e) => {
     w.exists.push(e.path)
-    return { value: bun.home && e.path === `${HOME}/.bun/bin/bun` }
+    return { value: bun.home !== null && e.path === HOME_BUN }
   })
   on('session.start', async (_$, e) => ({ cwd: e.cwd }))
   on('session.end', async () => ({ sessionId: 'test' }))
@@ -94,8 +97,10 @@ function world(on: On, bun: Bun = { path: '1.4.4', home: false }) {
   on('process.spawn', async function* (_$, e) {
     if (e.argv[1] === '--version') {
       w.probes.push(e)
-      if (bun.path === null) throw new Error('spawn bun ENOENT')
-      yield { stream: 'stdout', text: `${bun.path}\n` }
+      const v = e.argv[0] === HOME_BUN ? bun.home : bun.path
+      if (v === null) throw new Error(`spawn ${e.argv[0]} ENOENT`)
+      if (v === 'hang') await new Promise<never>(() => {}) // a shim that never answers
+      yield { stream: 'stdout', text: `${v}\n` }
       return { value: { code: 0, signal: null } }
     }
     w.spawns.push(e)
@@ -222,7 +227,7 @@ test('the helper runs from the committed bundle with bun on PATH', async ($, on)
 })
 
 test('finds bun in ~/.bun/bin when PATH has none', async ($, on) => {
-  const w = world(on, { path: null, home: true })
+  const w = world(on, { path: null, home: '1.4.4' })
   await startSession($)
   await $.turn.start({ text: 'long task', turnId: 't1' })
   await w.clock.advance(25_000)
@@ -233,7 +238,7 @@ test('finds bun in ~/.bun/bin when PATH has none', async ($, on) => {
 })
 
 test('an old bun on PATH does not count', async ($, on) => {
-  const w = world(on, { path: '1.1.38', home: true })
+  const w = world(on, { path: '1.1.38', home: '1.4.4' })
   await startSession($)
   await $.turn.start({ text: 'long task', turnId: 't1' })
   await w.clock.advance(25_000)
@@ -241,7 +246,7 @@ test('an old bun on PATH does not count', async ($, on) => {
 })
 
 test('without bun nothing is spawned and the break start shows the Bun line', async ($, on) => {
-  const w = world(on, { path: null, home: false })
+  const w = world(on, { path: null, home: null })
   await startSession($)
   await $.turn.start({ text: 'long task', turnId: 't1' })
   await w.clock.advance(25_000)
@@ -254,11 +259,44 @@ test('without bun nothing is spawned and the break start shows the Bun line', as
 })
 
 test('COFFEEBREAK_HELPER_SRC=1 runs the helper source', async ($, on) => {
-  const w = world(on, { path: '1.4.4', home: false, src: true })
+  const w = world(on, { path: '1.4.4', home: null, src: true })
   await startSession($)
   await $.turn.start({ text: 'long task', turnId: 't1' })
   await w.clock.advance(25_000)
   expect(w.probes).toHaveLength(0)
   expect(w.spawns[0]?.argv[0]).toBe('bun')
   expect(w.spawns[0]?.argv[1]).toEndWith('/helper/main.ts')
+})
+
+test('a bun --version that never answers times out and falls through to ~/.bun/bin/bun', async ($, on) => {
+  const w = world(on, { path: 'hang', home: '1.4.4' })
+  await startSession($)
+  await $.turn.start({ text: 'long task', turnId: 't1' })
+  await w.clock.advance(20_000)
+  expect(w.spawns).toHaveLength(0)
+  await w.clock.advance(3_000)
+  await w.clock.settle()
+  expect(w.probes.map((p) => p.argv[0])).toEqual(['bun', HOME_BUN])
+  expect(w.spawns).toHaveLength(1)
+  expect(w.spawns[0]!.argv[0]).toBe(HOME_BUN)
+})
+
+test('a hanging bun --version and no home bun give the Bun line', async ($, on) => {
+  const w = world(on, { path: 'hang', home: null })
+  await startSession($)
+  await $.turn.start({ text: 'long task', turnId: 't1' })
+  await w.clock.advance(23_000)
+  await w.clock.settle()
+  expect(w.spawns).toHaveLength(0)
+  expect(w.toasts).toEqual([BUN_LINE])
+})
+
+test('an old bun in ~/.bun/bin gives the Bun line', async ($, on) => {
+  const w = world(on, { path: null, home: '1.1.38' })
+  await startSession($)
+  await $.turn.start({ text: 'long task', turnId: 't1' })
+  await w.clock.advance(25_000)
+  await w.clock.settle()
+  expect(w.spawns).toHaveLength(0)
+  expect(w.toasts).toEqual([BUN_LINE])
 })

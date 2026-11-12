@@ -9,12 +9,14 @@ const ENTRY = 'plugin/helper/main.ts'
 /** The bundle's path from the repository root. */
 export const BUNDLE_PATH = 'plugin/dist/coffeebreakd.js'
 
-/** The bundle's first line: which Bun built it. */
+const PRAGMA = '// @bun\n'
+
+/** The bundle's second line (after `// @bun`): which Bun built it. */
 export function bundleHeader(): string {
   return `// coffeebreakd bundle, built with bun ${Bun.version}`
 }
 
-/** `bun build plugin/helper/main.ts --target=bun --minify` into `outfile`, with the header line in front. */
+/** `bun build plugin/helper/main.ts --target=bun --minify` into `outfile`, with the header as line 2. */
 export async function bundleHelper(outfile: string): Promise<void> {
   const raw = `${outfile}.raw`
   try {
@@ -25,7 +27,9 @@ export async function bundleHelper(outfile: string): Promise<void> {
     })
     if (r.exitCode !== 0) throw new Error(`bun build failed:\n${r.stderr.toString()}${r.stdout.toString()}`)
     const body = await Bun.file(raw).text()
-    await Bun.write(outfile, `${bundleHeader()}\n${body}`)
+    // Bun honours its `// @bun` pragma (already transpiled, skip it) only on line 1: the header goes on line 2.
+    if (!body.startsWith(PRAGMA)) throw new Error(`bun build output does not start with ${JSON.stringify(PRAGMA)}`)
+    await Bun.write(outfile, `${PRAGMA}${bundleHeader()}\n${body.slice(PRAGMA.length)}`)
   } finally {
     rmSync(raw, { force: true })
   }

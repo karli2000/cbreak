@@ -730,4 +730,20 @@ describe('Controller without Bun (ruling R2)', () => {
     expect(await c.command('')).toBe(BUN_LINE)
     expect(port.spawns).toBe(1)
   })
+
+  test('once no Bun is known, /coffee in a later turn answers the Bun line without opening the pane', async () => {
+    const port = new FakePort()
+    port.noBun = true
+    const { c } = await make(port)
+    expect(await c.command('setup')).toBe(BUN_LINE) // learnt from a lease
+    c.turnStart()
+    expect(await c.command('')).toBe(BUN_LINE)
+    expect(port.opens).toEqual([])
+    expect(port.spawns).toBe(1)
+    // the reply was the line for this turn: the automatic start does not toast it again
+    port.advance(60_000)
+    await tick()
+    expect(port.spawns).toBe(1)
+    expect(port.toasts).toEqual([])
+  })
 })

@@ -235,7 +235,13 @@ export class Controller {
     if (!this.busy) return COPY.idle // exactly, even when removed (ruling R9)
     if (this.removed !== null) return this.removed
     if (!this.settings.enabled) return COPY.off
-    if (this.noBunTurn) return COPY.needsBun
+    if (this.noBunTurn || this.noBun) {
+      // known without a spawn (the adapter's lookup holds for the session); this reply is the turn's line
+      this.noBunTurn = true
+      this.cancelPending()
+      if (this.phase === 'pending') this.phase = 'idle'
+      return COPY.needsBun
+    }
     if (this.setup.running()) {
       await this.setup.focus()
       return COPY.setupRunning
