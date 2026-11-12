@@ -13,6 +13,8 @@ export type Ctx = {
   touch(): void
   /** Refresh margin in seconds for ensureFreshSession. */
   marginS: number
+  /** Whether a session was present at the last check; route handlers that sign out reset it. */
+  signedIn: boolean
 }
 
 type Handler<P extends ApiPath> = (ctx: Ctx, req: Api[P]['req']) => Promise<Api[P]['res']>
@@ -62,6 +64,7 @@ export const routes: Routes = {
     await leaveIfJoined(ctx)
     await ctx.client.auth.signOut({ scope: 'local' })
     await ctx.store.clear()
+    ctx.signedIn = false
     ctx.emit({ type: 'auth', state: 'signed_out' })
     return {}
   },
@@ -70,6 +73,7 @@ export const routes: Routes = {
     await rpc(ctx.client, 'delete_my_account')
     await ctx.client.auth.signOut({ scope: 'local' }).catch(() => {})
     await ctx.store.clear()
+    ctx.signedIn = false
     ctx.emit({ type: 'auth', state: 'signed_out' })
     return {}
   },
@@ -97,7 +101,8 @@ export function createFetchHandler(ctx: Ctx, table: Routes = routes) {
         const session = await ensureFreshSession(ctx.client, ctx.store, ctx.marginS)
         if (!session) return json({ ok: false, code: 'not_signed_in' })
       } else if (await peekSession(ctx.client)) {
-        await ensureFreshSession(ctx.client, ctx.store, ctx.marginS)
+        // liveness routes must not fail on a transient refresh error; the tick retries
+        await ensureFreshSession(ctx.client, ctx.store, ctx.marginS).catch(() => {})
       }
       return json({ ok: true, data: await handler(ctx, body as never) })
     } catch (e) {

@@ -63,7 +63,13 @@ export async function startHelper(opts: { session?: Session; env?: Record<string
       while ((i = buf.indexOf("\n")) >= 0) {
         const line = buf.slice(0, i);
         buf = buf.slice(i + 1);
-        if (line.trim()) events.push(JSON.parse(line));
+        if (line.trim()) {
+          try {
+            events.push(JSON.parse(line))
+          } catch {
+            console.error('helper stdout (not JSON):', line)
+          }
+        };
         waiters.splice(0).forEach((w) => w());
       }
     }

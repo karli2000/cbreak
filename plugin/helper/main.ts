@@ -47,6 +47,7 @@ const ctx: Ctx = {
   room: null,
   touch: () => void (lastRequest = Date.now()),
   marginS,
+  signedIn: false,
 }
 
 for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) process.on(sig, () => void shutdown(sig))
@@ -54,14 +55,13 @@ for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) process.on(sig, () =
 const server = startServer(socketPath, ctx)
 emit({ type: 'hello', protocol: PROTOCOL_VERSION, pid: process.pid, socket: socketPath })
 
-let signedIn = false
 /** Refreshes the session if needed; a thrown 'network' means try again next tick. Returns whether a session exists. */
 async function refresh(): Promise<boolean> {
   try {
     const s = await ensureFreshSession(client, store, marginS)
-    if (!s && signedIn) emit({ type: 'auth', state: 'signed_out' })
-    signedIn = !!s
-    return signedIn
+    if (!s && ctx.signedIn) emit({ type: 'auth', state: 'signed_out' })
+    ctx.signedIn = !!s
+    return ctx.signedIn
   } catch (e) {
     if (e instanceof CoffeeError && e.code === 'network') return !!(await peekSession(client))
     throw e

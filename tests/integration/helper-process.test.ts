@@ -92,14 +92,15 @@ test("exits and leaves after idle timeout", async () => {
 
 test("exits when its parent dies", async () => {
   const main = join(import.meta.dir, "../../plugin/helper/main.ts");
-  const sh = Bun.spawn(["sh", "-c", `bun ${main} >/dev/null & echo $!; wait`], {
+  const out = join(makeDataDir(), "out.ndjson");
+  const sh = Bun.spawn(["sh", "-c", `bun ${main} >${out} & echo $!; wait`], {
     stdout: "pipe",
     env: { ...process.env, COFFEEBREAK_DATA_DIR: makeDataDir(), COFFEEBREAK_NO_BROWSER: "1" },
   });
   const reader = (sh.stdout as ReadableStream<Uint8Array>).getReader();
   const pid = Number(new TextDecoder().decode((await reader.read()).value).trim());
   expect(pid).toBeGreaterThan(1);
-  await Bun.sleep(800);
+  for (let i = 0; i < 100 && !(await Bun.file(out).text().catch(() => "")).includes("hello"); i++) await Bun.sleep(100);
   process.kill(pid, 0); // alive
   sh.kill("SIGKILL");
   const deadline = Date.now() + 5000;
