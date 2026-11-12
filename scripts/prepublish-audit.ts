@@ -55,19 +55,24 @@ for (const f of files) {
 
 // History: every added line, plus any .env / log path that was ever added.
 if (history) {
-  const out = git(['log', '--all', '-p', '--no-color', '--no-ext-diff', '--format=commit %H', '--diff-filter=AM', '-U0'])
-  let commit = '', file = '', ln = 0
+  // --no-renames: a renamed file is scanned as an addition. -m: merge commits show their diff
+  // against each parent, so content introduced only in a merge is scanned too.
+  const out = git(['log', '--all', '-m', '-p', '--no-renames', '--no-color', '--no-ext-diff', '--format=commit %H', '-U0'])
+  let commit = '', file = '', ln = 0, inHunk = false
   for (const line of out.split('\n')) {
-    if (line.startsWith('commit ')) { commit = line.slice(7, 14); continue }
-    if (line.startsWith('+++ ')) {
-      file = line.startsWith('+++ b/') ? line.slice(6) : ''
+    if (!inHunk && line.startsWith('commit ')) { commit = line.slice(7, 14); continue }
+    if (line.startsWith('diff --git ')) {
+      // File headers come from `diff --git`, never from content lines that happen to start with `++`.
+      inHunk = false
+      const i = line.lastIndexOf(' b/')
+      file = i >= 0 ? line.slice(i + 3) : ''
       const why = file && badPath(file)
       if (why) hits.push(`${file}:1: ${why} (history, ${commit})`)
       continue
     }
     const h = /^@@ -\S+ \+(\d+)/.exec(line)
-    if (h) { ln = Number(h[1]); continue }
-    if (line.startsWith('+') && file) {
+    if (h) { ln = Number(h[1]); inHunk = true; continue }
+    if (inHunk && line.startsWith('+') && file) {
       for (const w of scanLine(line.slice(1))) hits.push(`${file}:${ln}: ${w} (history, ${commit})`)
       ln++
     }

@@ -91,7 +91,7 @@ Moderators use the moderator site: https://coffeebreak-mod.pages.dev (sign in wi
 - **"Coffee Break needs Bun"**: install Bun with `curl -fsSL https://bun.sh/install | bash`, then restart Claude Code. The mod looks for `bun` on your `PATH` and at `~/.bun/bin/bun`.
 - **"Coffee Break is invite-only right now"** (`not_invited`): ask the person who invited you to add your GitHub account, then run `/coffee setup` again.
 - **The pane does not show up**: your terminal is probably narrower than about 144 columns. Use `/coffee` while Claude is busy, or widen the terminal.
-- **A stale helper**: the mod starts a small background helper (`coffeebreakd`) that exits on its own when Claude Code closes or after a few idle minutes. If something looks stuck, run `/coffee off` then `/coffee on`, or restart Claude Code.
+- **A stale helper**: the mod starts a small background helper (`coffeebreakd`) that exits on its own when Claude Code closes or after a few idle minutes. If something looks stuck, restart Claude Code.
 - Anything else: https://github.com/karli2000/coffeebreak/issues
 
 ## Development
