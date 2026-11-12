@@ -7,7 +7,7 @@ import { fakeApi } from './fake-api.ts'
 
 function fakeClient(signedIn: boolean, oauthError: string | null = null) {
   const signInWithOAuth = mock(async (_o: unknown) => ({ data: {}, error: oauthError ? { message: oauthError } : null }))
-  const signOut = mock(async () => ({ error: null }))
+  const signOut = mock(async (_o?: unknown) => ({ error: null }))
   const session = signedIn ? { user: { id: 'u1' } } : null
   const client = {
     auth: {
@@ -110,5 +110,15 @@ describe('gate', () => {
     render(<App client={client} api={api} />)
     expect(await screen.findByRole('button', { name: 'Sign in with GitHub' })).toBeTruthy()
     await waitFor(() => expect(signOut).toHaveBeenCalled())
+    // local only: a global sign-out would also end the moderator's coffeebreakd session
+    expect(signOut.mock.calls.every((c) => JSON.stringify(c) === JSON.stringify([{ scope: 'local' }]))).toBe(true)
+  })
+
+  test('the Sign out button signs out locally only', async () => {
+    const { client, signOut } = fakeClient(true)
+    render(<App client={client} api={fakeApi({ me: async () => staff('moderator'), listReports: async () => [] })} />)
+    ;(await screen.findByRole('button', { name: 'Sign out' })).click()
+    expect(await screen.findByRole('button', { name: 'Sign in with GitHub' })).toBeTruthy()
+    expect(signOut.mock.calls).toEqual([[{ scope: 'local' }]])
   })
 })
