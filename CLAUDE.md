@@ -52,6 +52,7 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 | `20261111000600_moderation.sql` | `private.require_rank_over(target, min_role)`, `private.log_action`. RPCs `mod_delete_message`, `mod_mute`, `mod_unmute`, `mod_ban`, `mod_resolve_report`, `mod_lookup_user`, `admin_unban`, `admin_set_role`, `admin_upsert_room`, `admin_add_filter`, `admin_remove_filter` |
 | `20261111000650_moderation_fixes.sql` | `is_staff`/`is_admin` return false for banned users. `private.require_rank_over` raises `banned` for a banned caller. `mod_resolve_report` enforces rank over the report's target |
 | `20261111000700_realtime_policies.sql` | RLS on `realtime.messages`: `room_members_read` (SELECT) and `room_members_presence` (INSERT, `extension = 'presence'` only). Both require a `room:%` topic, a non-banned caller, and the caller's occupancy topic = `realtime.topic()` or `is_staff()` |
+| `20261111000800_retention.sql` | `banned_github_ids` (RLS on, no grants), `private.purge_expired()` plus pg_cron job `coffeebreak-purge` (every minute), `delete_my_account()`, `claim_nickname` and `admin_unban` redefined, indexes on `reports(reporter_id)`, `reports(target_id)`, `occupancy(room, instance, last_seen)`, sequences revoked from anon/authenticated |
 | `20261111000750_realtime_policies_liveness.sql` | Drops and recreates both `realtime.messages` policies: the occupancy row must also be live (`last_seen > now() - 90 s`). Otherwise as 000700 |
 
 ## Tests
@@ -93,11 +94,11 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 - After `db reset` Realtime starts replicating `realtime.messages` lazily on the first client connection, and a DB broadcast sent before that is lost. Integration tests warm up in `beforeAll` via `setup()`: a warm-up user joins `itest-<runId>` and sends until one message arrives, then is deleted. Right after `db reset` the Realtime container is still restarting (joins fail with `transport failure`), so the warm-up retries the subscribe within its 30 s budget.
 - Realtime policies only count a live occupancy row (`last_seen` within 90 s, migration 000750), the same liveness rule as `join_room`/`room_counts`. Integration tests cover each branch: banned with occupancy, staff without occupancy, other room/instance, stale row.
 - Banned staff lose all powers: `require_rank_over` raises `banned`, and `is_staff()`/`is_admin()` are false (so RLS reads of reports/mod_actions/word_filter return nothing). `mod_resolve_report` requires rank over the report's target (reports against moderators need an admin, reports against admins can't be resolved via this RPC).
+- Retention (Task 9): `private.purge_expired()` returns `{messages, occupancy, reports, mod_actions}` counts. Reports are purged only when `status <> 'open'` and `handled_at` is older than 90 days, so open reports are kept. `delete_my_account()` works for banned users too. If the profile is banned and has a `github_id`, it stores `encode(sha256(convert_to(github_id::text,'UTF8')),'hex')` in `banned_github_ids` before deleting the `auth.users` row. A first `claim_nickname` raises `banned` if the GitHub id hash is on file. `admin_unban` also removes the hash. The cron migration unschedules a job of the same name first, so it can be re-run.
 
 ## Next up / owner actions
 
 - Plan 1 remaining tasks:
-  - Task 9: retention
   - Task 10: `github-age` edge function
 - Spike S1: the owner runs the mod-pane spike in their WSL terminal.
 - Task 11: deploy to a new free-tier Supabase project `coffeebreak`. The owner approves creating it and sets up the GitHub OAuth app.
