@@ -26,10 +26,10 @@
 
 - **GitHub provider:** enabled. It's a GitHub **App** (Client ID `Iv23li…`) with callback `https://meioekkvutvrspfvqgye.supabase.co/auth/v1/callback` and **Account permissions → Email addresses: Read-only**.
 - **Site URL:** `https://github.com/karli2000/coffeebreak` (placeholder until the moderator site exists).
+- **Access token (JWT) expiry:** 900 s (set by the owner on 2026-11-12). This limits how long a banned client can keep reading its current room on an already-open channel.
 - **Redirect URLs:** `http://127.0.0.1:*/callback` (coffeebreakd's local login callback). Add the moderator site's origin in Plan 3.
 - **Do not run `supabase config push`.** It would overwrite these dashboard settings with the local `config.toml`.
 
 ## Recommended, not done
 
-- Shorten the JWT expiry (Auth settings) from 3600 s to about 900 s. That limits how long a banned client can keep reading its current room on an already-open channel.
 - Free projects pause after about a week without activity. Unpause from the dashboard if that happens during the beta.
