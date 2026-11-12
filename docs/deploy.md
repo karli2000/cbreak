@@ -33,7 +33,7 @@
 ## Before the friends beta (owner checks)
 
 1. **Auth → Providers → Email:** keep **Confirm email** ON and do not configure custom SMTP. Otherwise outsiders could sign up with an email address, and bans would not stick (bans are keyed by GitHub id). The hosted integration tests rely on the Email provider being enabled, so leave it enabled.
-2. **`GITHUB_TOKEN` secret:** create a fine-grained GitHub token with no scopes and set it with `bunx supabase secrets set GITHUB_TOKEN=…`. Without it, `github-age` shares GitHub's unauthenticated limit of 60 requests/hour per IP with every other function on the same egress IP.
+2. **`GITHUB_TOKEN` secret:** done on 2026-11-12. The owner created a fine-grained GitHub token (public repositories read-only, no permissions) and added it under Edge Functions → Secrets. Fine-grained tokens expire, so renew it before its expiry date. Without it, `github-age` shares GitHub's unauthenticated limit of 60 requests/hour per IP. No redeploy is needed after changing it.
 3. **Migration 000900:** applied to the hosted project by the owner on 2026-11-12 (`bunx supabase db push --remote`); the hosted project now has all 14 migrations and the 14 integration tests pass against it.
 
 ## Recommended, not done

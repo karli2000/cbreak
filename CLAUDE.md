@@ -59,7 +59,7 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 
 ## Edge Functions
 
-- `supabase/functions/github-age/index.ts`: `POST /functions/v1/github-age` (verify_jwt default true, no config.toml entry). Resolves the caller via `auth.getUser(token)`, then with a service-role client reads `profiles.github_id` and sets `github_created_at` from `https://api.github.com/user/<id>`; returns `{github_created_at}`. Idempotent (an already-set value is returned without calling GitHub). Errors: 401 `unauthorized`, 400 `no_profile` / `no_github_id` / `github_user_not_found`, 502 `github_unavailable`. Sends `User-Agent: coffeebreak`; optional `GITHUB_TOKEN` secret raises the rate limit (60 req/h per IP unauthenticated). Plan 2's helper calls it once after `claim_nickname`.
+- `supabase/functions/github-age/index.ts`: `POST /functions/v1/github-age` (verify_jwt default true, no config.toml entry). Resolves the caller via `auth.getUser(token)`, then with a service-role client reads `profiles.github_id` and sets `github_created_at` from `https://api.github.com/user/<id>`; returns `{github_created_at}`. Idempotent (an already-set value is returned without calling GitHub). Errors: 401 `unauthorized`, 400 `no_profile` / `no_github_id` / `github_user_not_found`, 502 `github_unavailable`. Sends `User-Agent: coffeebreak`; the `GITHUB_TOKEN` secret (set on the hosted project 2026-11-12, fine-grained token, expires; renew it) raises the rate limit (60 req/h per IP unauthenticated). Plan 2's helper calls it once after `claim_nickname`.
 
 ## Tests
 
