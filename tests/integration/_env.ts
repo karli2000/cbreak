@@ -28,7 +28,7 @@ let savedInviteOnly: boolean | undefined;
 /**
  * Switches invite_only off for the run (local only; throws on a remote target where it is on) and
  * remembers the old value. Called by setup() and by userClient(), so suites without setup() work
- * too. cleanup() restores the value.
+ * too. teardown() restores the value (never the plain cleanup(), which warm-up and afterEach call).
  */
 export async function openInviteGate(): Promise<void> {
   if (savedInviteOnly !== undefined) return;
@@ -141,6 +141,7 @@ export async function userClient(
  * Its `nickname` is unset until claimed.
  */
 export async function bareUser(): Promise<TestUser> {
+  await openInviteGate();
   const email = `bare_${runId}_${crypto.randomUUID().slice(0, 8)}@test.local`;
   const password = `pw-${crypto.randomUUID()}`;
   const { data: made } = check(
@@ -158,14 +159,10 @@ export async function bareUser(): Promise<TestUser> {
 /** Removes all channels and deletes every user created since the last cleanup. */
 export async function cleanup(): Promise<void> {
   const users = created.splice(0);
-  try {
-    await Promise.all(users.map((u) => u.removeAllChannels()));
-    const results = await Promise.all(users.map((u) => adminClient().auth.admin.deleteUser(u.userId)));
-    const failed = results.filter((r) => r.error);
-    if (failed.length) throw new Error(`delete users: ${failed.map((r) => r.error!.message).join(", ")}`);
-  } finally {
-    await restoreInviteGate();
-  }
+  await Promise.all(users.map((u) => u.removeAllChannels()));
+  const results = await Promise.all(users.map((u) => adminClient().auth.admin.deleteUser(u.userId)));
+  const failed = results.filter((r) => r.error);
+  if (failed.length) throw new Error(`delete users: ${failed.map((r) => r.error!.message).join(", ")}`);
 }
 
 /** Creates the per-run rooms via the service role. */
@@ -183,6 +180,8 @@ export async function teardown(): Promise<void> {
   try {
     await cleanup();
   } finally {
+    // restore first so a failing delete below cannot leave the gate open
+    await restoreInviteGate();
     const a = adminClient();
     check(await a.from("occupancy").delete().in("room", testRooms), "delete test occupancy");
     check(await a.from("messages").delete().in("room", testRooms), "delete test messages");

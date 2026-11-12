@@ -22,14 +22,15 @@ create policy beta_invites_select on public.beta_invites for select to authentic
   using ((select public.is_admin()));
 grant select on public.beta_settings, public.beta_invites to authenticated;
 -- service_role bypasses RLS but still needs table privileges (integration tests toggle invite_only)
-grant select, insert, update, delete on public.beta_settings, public.beta_invites to service_role;
+grant select, insert, update, delete on public.beta_invites to service_role;
+grant select, update on public.beta_settings to service_role;
 
 create function public.admin_add_invite(github_id bigint, github_login text, note text) returns void
 language plpgsql security definer set search_path = '' as $$
 declare lg text := private.clean_text(github_login); nt text := nullif(private.clean_text(note), '');
 begin
   perform private.require_rank_over(null, 'admin');
-  if lg is null or char_length(lg) < 1 or char_length(lg) > 39 then raise exception 'invalid_login'; end if;
+  if github_id is null or lg is null or char_length(lg) < 1 or char_length(lg) > 39 then raise exception 'invalid_login'; end if;
   insert into public.beta_invites as b (github_id, github_login, note, invited_by)
   values (admin_add_invite.github_id, lg, nt, auth.uid())
   on conflict on constraint beta_invites_pkey do update set github_login = excluded.github_login, note = excluded.note;
@@ -110,7 +111,7 @@ begin
       ) then
         raise exception 'banned';
       end if;
-      if (select s.invite_only from public.beta_settings s)
+      if coalesce((select s.invite_only from public.beta_settings s), true)
          and (gh is null or not exists (select 1 from public.beta_invites v where v.github_id = gh)) then
         raise exception 'not_invited';
       end if;

@@ -2,11 +2,11 @@
 // Needs `bunx supabase functions serve` running. The octocat test calls the real GitHub API
 // (60 requests/hour unauthenticated).
 import { afterAll, describe, expect, setDefaultTimeout, test } from "bun:test";
-import { adminClient, cleanup, env, userClient, type TestUser } from "./_env";
+import { adminClient, env, teardown, userClient, type TestUser } from "./_env";
 
 setDefaultTimeout(30_000);
 
-afterAll(cleanup);
+afterAll(teardown);
 
 async function call(user: TestUser | null) {
   const headers: Record<string, string> = { "Content-Type": "application/json" };

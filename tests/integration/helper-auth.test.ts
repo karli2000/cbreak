@@ -3,12 +3,12 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AuthStore, authState, createHelperClient, ensureFreshSession } from "../../plugin/helper/auth";
-import { bareUser, cleanup, env, runId, userClient } from "./_env";
+import { bareUser, env, runId, teardown, userClient } from "./_env";
 
 const dirs: string[] = [];
 afterAll(async () => {
   dirs.forEach((d) => rmSync(d, { recursive: true, force: true }));
-  await cleanup();
+  await teardown();
 });
 
 test("authState reports ready for a set-up user", async () => {
