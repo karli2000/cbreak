@@ -33,7 +33,7 @@ export class AuthStore {
 
   async write(s: Session): Promise<void> {
     await this.ensureDir()
-    const tmp = this.file + '.tmp'
+    const tmp = `${this.file}.${process.pid}.tmp`
     await writeFile(tmp, JSON.stringify({ version: 1, session: s }), { mode: 0o600 })
     await chmod(tmp, 0o600)
     await rename(tmp, this.file)
@@ -72,6 +72,38 @@ export class AuthStore {
   }
 }
 
+// Per-client in-memory storage, so the session can be read without supabase-js refreshing it
+// (auth.getSession() refreshes an expired session outside our lock and never persists it).
+const storages = new WeakMap<object, Map<string, string>>()
+
+/** The client's current session exactly as stored, never triggering a refresh. */
+async function peekSession(client: SupabaseClient): Promise<Session | null> {
+  const mem = storages.get(client)
+  if (!mem) return (await client.auth.getSession()).data.session
+  for (const [k, v] of mem) {
+    if (!k.endsWith('-auth-token')) continue
+    try {
+      const s = JSON.parse(v)
+      if (s?.access_token && s?.refresh_token) return s as Session
+    } catch {}
+  }
+  return null
+}
+
+type AuthErr = { name?: string; status?: number; code?: string; message?: string }
+
+/** Revoked/invalid token (4xx except 429): drop the login. Retryable (5xx, 429, network, unknown): keep the file. */
+async function failRefresh(store: AuthStore, error: AuthErr): Promise<null> {
+  const st = error.status
+  const invalid =
+    error.name !== 'AuthRetryableFetchError' &&
+    ((typeof st === 'number' && st >= 400 && st < 500 && st !== 429) ||
+      ['refresh_token_not_found', 'refresh_token_already_used', 'invalid_grant', 'session_not_found'].includes(error.code ?? ''))
+  if (!invalid) throw new CoffeeError('network', error.message)
+  await store.clear()
+  return null
+}
+
 const nowS = () => Math.floor(Date.now() / 1000)
 const fresh = (s: Session | null | undefined, marginS: number): s is Session =>
   !!s && (s.expires_at ?? 0) > nowS() + marginS
@@ -86,7 +118,7 @@ export async function ensureFreshSession(
   store: AuthStore,
   marginS: number,
 ): Promise<Session | null> {
-  const current = (await client.auth.getSession()).data.session
+  const current = await peekSession(client)
   if (fresh(current, marginS)) return current
 
   return store.withLock(async () => {
@@ -101,9 +133,13 @@ export async function ensureFreshSession(
           access_token: onDisk.access_token,
           refresh_token: onDisk.refresh_token,
         })
-        if (error) {
-          await store.clear()
-          return null
+        if (error) return failRefresh(store, error)
+        // setSession refreshes an expired access token itself: persist whatever the client ended up with
+        const actual = (await client.auth.getSession()).data.session
+        if (actual && actual.access_token !== onDisk.access_token) {
+          await store.write(actual)
+          await client.realtime.setAuth(actual.access_token)
+          return actual
         }
         await client.realtime.setAuth(onDisk.access_token)
       }
@@ -112,12 +148,8 @@ export async function ensureFreshSession(
     const refresh_token = (onDisk ?? current)?.refresh_token
     if (!refresh_token) return null
     const { data, error } = await client.auth.refreshSession({ refresh_token })
-    if (error || !data.session) {
-      // revoked/invalid token: forget it. Network trouble keeps the file.
-      if (error && /network|fetch/i.test(error.message)) throw new CoffeeError('network', error.message)
-      await store.clear()
-      return null
-    }
+    if (error) return failRefresh(store, error)
+    if (!data.session) return failRefresh(store, { status: 500, message: 'no session returned' })
     await store.write(data.session)
     await client.realtime.setAuth(data.session.access_token)
     return data.session
@@ -134,8 +166,8 @@ type Profile = {
 }
 
 export async function authState(client: SupabaseClient): Promise<AuthState> {
-  const { data } = await client.auth.getSession()
-  if (!data.session) return { state: 'signed_out' }
+  const session = await peekSession(client)
+  if (!session) return { state: 'signed_out' }
   let p: Profile
   try {
     p = await rpc<Profile>(client, 'my_profile')
@@ -150,7 +182,7 @@ export async function authState(client: SupabaseClient): Promise<AuthState> {
 
 export function createHelperClient(url: string, key: string): SupabaseClient {
   const mem = new Map<string, string>() // holds the PKCE verifier; auth.json is the only durable copy
-  return createClient(url, key, {
+  const client = createClient(url, key, {
     auth: {
       flowType: 'pkce',
       autoRefreshToken: false,
@@ -162,4 +194,6 @@ export function createHelperClient(url: string, key: string): SupabaseClient {
       },
     },
   })
+  storages.set(client, mem)
+  return client
 }

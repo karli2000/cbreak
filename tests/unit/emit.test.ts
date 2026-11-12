@@ -14,3 +14,15 @@ test("EPIPE calls onBrokenPipe once and does not throw", () => {
   emit({ type: "room_closed" });
   expect(calls).toBe(1);
 });
+
+test("ERR_STREAM_DESTROYED counts as a broken pipe", () => {
+  let calls = 0;
+  const emit = createEmitter(() => { throw { code: "ERR_STREAM_DESTROYED" }; }, () => calls++);
+  expect(() => emit({ type: "room_closed" })).not.toThrow();
+  expect(calls).toBe(1);
+});
+
+test("other write errors are rethrown", () => {
+  const emit = createEmitter(() => { throw new Error("boom"); }, () => {});
+  expect(() => emit({ type: "room_closed" })).toThrow("boom");
+});

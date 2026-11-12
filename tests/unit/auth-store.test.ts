@@ -51,4 +51,5 @@ test("a stale lock is taken over", async () => {
   const old = new Date(Date.now() - 31_000);
   utimesSync(lock, old, old);
   expect(await store.withLock(async () => "ok")).toBe("ok");
+  expect(existsSync(lock)).toBe(false);
 });

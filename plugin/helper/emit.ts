@@ -11,10 +11,10 @@ export function createEmitter(
     try {
       write(JSON.stringify(e) + '\n')
     } catch (err) {
-      if ((err as { code?: string })?.code === 'EPIPE') {
-        broken = true
-        onBrokenPipe()
-      }
+      const code = (err as { code?: string })?.code
+      if (code !== 'EPIPE' && code !== 'ERR_STREAM_DESTROYED') throw err
+      broken = true
+      onBrokenPipe()
     }
   }
 }
