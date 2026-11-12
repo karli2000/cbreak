@@ -4,7 +4,7 @@ import { ApiError, type Bound } from './api.ts'
 export type Call = { name: string; args: unknown[] }
 export type FakeApi = Bound & { calls: Call[] }
 
-export function fakeApi(overrides: Partial<Record<keyof Bound, (...args: any[]) => unknown>> = {}): FakeApi {
+export function fakeApi(overrides: Partial<Bound> = {}): FakeApi {
   const calls: Call[] = []
   const target: Record<string, unknown> = { calls }
   return new Proxy(target, {

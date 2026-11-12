@@ -1,12 +1,12 @@
 import { describe, expect, mock, test } from 'bun:test'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { App } from './App.tsx'
 import { ApiError, type Me } from './api.ts'
 import { fakeApi } from './fake-api.ts'
 
-function fakeClient(signedIn: boolean) {
-  const signInWithOAuth = mock(async (_o: unknown) => ({ data: {}, error: null }))
+function fakeClient(signedIn: boolean, oauthError: string | null = null) {
+  const signInWithOAuth = mock(async (_o: unknown) => ({ data: {}, error: oauthError ? { message: oauthError } : null }))
   const signOut = mock(async () => ({ error: null }))
   const session = signedIn ? { user: { id: 'u1' } } : null
   const client = {
@@ -34,6 +34,13 @@ describe('gate', () => {
     expect(arg.provider).toBe('github')
     expect(arg.options.redirectTo).toBe(window.location.origin + window.location.pathname)
     expect(api.calls).toEqual([])
+  })
+
+  test('shows an error when sign-in fails to start', async () => {
+    const { client } = fakeClient(false, 'network')
+    render(<App client={client} api={fakeApi()} />)
+    ;(await screen.findByRole('button', { name: 'Sign in with GitHub' })).click()
+    expect((await screen.findByRole('alert')).textContent).toBe("Can't reach the server. Check your connection.")
   })
 
   test('refuses users and banned staff without loading data', async () => {
@@ -77,6 +84,19 @@ describe('gate', () => {
     render(<App client={client} api={mod} />)
     await screen.findByRole('link', { name: 'Reports' })
     expect(screen.getByRole('link', { name: 'Reports' }).getAttribute('aria-current')).toBe('page')
+  })
+
+  test('changing the hash switches the tab live', async () => {
+    const { client } = fakeClient(true)
+    render(<App client={client} api={fakeApi({ me: async () => staff('moderator'), listReports: async () => [] })} />)
+    await screen.findByRole('link', { name: 'Users' })
+    expect(screen.getByRole('link', { name: 'Reports' }).getAttribute('aria-current')).toBe('page')
+    act(() => {
+      window.location.hash = '#users'
+      window.dispatchEvent(new window.Event('hashchange'))
+    })
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Users' }).getAttribute('aria-current')).toBe('page'))
+    expect(screen.getByRole('link', { name: 'Reports' }).getAttribute('aria-current')).toBeNull()
   })
 
   test('an expired session returns to sign-in', async () => {

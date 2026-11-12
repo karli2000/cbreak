@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { useEffect, useState } from 'react'
-import type { Bound, Me } from './api.ts'
+import { ApiError, type Bound, type Me } from './api.ts'
 import { AuthProvider, useAuth, useOnAuthError } from './auth.tsx'
 import { COPY, errorText } from './copy.ts'
 import { TABS, tabFromHash, type Tab } from './nav.ts'
@@ -13,25 +13,28 @@ export function App({ client, api }: { client: SupabaseClient; api: Bound }) {
   )
 }
 
-type MeState = { status: 'loading' } | { status: 'none' } | { status: 'error'; code: string } | { status: 'ok'; me: Me }
+type MeResult = { status: 'none' } | { status: 'error'; code: string } | { status: 'ok'; me: Me }
+type MeState = MeResult & { uid: string }
 
 function Gate({ api }: { api: Bound }) {
   const { client, session, loading, signOut } = useAuth()
   const onAuthError = useOnAuthError()
-  const [state, setState] = useState<MeState>({ status: 'loading' })
+  const [loaded, setLoaded] = useState<MeState | null>(null)
+  const [signInError, setSignInError] = useState<string | null>(null)
   const userId = session?.user.id
+  // A result for another user counts as still loading, so an old Shell never shows for a new user.
+  const state: { status: 'loading' } | MeResult = loaded && loaded.uid === userId ? loaded : { status: 'loading' }
 
   useEffect(() => {
     if (!userId) return
     let alive = true
-    setState({ status: 'loading' })
     api.me().then(
       (me) => {
-        if (alive) setState(me ? { status: 'ok', me } : { status: 'none' })
+        if (alive) setLoaded(me ? { uid: userId, status: 'ok', me } : { uid: userId, status: 'none' })
       },
       (e: unknown) => {
         onAuthError(e)
-        if (alive) setState({ status: 'error', code: e instanceof Error && 'code' in e ? String(e.code) : 'unknown' })
+        if (alive) setLoaded({ uid: userId, status: 'error', code: e instanceof ApiError ? e.code : 'unknown' })
       },
     )
     return () => {
@@ -42,15 +45,23 @@ function Gate({ api }: { api: Bound }) {
   if (loading) return <p className="center">Loading…</p>
 
   if (!session) {
-    const signIn = () =>
-      void client.auth.signInWithOAuth({
-        provider: 'github',
-        options: { redirectTo: window.location.origin + window.location.pathname },
-      })
+    const signIn = async () => {
+      setSignInError(null)
+      try {
+        const { error } = await client.auth.signInWithOAuth({
+          provider: 'github',
+          options: { redirectTo: window.location.origin + window.location.pathname },
+        })
+        if (error) setSignInError(errorText(error.message && /^[a-z_]+$/.test(error.message) ? error.message : 'unknown'))
+      } catch {
+        setSignInError(errorText('network'))
+      }
+    }
     return (
       <main className="center">
         <h1>☕ Coffee Break moderation</h1>
-        <button onClick={signIn}>{COPY.signIn}</button>
+        <button onClick={() => void signIn()}>{COPY.signIn}</button>
+        {signInError && <p role="alert">{signInError}</p>}
       </main>
     )
   }
