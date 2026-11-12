@@ -226,3 +226,42 @@ export async function listStaff(c: SupabaseClient): Promise<{ id: string; nickna
 export async function setRole(c: SupabaseClient, userId: string, role: Role): Promise<void> {
   await run(c.rpc('admin_set_role', { target: userId, new_role: role }))
 }
+
+const fns = {
+  me,
+  listReports,
+  resolveReport,
+  deleteMessage,
+  mute,
+  unmute,
+  ban,
+  unban,
+  lookupUser,
+  listBanned,
+  unbanGithubId,
+  listActions,
+  names,
+  roomCounts,
+  recentMessages,
+  watchRoom,
+  listRooms,
+  upsertRoom,
+  listFilters,
+  addFilter,
+  removeFilter,
+  listStaff,
+  setRole,
+}
+
+type WithoutClient<F> = F extends (c: SupabaseClient, ...a: infer A) => infer R ? (...a: A) => R : never
+
+/** Every api function with the client pre-applied; screens receive this. */
+export type Bound = { [K in keyof typeof fns]: WithoutClient<(typeof fns)[K]> }
+
+export function bindApi(c: SupabaseClient): Bound {
+  const out: Record<string, unknown> = {}
+  for (const [name, fn] of Object.entries(fns)) {
+    out[name] = (...args: unknown[]) => (fn as (...a: unknown[]) => unknown)(c, ...args)
+  }
+  return out as Bound
+}
