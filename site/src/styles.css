@@ -60,3 +60,11 @@ input, select, textarea {
 .tabs a[aria-current='page'] { background: var(--accent); color: var(--accent-fg); }
 .msg, .snapshot { overflow-wrap: anywhere; }
 .muted { color: var(--muted); }
+.snap-body { overflow-wrap: anywhere; }
+.snap-lines { list-style: none; padding: 0; margin: 8px 0; }
+.snap-hl { background: color-mix(in srgb, var(--accent) 20%, transparent); border-radius: 4px; }
+.snap-note { font-size: 0.85rem; }
+.reports { list-style: none; padding: 0; }
+.report { border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; margin: 12px 0; }
+.report h2 { font-size: 1rem; margin: 0; overflow-wrap: anywhere; }
+.actions-buttons { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { ApiError, type Bound, type Me } from './api.ts'
 import { AuthProvider, useAuth, useOnAuthError } from './auth.tsx'
 import { COPY, errorText } from './copy.ts'
+import { Reports } from './screens/Reports.tsx'
 import { TABS, tabFromHash, type Tab } from './nav.ts'
 
 export function App({ client, api }: { client: SupabaseClient; api: Bound }) {
@@ -131,7 +132,7 @@ function Shell({ me, api, signOutButton }: { me: Me; api: Bound; signOutButton: 
 function Screen({ tab, api }: { tab: Tab; api: Bound }) {
   switch (tab) {
     case 'reports':
-      return <ReportsPlaceholder api={api} />
+      return <Reports api={api} />
     case 'live':
       return <section aria-label="Live">Live</section>
     case 'users':
@@ -143,13 +144,4 @@ function Screen({ tab, api }: { tab: Tab; api: Bound }) {
     case 'admin':
       return <section aria-label="Admin">Admin</section>
   }
-}
-
-// Replaced in Task 4; the single initial call shows how screens route errors through useOnAuthError.
-function ReportsPlaceholder({ api }: { api: Bound }) {
-  const onAuthError = useOnAuthError()
-  useEffect(() => {
-    api.listReports('open').catch(onAuthError)
-  }, [api, onAuthError])
-  return <section aria-label="Reports">Reports</section>
 }
