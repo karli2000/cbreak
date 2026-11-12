@@ -17,6 +17,7 @@ bun run test:int   # bun test tests/integration (realtime/edge-function tests, n
 bun run test:mod   # claude plugin validate plugin + claude plugin test plugin (mod tests, plugin/tests/*.test.ts)
 bun run dev        # claude --plugin-dir plugin (the mod in a real session; hosted backend by default)
 bunx tsc --noEmit -p plugin   # type-check the mod files against the types Claude Code writes
+bunx tsc --noEmit             # type-check helper, shared code and tests (excludes the mod files, site/ and the Deno code in supabase/functions)
 bunx supabase functions serve   # serve Edge Functions locally (Docker); needed for tests/integration/github-age.test.ts
 ```
 

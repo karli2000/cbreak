@@ -28,5 +28,6 @@
     "noPropertyAccessFromIndexSignature": false
   },
   // The mod-environment files are checked by plugin/tsconfig.json (types written by Claude Code).
-  "exclude": ["node_modules", "plugin/hooks/register.ts", "plugin/hooks/pane.ts", "plugin/tests", "site"]
+  // supabase/functions is Deno code (Deno globals, URL imports); Bun's checker cannot type it.
+  "exclude": ["node_modules", "plugin/hooks/register.ts", "plugin/hooks/pane.ts", "plugin/tests", "site", "supabase/functions"]
 }

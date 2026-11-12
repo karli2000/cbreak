@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, statSync, utimesSync, writeFileSync, existsSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, utimesSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Session } from "@supabase/supabase-js";
@@ -87,9 +87,8 @@ test("a file stored for another URL reads as signed out and is left alone", asyn
 test("concurrent writes never collide and the last write wins", async () => {
   const sessions = Array.from({ length: 50 }, (_, i) => ({ ...sess, access_token: `a${i}`, refresh_token: `r${i}` }) as Session);
   await Promise.all(sessions.map((s) => store.write(s)));
-  expect(await store.read()).toEqual(sessions[49]);
+  expect(await store.read()).toEqual(sessions.at(-1)!);
   // no leftover tmp files
-  const { readdirSync } = await import("node:fs");
   expect(readdirSync(dir).filter((f) => f.endsWith(".tmp"))).toEqual([]);
 });
 
