@@ -78,6 +78,10 @@ describe("realtime authorization", () => {
 
     const msg = await waitFor(() => b.received.find((r) => r.event === "message"), 3000);
     expect(msg).toBeDefined();
+    expect(Object.keys(msg!.payload).sort()).toEqual(
+      ["body", "created_at", "id", "nickname", "role", "user_id"],
+    );
+    expect(msg!.payload.user_id).toBe(alice.userId);
     expect(msg!.payload.nickname).toBe(alice.nickname);
     expect(msg!.payload.body).toBe("hello");
   });
@@ -143,6 +147,8 @@ describe("realtime authorization", () => {
     const kicked = await waitFor(() => b.received.find((r) => r.event === "kicked"), 3000);
     expect(kicked).toBeDefined();
     expect(kicked!.payload.user_id).toBe(bob.userId);
+    // no ban reason for the whole room; realtime.send adds its own uuid `id`
+    expect(Object.keys(kicked!.payload).sort()).toEqual(["id", "user_id"]);
 
     await bob.removeChannel(b.channel);
     const again = subscribe(bob, topic);

@@ -21,6 +21,9 @@ insert into public.reports (reporter_id, target_id, reason, snapshot)
 select a.id, b.id, 'spam', '[]'::jsonb
 from public.profiles a, public.profiles b where a.nickname = 'alice' and b.nickname = 'bob';
 insert into public.mod_actions (action) values ('x');
+-- messages are readable only with a live occupancy row in the same instance (migration 000900)
+insert into public.occupancy (user_id, room, instance)
+select id, 'lobby', 1 from public.profiles where nickname = 'alice';
 insert into public.word_filter (pattern) values ('badword');
 
 select tests.login_as((select id from public.profiles where nickname = 'alice'));
@@ -29,7 +32,7 @@ select is((select count(*) from public.mod_actions), 0::bigint, 'user sees no mo
 select is((select count(*) from public.word_filter), 0::bigint, 'user sees no word_filter');
 select is((select count(*) from public.profiles), 1::bigint, 'user sees only own full profile');
 select is((select count(*) from public.public_profiles), 3::bigint, 'public_profiles lists all');
-select is((select count(*) from public.messages), 1::bigint, 'user reads messages');
+select is((select count(*) from public.messages), 1::bigint, 'user in the room reads messages');
 select throws_ok($$insert into public.messages (room, instance, nickname, body) values ('lobby', 1, 'alice', 'x')$$,
   '42501', null, 'user cannot insert messages directly');
 select throws_ok($$update public.profiles set role = 'admin'$$,

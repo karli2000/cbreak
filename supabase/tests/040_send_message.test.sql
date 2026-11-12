@@ -124,11 +124,11 @@ select throws_ok($$select public.send_message('hi')$$, 'P0001', 'no_profile', 'n
 select tests.login_as(:'em');
 select lives_ok($$select public.send_message('mute expired')$$, 'expired mute allows send');
 
--- stale occupancy: allowed and refreshed
+-- stale occupancy: refused like heartbeat (client must join_room again), row not revived
 select tests.login_as(:'st');
-select lives_ok($$select public.send_message('stale but here')$$, 'stale occupancy row can send');
+select throws_ok($$select public.send_message('stale but here')$$, 'P0001', 'not_in_room', 'stale occupancy row cannot send');
 select tests.logout();
-select ok((select last_seen > now() - interval '5 seconds' from public.occupancy where user_id = :'st'), 'last_seen refreshed');
+select ok((select last_seen < now() - interval '90 seconds' from public.occupancy where user_id = :'st'), 'last_seen not refreshed');
 
 -- positive controls
 insert into public.messages (room, instance, user_id, nickname, body, created_at)
