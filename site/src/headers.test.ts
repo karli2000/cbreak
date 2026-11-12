@@ -30,7 +30,11 @@ describe('security headers', () => {
 
 describe('build output', () => {
   beforeAll(() => {
-    const r = Bun.spawnSync(['bunx', 'vite', 'build'], { cwd: root, stdout: 'pipe', stderr: 'pipe' })
+    // A production build must never pick up dev overrides exported in the shell.
+    const env = { ...process.env }
+    delete env.VITE_SUPABASE_URL
+    delete env.VITE_SUPABASE_ANON_KEY
+    const r = Bun.spawnSync(['bunx', 'vite', 'build'], { cwd: root, env, stdout: 'pipe', stderr: 'pipe' })
     if (r.exitCode !== 0) console.error(r.stdout.toString(), r.stderr.toString())
     expect(r.exitCode).toBe(0)
   }, 120_000)
@@ -45,6 +49,16 @@ describe('build output', () => {
       expect(t.includes('service_role')).toBe(false)
       expect(t.includes('SUPABASE_SERVICE_ROLE_KEY')).toBe(false)
     }
+  })
+
+  test('the bundle points at the hosted backend, not a local stack', () => {
+    const js = files(dist)
+      .filter((f) => f.endsWith('.js'))
+      .map((f) => readFileSync(f, 'utf8'))
+      .join('\n')
+    expect(js).toContain('https://meioekkvutvrspfvqgye.supabase.co')
+    expect(js.includes('127.0.0.1:54321')).toBe(false)
+    expect(js.includes('localhost:54321')).toBe(false)
   })
 
   test('index.html has no inline script or style (CSP)', () => {
