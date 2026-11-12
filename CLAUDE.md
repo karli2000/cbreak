@@ -252,7 +252,7 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 1. `bunx supabase db push --remote` (migration 20261113000100, invite gate).
 2. `bun run site:deploy` (invites UI, CSP).
 3. No self-invite needed (existing profile); invite friends on the site (Admin, Invites).
-4. Decide about the commit-author email (`675365+karli2000@users.noreply.github.com` in every commit) before going public: accept it, rewrite history to a noreply address (`git filter-repo --mailmap`, force-push, destructive, owner runs it), or use noreply for future commits only.
+4. Decide about the commit-author email (your personal email in every commit) before going public: accept it, rewrite history to a noreply address (`git filter-repo --mailmap` plus `--replace-text`, since earlier versions of `docs/beta.md`, this file and the Plan 4 plan contain the address; force-push, destructive, owner runs it), or use noreply for future commits only.
 5. `scripts/prepublish-audit.sh --history` must exit 0, then `gh repo edit karli2000/coffeebreak --visibility public --accept-visibility-change-consequences`.
 6. Test the install from a clean session: `claude plugin marketplace add karli2000/coffeebreak` + `claude plugin install coffeebreak@coffeebreak`, then in a fresh Claude Code session check that `/coffee` is registered (the mod loaded from the installed copy) and `/coffee status` answers (the bundled helper spawns via Bun). `claude plugin details` once showed `Hooks (0)`, so only a real session confirms the mod loads.
 7. Send friends the message from `docs/beta.md`.

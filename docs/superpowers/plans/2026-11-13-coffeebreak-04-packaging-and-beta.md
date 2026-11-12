@@ -316,7 +316,7 @@ LICENSE, README.md, docs/beta.md, scripts/prepublish-audit.sh   (Task 5)
 
 ## Owner decision before going public (not a task)
 
-Every commit so far is authored as `Max Kossatz <675365+karli2000@users.noreply.github.com>`. A public repo exposes that address. The options:
+Every commit so far is authored with the owner's personal email (the address in the git config). A public repo exposes that address. The options:
 - **Accept it.**
 - **Rewrite history** to a GitHub noreply address before publishing, with `git filter-repo --mailmap` and a force-push to `main`. This is destructive and the owner runs it.
 - **Use a noreply address for future commits only.**

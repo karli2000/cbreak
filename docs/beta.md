@@ -7,7 +7,7 @@ Coffee Break is a friends-only beta: the repo is public, but sign-up is invite-o
 1. `bunx supabase db push --remote` (migration 20261113000100, the invite gate; `invite_only` starts on).
 2. `bun run site:deploy` (the invites UI and the CSP change reach production only after this).
 3. You need no invite yourself: the gate only applies to a first `claim_nickname` and you already have a profile.
-4. **Decide about the commit-author email.** Every commit is authored as `Max Kossatz <675365+karli2000@users.noreply.github.com>`, and a public repo exposes it. Options: accept it; rewrite history to a GitHub noreply address with `git filter-repo --mailmap` and force-push `main` (destructive, you run it); or use a noreply address for future commits only (`git config user.email`).
+4. **Decide about the commit-author email.** Every commit is authored with your personal email (the address in your git config), and a public repo exposes it. Options: accept it; rewrite history to a GitHub noreply address with `git filter-repo --mailmap` and force-push `main` (destructive, you run it); or use a noreply address for future commits only (`git config user.email`). A rewrite must also pass `--replace-text` (a file with the address `==>` the noreply address): earlier versions of `docs/beta.md`, `CLAUDE.md` and the Plan 4 plan spelled the address out, and `--mailmap` only changes author and committer fields, not file contents.
 5. Run `scripts/prepublish-audit.sh --history` (must exit 0).
 6. `gh repo edit karli2000/coffeebreak --visibility public --accept-visibility-change-consequences`
 7. **Test the install from a clean session.** In a fresh Claude Code session (not `--plugin-dir`, no other Coffee Break copy loaded):
@@ -58,7 +58,7 @@ Check the current limits on Supabase's pricing page before a bigger invite wave.
 2. Bump `version` in `plugin/.claude-plugin/plugin.json` (users stay on a version until it changes).
 3. `bun run helper:bundle` (a test fails if the committed `plugin/dist/coffeebreakd.js` is stale).
 4. `bun run validate:all`, commit, push.
-5. Friends run `claude plugin marketplace update coffeebreak`, then update the plugin and restart Claude Code.
+5. Friends run `claude plugin marketplace update coffeebreak`, then `claude plugin update coffeebreak@coffeebreak`, and restart Claude Code.
 
 Backend changes: `bunx supabase db push --remote` (and `functions deploy` when an Edge Function changed). Site changes: `bun run site:deploy`.
 
