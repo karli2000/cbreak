@@ -687,7 +687,7 @@ describe('Controller without Bun (ruling R2)', () => {
     expect(errorText('no_bun')).toBe(BUN_LINE)
   })
 
-  test('no_bun at break start shows the Bun line once and spawns nothing more that turn', async () => {
+  test('no_bun at break start shows the Bun line once, spawns nothing more that turn and toasts once per session', async () => {
     const port = new FakePort()
     port.noBun = true
     const { c } = await make(port)
@@ -708,13 +708,23 @@ describe('Controller without Bun (ruling R2)', () => {
     expect(port.toasts).toEqual([BUN_LINE])
     expect(port.opens).toEqual([])
 
-    // the next turn tries once more
+    // the next turn tries once more, but the automatic toast is once per session (like the setup hint)
     c.turnComplete(false)
     c.turnStart()
     port.advance(20_000)
     await tick()
     expect(port.spawns).toBe(2)
-    expect(port.toasts).toEqual([BUN_LINE, BUN_LINE])
+    expect(port.toasts).toEqual([BUN_LINE])
+    c.turnComplete(false)
+    c.turnStart()
+    port.advance(20_000)
+    await tick()
+    expect(port.spawns).toBe(3)
+    expect(port.toasts).toEqual([BUN_LINE])
+
+    // a bare /coffee still answers the Bun line every time
+    expect(await c.command('')).toBe(BUN_LINE)
+    expect(await c.command('')).toBe(BUN_LINE)
   })
 
   test('/coffee while pending without Bun closes the early pane and shows the Bun line', async () => {

@@ -71,6 +71,8 @@ export class Controller {
   private draftKeptShown = false
   private closePending = false
   private setupHinted = false
+  /** The automatic break start toasted the Bun line already (once per session, like the setup hint). */
+  private bunHinted = false
   /** A `reconnecting` line was shown and no `online` followed yet. */
   private reconnecting = false
   /** Kicked or banned: no joins for the rest of the session. */
@@ -296,9 +298,10 @@ export class Controller {
     await h.hello.promise
     if (gen !== this.gen) return
     if (!h.socket && h.noBun) {
-      // once per turn: no more break attempts until the turn completes
+      // once per turn: no more break attempts until the turn completes; the automatic toast once per session
       this.noBunTurn = true
-      this.port.toast(COPY.needsBun)
+      if (this.manual || !this.bunHinted) this.port.toast(COPY.needsBun)
+      this.bunHinted = true
       return this.fail(h, COPY.needsBun)
     }
     if (!h.socket) return this.fail(h, COPY.helperGone)
