@@ -3,7 +3,7 @@
 A Claude Code plugin that drops users into a shared group chat room while Claude is busy on their task, and takes them out when it's done. This repo holds the Supabase backend (built), plus later the helper `coffeebreakd`, the Claude Code mod/plugin, and a static moderator site.
 
 - Design spec (the authority): `docs/superpowers/specs/2026-11-11-coffeebreak-design.md`
-- Current plan: `docs/superpowers/plans/2026-11-12-coffeebreak-02-helper-and-mod.md` (Plan 2). Done: `docs/superpowers/plans/2026-11-11-coffeebreak-01-spikes-and-backend.md` (Plan 1).
+- Current plan: `docs/superpowers/plans/2026-11-12-coffeebreak-03-moderator-site.md` (Plan 3). Done: Plan 1 (`…-01-spikes-and-backend.md`) and Plan 2 (`…-02-helper-and-mod.md`).
 - Roadmap: Plan 2 = helper + Claude Code mod (after spikes S1/S3), Plan 3 = static moderator site (Cloudflare R2/Pages), Plan 4 = packaging + friends beta.
 
 ## Commands
@@ -193,4 +193,4 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 - Spike S3 outcome: GitHub login with PKCE and a random-port `127.0.0.1` callback works; pitfalls are in `spikes/FINDINGS.md`.
 - Plan 2 (`docs/superpowers/plans/2026-11-12-coffeebreak-02-helper-and-mod.md`) is implemented: helper Tasks 1–4, mod Tasks 5–8. The spike code (`spikes/mod-pane/`, `spikes/login/`) is removed; `spikes/FINDINGS.md` stays.
 - Plan 2 owner run done (2026-11-12): everything works in the owner's real terminal.
-- Next: Plan 3 (static moderator site, Cloudflare R2/Pages).
+- Plan 3 is written: `docs/superpowers/plans/2026-11-12-coffeebreak-03-moderator-site.md` (8 tasks: backend RPCs, site scaffold/data layer, shell/gate, reports, live view, users/bans, audit/admin, headers/deploy). Next: execute it.
