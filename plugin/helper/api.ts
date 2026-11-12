@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Api, ApiPath, HelperEvent } from '../shared/protocol'
 import { AuthStore, authState, ensureFreshSession, peekSession } from './auth'
+import { openBrowser, startLogin } from './login'
 import { NicknameCache, RoomSession } from './room'
 import { CoffeeError, codeOf, rpc } from './rpc'
 
@@ -17,12 +18,14 @@ export type Ctx = {
   marginS: number
   /** Whether a session was present at the last check; route handlers that sign out reset it. */
   signedIn: boolean
+  /** The login in flight, if any; a second /login returns its URL. */
+  login?: { url: string } | null
 }
 
 type Handler<P extends ApiPath> = (ctx: Ctx, req: Api[P]['req']) => Promise<Api[P]['res']>
 export type Routes = { [P in ApiPath]?: Handler<P> }
 
-/** Routes that work without a session. Task 4 adds '/login'. */
+/** Routes that work without a session. */
 export const SIGNED_OUT_OK: ReadonlySet<string> = new Set(['/ping', '/status', '/login'])
 
 /** Calls the github-age Edge Function once; failures are ignored (email test users get 400). */
@@ -30,6 +33,41 @@ export async function fetchGithubAge(client: SupabaseClient): Promise<void> {
   try {
     await client.functions.invoke('github-age')
   } catch {}
+}
+
+/** Once a profile is ready (rules accepted, not banned) without a github_created_at, calls github-age; errors ignored. */
+export async function fetchGithubAgeIfNeeded(client: SupabaseClient): Promise<void> {
+  try {
+    const p = await rpc<{ rules_accepted_at: string | null; github_created_at: string | null; banned_at: string | null }>(client, 'my_profile')
+    if (p.rules_accepted_at && !p.banned_at && !p.github_created_at) await fetchGithubAge(client)
+  } catch {}
+}
+
+const LOGIN_TIMEOUT_MS = 5 * 60_000
+const LOGIN_KEEPALIVE_MS = 10_000
+
+/** Starts a login (or returns the pending one). The helper stays alive until it settles. */
+async function beginLogin(ctx: Ctx): Promise<{ url: string }> {
+  if (ctx.login) return ctx.login
+  const { url, done } = await startLogin(ctx.client, { open: openBrowser, timeoutMs: LOGIN_TIMEOUT_MS })
+  const pending = { url }
+  ctx.login = pending
+  const keepAlive = setInterval(() => ctx.touch(), LOGIN_KEEPALIVE_MS)
+  ctx.emit({ type: 'login', url })
+  done
+    .then(async (session) => {
+      await ctx.store.write(session)
+      ctx.signedIn = true
+      await emitAuth(ctx)
+      await fetchGithubAgeIfNeeded(ctx.client)
+    })
+    .catch((e) => ctx.emit({ type: 'error', code: 'login_failed', message: e instanceof Error ? e.message : String(e) }))
+    .finally(() => {
+      clearInterval(keepAlive)
+      ctx.touch()
+      if (ctx.login === pending) ctx.login = null
+    })
+  return pending
 }
 
 /** Emits the current auth state; a transient failure is reported as an error event instead. */
@@ -67,6 +105,7 @@ async function roomOf(ctx: Ctx): Promise<RoomSession> {
 export const routes: Routes = {
   '/ping': async () => ({}),
   '/status': async (ctx) => ({ auth: await authState(ctx.client), room: ctx.room?.current() ?? null }),
+  '/login': async (ctx) => ({ url: (await beginLogin(ctx)).url }),
   '/nickname/check': async (ctx, { nick }) => ({
     available: await rpc<boolean>(ctx.client, 'nickname_available', { nick }),
   }),

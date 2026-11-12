@@ -5,7 +5,7 @@ import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../shared/backend'
 import { PROTOCOL_VERSION } from '../shared/protocol'
-import { emitAuth, fetchGithubAge, startServer, type Ctx } from './api'
+import { emitAuth, fetchGithubAgeIfNeeded, startServer, type Ctx } from './api'
 import { AuthStore, createHelperClient, ensureFreshSession, peekSession } from './auth'
 import { createEmitter } from './emit'
 import { CoffeeError, rpc } from './rpc'
@@ -83,10 +83,7 @@ async function start() {
     return
   }
   await emitAuth(ctx)
-  try {
-    const p = await rpc<{ rules_accepted_at: string | null; github_created_at: string | null; banned_at: string | null }>(client, 'my_profile')
-    if (p.rules_accepted_at && !p.banned_at && !p.github_created_at) await fetchGithubAge(client)
-  } catch {}
+  await fetchGithubAgeIfNeeded(client)
 }
 
 const tick = setInterval(() => {
