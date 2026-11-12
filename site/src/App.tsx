@@ -1,10 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { useEffect, useState } from 'react'
-import { ApiError, type Bound, type Me } from './api.ts'
+import { ApiError, type Bound, type Me, type Role } from './api.ts'
 import { AuthProvider, useAuth, useOnAuthError } from './auth.tsx'
 import { COPY, errorText } from './copy.ts'
 import { Live } from './screens/Live.tsx'
+import { Bans } from './screens/Bans.tsx'
 import { Reports } from './screens/Reports.tsx'
+import { Users } from './screens/Users.tsx'
 import { TABS, tabFromHash, type Tab } from './nav.ts'
 
 export function App({ client, api }: { client: SupabaseClient; api: Bound }) {
@@ -124,22 +126,22 @@ function Shell({ me, api, signOutButton }: { me: Me; api: Bound; signOutButton: 
         ))}
       </nav>
       <main>
-        <Screen tab={active} api={api} />
+        <Screen tab={active} api={api} role={me.role} />
       </main>
     </>
   )
 }
 
-function Screen({ tab, api }: { tab: Tab; api: Bound }) {
+function Screen({ tab, api, role }: { tab: Tab; api: Bound; role: Role }) {
   switch (tab) {
     case 'reports':
       return <Reports api={api} />
     case 'live':
       return <Live api={api} />
     case 'users':
-      return <section aria-label="Users">Users</section>
+      return <Users api={api} role={role} />
     case 'bans':
-      return <section aria-label="Bans">Bans</section>
+      return <Bans api={api} role={role} />
     case 'audit':
       return <section aria-label="Audit">Audit</section>
     case 'admin':
