@@ -1,0 +1,6 @@
+{
+  "name": "coffeebreak",
+  "version": "0.1.0",
+  "description": "Coffee Break: chat with other people in a shared room while Claude works on your task",
+  "author": { "name": "Coffee Break" }
+}

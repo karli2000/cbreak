@@ -2,7 +2,7 @@
 
 ## S1: mod pane
 
-- **Setup:** `spikes/mod-pane/` (see its README). Claude Code 2.1.322, WSL2.
+- **Setup:** `spikes/mod-pane/` (see its README; removed after Plan 2, still in git history). Claude Code 2.1.322, WSL2.
 - **Status:** owner run done 2026-11-12 08:12–08:14 (logs: spike.log, ticker.log). Owner: "everything worked".
 - **Sources:** the types this build writes (`claude-code.d.ts`, 2.1.322) and code.claude.com/docs/en/plugins/mods/*.
 - **Labels:**
@@ -81,7 +81,7 @@ Consequences for Plan 2:
 
 ## S3: GitHub login against the hosted project
 
-- **Script:** `spikes/login/login.ts` (Bun). Supabase Auth PKCE, `signInWithOAuth({ provider: 'github', redirectTo: 'http://127.0.0.1:<random port>/callback', skipBrowserRedirect: true })`, local `Bun.serve` callback, browser opened via `powershell.exe Start-Process` on WSL, then `exchangeCodeForSession`.
+- **Script:** `spikes/login/login.ts` (Bun; removed after Plan 2, still in git history). Supabase Auth PKCE, `signInWithOAuth({ provider: 'github', redirectTo: 'http://127.0.0.1:<random port>/callback', skipBrowserRedirect: true })`, local `Bun.serve` callback, browser opened via `powershell.exe Start-Process` on WSL, then `exchangeCodeForSession`.
 - **Result (2026-11-12, owner run): works end to end.** user `karli2000`, GitHub id 675365. `claim_nickname`, `accept_rules` and the `github-age` function all succeeded (`github_created_at` 2011-03-17).
 - **Random localhost port works** with the redirect allow-list entry `http://127.0.0.1:*/callback`.
 - **`identity_data`** has `provider_id` (numeric GitHub id), `user_name`, `preferred_username`, `email`, `avatar_url`, `full_name`, `sub`, `iss`. **No account creation date**, so the `github-age` function is needed.
@@ -91,3 +91,24 @@ Consequences for Plan 2:
   2. The **Site URL** must be one real URL. The wildcard `http://127.0.0.1:*/callback` belongs only in **Redirect URLs**. A wildcard Site URL makes Auth fail with 500 `invalid port ":*"`.
   3. If a **GitHub App** (not a classic OAuth App) is used, it needs **Account permissions → Email addresses: Read-only**. Otherwise Auth fails with "Error getting user profile from external provider" (GitHub 403 on `/user/emails`).
 - **Verdict:** the plan for `coffeebreakd login` holds as designed.
+
+## Plan 2 owner run (pending)
+
+- **Setup:** hosted backend, real GitHub account, Claude Code 2.1.322, the owner's normal WSL terminal (100 columns).
+- **Run:** `bun run dev` from the repo root, i.e. `claude --plugin-dir plugin`. The mod starts the helper as `bun plugin/helper/main.ts`, so `which bun` must print a path.
+- **Status:** not run yet. Fill in each result line, then rename this heading to "Plan 2 owner run".
+
+1. `/coffee setup`: the GitHub login opens in the Windows browser, the nickname check updates live while typing, the rules accept with `yes`, and the pane ends with "All set".
+   - Result:
+2. A long task (e.g. "count to 60 slowly using sleep 1 in bash, one number per call"): after 20 s, a toast or the status line shows `☕ N on break · /coffee to join` (at 100 columns).
+   - Result:
+3. `/coffee` opens the pane focused. The backlog shows, typing and sending works, and the input line stays in view as messages arrive.
+   - Result:
+4. A second account (or a friend) sees the messages, with the same nickname colors.
+   - Result:
+5. When the task ends, the pane shows `Claude is done, back to work ☕` and closes after 15 s. With a draft typed, it stays open.
+   - Result:
+6. Esc mid-task: the pane may stay open, and the next prompt closes it.
+   - Result:
+7. Closing the terminal window mid-break: within about 60 s, `pgrep -af helper/main.ts` prints nothing.
+   - Result:

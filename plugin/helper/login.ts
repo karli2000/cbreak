@@ -1,4 +1,4 @@
-// GitHub login through Supabase Auth (PKCE) with a one-shot 127.0.0.1 callback server. Approach from spikes/login/login.ts.
+// GitHub login through Supabase Auth (PKCE) with a one-shot 127.0.0.1 callback server. Approach from spike S3 (spikes/FINDINGS.md).
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import { spawn } from 'node:child_process'
 import { snapshotPkce } from './auth'

@@ -7,7 +7,9 @@
     "db:reset": "bunx supabase db reset",
     "db:test": "bunx supabase db reset && bunx supabase test db",
     "test:int": "bun test tests/integration",
-    "test:unit": "bun test tests/unit"
+    "test:unit": "bun test tests/unit",
+    "test:mod": "claude plugin validate plugin && claude plugin test plugin",
+    "dev": "claude --plugin-dir plugin"
   },
   "devDependencies": {
     "@types/bun": "latest",
