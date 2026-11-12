@@ -2,6 +2,7 @@
 // All joins use the per-run `testRoom`, never real rooms.
 import { afterAll, beforeAll, expect, setDefaultTimeout, test } from "bun:test";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import type { HelperEvent } from "../../plugin/shared/protocol";
 import { adminClient, setup, teardown, testRoom, userClient, type TestUser } from "./_env";
 import { cleanupHelpers, startHelper, type StartedHelper } from "./_helper";
 
@@ -148,6 +149,28 @@ test("presence reports joins with nicknames", async () => {
   await memberB(b, true);
   const p = await h.waitFor("presence", (e) => e.joined.includes(b.nickname));
   expect(p.here).toBeGreaterThanOrEqual(2);
+  await h.stop();
+});
+
+test("joining a populated room does not announce the members already there", async () => {
+  const b = await agedUser("rb14");
+  const c = await agedUser("rc14");
+  await memberB(b, true);
+  await memberB(c, true);
+  await Bun.sleep(500);
+  const { h } = await joinedA("ra14");
+  await Bun.sleep(1000);
+  // the initial presence state (it may come before the backlog): the count, no names
+  const first = h.events.find((e) => e.type === "presence") as Extract<HelperEvent, { type: "presence" }> | undefined;
+  expect(first).toMatchObject({ joined: [], left: [] });
+  expect(first!.here).toBeGreaterThanOrEqual(2);
+  const d = await agedUser("rd14");
+  await memberB(d, true);
+  await h.waitFor("presence", (e) => e.joined.includes(d.nickname));
+  await Bun.sleep(500);
+  const presences = h.events.filter((e) => e.type === "presence") as Extract<HelperEvent, { type: "presence" }>[];
+  expect(presences.filter((e) => e.joined.includes(b.nickname) || e.joined.includes(c.nickname))).toEqual([]);
+  expect(presences.filter((e) => e.joined.includes(d.nickname))).toHaveLength(1);
   await h.stop();
 });
 
