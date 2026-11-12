@@ -8,6 +8,8 @@ const PLUGIN = 'coffeebreak'
 const SECRET = 'SECRET-PROMPT-1234'
 const IDLE = '☕ The coffee room is only open while Claude is working.'
 const SOCKET = '/tmp/coffeebreak-test/1.sock'
+const HOME = '/home/tester'
+const BUN_LINE = 'Coffee Break needs Bun. Install it with: curl -fsSL https://bun.sh/install | bash — then restart Claude Code.'
 
 type Fetch = { url: string; init?: HttpInit }
 
@@ -41,18 +43,33 @@ class FakeHelper {
   }
 }
 
+/**
+ * Where Bun is: `path` answers `bun --version` with that version (null: the spawn cannot start),
+ * `home` says whether ~/.bun/bin/bun exists, `src` sets COFFEEBREAK_HELPER_SRC=1.
+ */
+type Bun = { path: string | null; home: boolean; src?: boolean }
+
 /** Answers everything beneath the plugin and records what reaches the outside world. */
-function world(on: On) {
+function world(on: On, bun: Bun = { path: '1.4.4', home: false }) {
   const clock = mock.clock(on)
   mock.store(on)
+  mock.env(on, bun.src ? { HOME, COFFEEBREAK_HELPER_SRC: '1' } : { HOME })
   const w = {
     clock,
     helper: new FakeHelper(),
+    /** Helper spawns (the `bun --version` probe is in `probes`). */
     spawns: [] as ProcessSpawnRequest[],
+    probes: [] as ProcessSpawnRequest[],
+    exists: [] as string[],
     fetches: [] as Fetch[],
     commands: [] as string[],
     opens: [] as PaneOpenArgs[],
+    toasts: [] as string[],
   }
+  on('fs.exists', async (_$, e) => {
+    w.exists.push(e.path)
+    return { value: bun.home && e.path === `${HOME}/.bun/bin/bun` }
+  })
   on('session.start', async (_$, e) => ({ cwd: e.cwd }))
   on('session.end', async () => ({ sessionId: 'test' }))
   on('turn.start', async (_$, e) => ({ turnId: e.turnId }))
@@ -70,8 +87,17 @@ function world(on: On) {
   on('ui.panes', async () => ({ value: [] }))
   on('ui.scroll', async () => ({}))
   on('ui.status', async () => ({ value: undefined }))
-  on('ui.toast', async () => ({ value: undefined }))
+  on('ui.toast', async (_$, e) => {
+    w.toasts.push(e.text)
+    return { value: undefined }
+  })
   on('process.spawn', async function* (_$, e) {
+    if (e.argv[1] === '--version') {
+      w.probes.push(e)
+      if (bun.path === null) throw new Error('spawn bun ENOENT')
+      yield { stream: 'stdout', text: `${bun.path}\n` }
+      return { value: { code: 0, signal: null } }
+    }
     w.spawns.push(e)
     return { value: yield* w.helper.stream() }
   })
@@ -180,4 +206,59 @@ test('pane draws messages and the input', async ($, on) => {
   const input = await ui.find({ type: 'Input', key: 'say' })
   expect(input?.props.placeholder).toBe('say something')
   await ui.unmount()
+})
+
+test('the helper runs from the committed bundle with bun on PATH', async ($, on) => {
+  const w = world(on)
+  await startSession($)
+  await $.turn.start({ text: 'long task', turnId: 't1' })
+  await w.clock.advance(25_000)
+  expect(w.probes.map((p) => p.argv)).toEqual([['bun', '--version']])
+  expect(w.spawns).toHaveLength(1)
+  const argv = w.spawns[0]!.argv
+  expect(argv).toHaveLength(2)
+  expect(argv[0]).toBe('bun')
+  expect(argv[1]).toEndWith('/dist/coffeebreakd.js')
+})
+
+test('finds bun in ~/.bun/bin when PATH has none', async ($, on) => {
+  const w = world(on, { path: null, home: true })
+  await startSession($)
+  await $.turn.start({ text: 'long task', turnId: 't1' })
+  await w.clock.advance(25_000)
+  expect(w.exists).toEqual([`${HOME}/.bun/bin/bun`])
+  expect(w.spawns).toHaveLength(1)
+  expect(w.spawns[0]!.argv[0]).toBe(`${HOME}/.bun/bin/bun`)
+  expect(w.spawns[0]!.argv[1]).toEndWith('/dist/coffeebreakd.js')
+})
+
+test('an old bun on PATH does not count', async ($, on) => {
+  const w = world(on, { path: '1.1.38', home: true })
+  await startSession($)
+  await $.turn.start({ text: 'long task', turnId: 't1' })
+  await w.clock.advance(25_000)
+  expect(w.spawns[0]?.argv[0]).toBe(`${HOME}/.bun/bin/bun`)
+})
+
+test('without bun nothing is spawned and the break start shows the Bun line', async ($, on) => {
+  const w = world(on, { path: null, home: false })
+  await startSession($)
+  await $.turn.start({ text: 'long task', turnId: 't1' })
+  await w.clock.advance(25_000)
+  await w.clock.settle()
+  expect(w.spawns).toHaveLength(0)
+  expect(w.toasts).toEqual([BUN_LINE])
+  expect((await runCoffee($)).text).toBe(BUN_LINE)
+  expect((await runCoffee($, 'setup')).text).toBe(BUN_LINE)
+  expect(w.probes).toHaveLength(1) // looked up once per session
+})
+
+test('COFFEEBREAK_HELPER_SRC=1 runs the helper source', async ($, on) => {
+  const w = world(on, { path: '1.4.4', home: false, src: true })
+  await startSession($)
+  await $.turn.start({ text: 'long task', turnId: 't1' })
+  await w.clock.advance(25_000)
+  expect(w.probes).toHaveLength(0)
+  expect(w.spawns[0]?.argv[0]).toBe('bun')
+  expect(w.spawns[0]?.argv[1]).toEndWith('/helper/main.ts')
 })

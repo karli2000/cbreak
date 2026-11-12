@@ -26,6 +26,8 @@ export class FakePort implements Port {
   settings: Settings = { ...DEFAULTS }
   saved: Settings[] = []
   alive = false
+  /** The adapter finds no Bun: each spawn reports `error no_bun` and exits without starting (ruling R2). */
+  noBun = false
 
   private onEvent: ((e: HelperEvent) => void) | null = null
   private onExit: ((info: ExitInfo) => void) | null = null
@@ -35,9 +37,16 @@ export class FakePort implements Port {
 
   spawnHelper(onEvent: (e: HelperEvent) => void, onExit: (info: ExitInfo) => void): void {
     this.spawns++
-    this.alive = true
     this.onEvent = onEvent
     this.onExit = onExit
+    if (this.noBun) {
+      void Promise.resolve().then(() => {
+        onEvent({ type: 'error', code: 'no_bun' })
+        onExit({ code: null, signal: null, stderr: 'no_bun' })
+      })
+      return
+    }
+    this.alive = true
   }
 
   stopHelper(): void {

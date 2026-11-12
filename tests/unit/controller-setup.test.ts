@@ -225,6 +225,69 @@ describe('Controller setup flow', () => {
   })
 })
 
+const BUN_LINE = 'Coffee Break needs Bun. Install it with: curl -fsSL https://bun.sh/install | bash — then restart Claude Code.'
+const INVITE_LINE =
+  'Coffee Break is invite-only right now. Ask the person who invited you to add your GitHub account, then run /coffee setup again.'
+
+describe('Controller setup: Bun and invites', () => {
+  test('/coffee setup without bun answers the Bun line', async () => {
+    const port = new FakePort()
+    port.noBun = true
+    const { c } = await make(port)
+    expect(await c.command('setup')).toBe(BUN_LINE)
+    expect(port.opens).toEqual([])
+    expect(port.calls).toEqual([])
+    // the other subcommands that need the helper answer it too
+    expect(await c.command('name lena')).toBe(BUN_LINE)
+    expect(await c.command('logout')).toBe(BUN_LINE)
+    expect(await c.command('status')).toBe(`${BUN_LINE}\n${SETTINGS_LINE}\nOn break: no`)
+    expect(c.view().mode).toBe('chat')
+  })
+
+  test('not_invited shows the invite copy and setup can be retried', async () => {
+    expect(errorText('not_invited')).toBe(INVITE_LINE)
+    const { port, c } = await make()
+    await run(port, c, 'setup', { state: 'needs_nickname' })
+    port.answer('/nickname/claim', { ok: false, code: 'not_invited' })
+    await c.submit('lena')
+    expect(setup(c).lines).toContain(INVITE_LINE)
+    expect(setup(c).placeholder).toBe(COPY.setupPlaceholder.nick)
+    // the line stays while the person types
+    c.input('lena2')
+    expect(setup(c).lines).toContain(INVITE_LINE)
+    expect(port.stops).toBe(0)
+    expect(port.alive).toBe(true)
+
+    // /coffee setup again (still open) refocuses, and a claim after the invite goes on
+    expect(await c.command('setup')).toBe(COPY.setupOpening)
+    expect(port.spawns).toBe(1)
+    port.answer('/nickname/claim', { ok: true, data: { nickname: 'lena' } })
+    await c.submit('lena')
+    port.emit({ type: 'auth', state: 'needs_rules', nickname: 'lena' })
+    expect(setup(c).lines).toContain(COPY.rules)
+  })
+
+  test('not_invited, pane closed, /coffee setup again after the invite works', async () => {
+    const { port, c } = await make()
+    await run(port, c, 'setup', { state: 'needs_nickname' })
+    port.answer('/nickname/claim', { ok: false, code: 'not_invited' })
+    await c.submit('lena')
+    expect(setup(c).lines).toContain(INVITE_LINE)
+    c.paneClosedByPerson()
+    await tick()
+    expect(port.stops).toBe(1)
+
+    expect(await run(port, c, 'setup', { state: 'needs_nickname' })).toBe(COPY.setupOpening)
+    expect(port.spawns).toBe(2)
+    expect(setup(c).lines).not.toContain(INVITE_LINE)
+    expect(setup(c).placeholder).toBe(COPY.setupPlaceholder.nick)
+    port.answer('/nickname/claim', { ok: true, data: { nickname: 'lena' } })
+    await c.submit('lena')
+    port.emit({ type: 'auth', state: 'needs_rules', nickname: 'lena' })
+    expect(setup(c).lines).toContain(COPY.rules)
+  })
+})
+
 describe('Controller /coffee commands', () => {
   test('status signed in', async () => {
     const port = new FakePort()

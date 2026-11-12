@@ -44,6 +44,9 @@ export const COPY = {
   setupPlaceholder: { signin: 'press Enter to sign in', nick: 'nickname', rules: 'type yes to accept', done: 'press Enter to close' },
   setupGone: 'Coffee break stopped unexpectedly. Run /coffee setup to try again.',
   helperUnavailable: "Couldn't start coffee break. Try again in a moment.",
+  needsBun: 'Coffee Break needs Bun. Install it with: curl -fsSL https://bun.sh/install | bash — then restart Claude Code.',
+  notInvited:
+    'Coffee Break is invite-only right now. Ask the person who invited you to add your GitHub account, then run /coffee setup again.',
   signedInAs: (nick: string) => `You're signed in as ${nick}.`,
   // /coffee subcommands
   statusSignedIn: (nick: string, role: Role) => `Signed in as ${nick} (${role})`,
@@ -95,6 +98,8 @@ export function errorText(code: string, ctx?: { mutedUntil?: string | null }): s
     case 'network': return "Can't reach coffee break, retrying…"
     case 'realtime_unavailable': return COPY.full
     case 'login_failed': return 'GitHub sign-in failed. Run /coffee setup to try again.'
+    case 'no_bun': return COPY.needsBun
+    case 'not_invited': return COPY.notInvited
     default: return `Something went wrong (${code}).`
   }
 }

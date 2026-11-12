@@ -43,6 +43,8 @@ type Helper = {
   /** The /join call of this helper, if one was issued. Settled before any /leave (ruling R5). */
   join: Promise<unknown> | null
   ping: Timer | null
+  /** The adapter found no Bun and did not start it (ruling R2: `error no_bun`, then an exit). */
+  noBun: boolean
 }
 
 export class Controller {
@@ -74,6 +76,10 @@ export class Controller {
   /** Kicked or banned: no joins for the rest of the session. */
   private removed: string | null = null
   private ended = false
+  /** The latest spawn reported no Bun (cleared by a helper's hello): commands answer COPY.needsBun. */
+  private noBun = false
+  /** A break start found no Bun in this turn: no more break attempts until the turn completes. */
+  private noBunTurn = false
   private setup: Setup
 
   constructor(private port: Port) {
@@ -92,6 +98,7 @@ export class Controller {
       closePane: () => this.closePane(),
       openPane: (focus, title) => this.openPane(focus, title),
       block: (reason) => this.block(reason),
+      unavailable: () => (this.noBun ? COPY.needsBun : COPY.helperUnavailable),
     })
   }
 
@@ -99,7 +106,7 @@ export class Controller {
 
   turnStart(): void {
     this.busy = true
-    if (!this.settings.enabled || this.removed !== null || this.ended) return
+    if (!this.settings.enabled || this.removed !== null || this.ended || this.noBunTurn) return
     switch (this.phase) {
       case 'idle': // not `left`: closing the pane holds off until a turn completes
         this.phase = 'pending'
@@ -119,6 +126,7 @@ export class Controller {
 
   turnComplete(_aborted: boolean): void {
     this.busy = false
+    this.noBunTurn = false
     switch (this.phase) {
       case 'pending':
         this.cancelPending()
@@ -227,6 +235,7 @@ export class Controller {
     if (!this.busy) return COPY.idle // exactly, even when removed (ruling R9)
     if (this.removed !== null) return this.removed
     if (!this.settings.enabled) return COPY.off
+    if (this.noBunTurn) return COPY.needsBun
     if (this.setup.running()) {
       await this.setup.focus()
       return COPY.setupRunning
@@ -238,7 +247,7 @@ export class Controller {
 
   /** A break the setup asks for once it is ready, if Claude is still busy (or already joining). */
   private async manualBreak(): Promise<void> {
-    if (!this.busy || !this.settings.enabled || this.removed !== null || this.ended || this.inRoom()) return
+    if (!this.busy || !this.settings.enabled || this.removed !== null || this.ended || this.noBunTurn || this.inRoom()) return
     await this.manualStart()
   }
 
@@ -280,6 +289,12 @@ export class Controller {
     h.breakHeld = true
     await h.hello.promise
     if (gen !== this.gen) return
+    if (!h.socket && h.noBun) {
+      // once per turn: no more break attempts until the turn completes
+      this.noBunTurn = true
+      this.port.toast(COPY.needsBun)
+      return this.fail(h, COPY.needsBun)
+    }
     if (!h.socket) return this.fail(h, COPY.helperGone)
 
     await h.auth.promise
@@ -473,6 +488,7 @@ export class Controller {
       breakHeld: false,
       join: null,
       ping: null,
+      noBun: false,
     }
     this.helper = h
     this.port.spawnHelper(
@@ -509,6 +525,7 @@ export class Controller {
     h.auth.resolve(null)
     if (this.helper !== h) return
     this.helper = null
+    if (h.noBun) return // it never started: the break start or the lease waiting on it reports that
     if (h.holds > 0) this.setup.helperGone()
     if (this.phase !== 'joining' && !this.inRoom()) return
     this.addLine(COPY.helperGone)
@@ -544,6 +561,7 @@ export class Controller {
       case 'hello':
         if (h.socket) return
         h.socket = e.socket
+        this.noBun = false
         h.hello.resolve(e.socket)
         this.schedulePing(h)
         return
@@ -605,6 +623,12 @@ export class Controller {
         }
         break
       case 'error':
+        if (e.code === 'no_bun') {
+          // the adapter exits right after; whoever waits on this helper reports it
+          h.noBun = true
+          this.noBun = true
+          return
+        }
         if (this.setup.running()) return this.setup.onError(e.code)
         this.addErrorLine(this.err(e.code))
         break

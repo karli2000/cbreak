@@ -8,6 +8,7 @@ import type { EngineInterface, HookStream, ProcessSpawnChunk, ProcessSpawnResult
 import type { Api, ApiPath, ApiResult, HelperEvent } from '../shared/protocol.ts'
 import { Controller } from './lib/controller.ts'
 import { splitLines } from './lib/format.ts'
+import { bunVersionOk, helperArgv, homeBunPath } from './lib/helper-argv.ts'
 import type { Port, Timer } from './lib/port.ts'
 import { mergeStored, type Settings } from './lib/settings.ts'
 import { renderPane } from './pane.ts'
@@ -27,6 +28,10 @@ let current: Port | null = null
 /** While `/coffee` runs, its own `$`: an open made through it answers the person's command. */
 let pinned: Port | null = null
 let child: Child | null = null
+/** A helper start waiting on the Bun lookup; `stopHelper` cancels it so no orphan is spawned. */
+let starting: { cancelled: boolean } | null = null
+/** The helper's argv, looked up once per module load (session): null when there is no Bun. */
+let argvLookup: Promise<string[] | null> | null = null
 /** The pane is open (placed or waiting) under this title; null when closed. */
 let paneTitle: string | null = null
 
@@ -80,17 +85,61 @@ function portOver($: Engine): Port {
 
 // ---------- helper process ----------
 
+/**
+ * Starts coffeebreakd with the argv the Bun lookup found. Without Bun nothing is spawned: the
+ * Controller gets `error no_bun` and an exit (ruling R2).
+ */
 function spawnHelper($: Engine, onEvent: (e: HelperEvent) => void, onExit: (info: ExitInfo) => void): void {
-  let stream: Child['stream']
+  const start = { cancelled: false }
+  starting = start
+  argvLookup ??= findHelperArgv($).catch(() => null)
+  void argvLookup.then((argv) => {
+    if (starting === start) starting = null
+    if (start.cancelled) return onExit({ code: null, signal: null, stderr: '' })
+    if (!argv) {
+      onEvent({ type: 'error', code: 'no_bun' })
+      return onExit({ code: null, signal: null, stderr: 'no_bun' })
+    }
+    let stream: Child['stream']
+    try {
+      stream = $.process.spawn({ argv })
+    } catch {
+      return onExit({ code: null, signal: null, stderr: '' })
+    }
+    const c: Child = { stream, stopping: false }
+    child = c
+    void pump(c, onEvent, onExit, (text) => $.ui.log(text, { to: 'debug' }))
+  })
+}
+
+/** `COFFEEBREAK_HELPER_SRC=1` → the source; else the bundle via `bun` on PATH (≥ 1.2), else ~/.bun/bin/bun. */
+async function findHelperArgv($: Engine): Promise<string[] | null> {
+  const fromSource = (await $.env.get('COFFEEBREAK_HELPER_SRC').catch(() => undefined)) === '1'
+  const pathBun = !fromSource && (await bunOnPath($))
+  const homeBun = fromSource || pathBun ? null : await bunInHome($)
+  return helperArgv($.plugin.root, { pathBun, homeBun, fromSource })
+}
+
+/** A one-off `bun --version`: true when it exits 0 with a version of at least 1.2. */
+async function bunOnPath($: Engine): Promise<boolean> {
   try {
-    stream = $.process.spawn({ argv: ['bun', `${$.plugin.root}/helper/main.ts`] })
+    const probe = $.process.spawn({ argv: ['bun', '--version'] })
+    let out = ''
+    for await (const chunk of probe) if (chunk.stream === 'stdout') out += chunk.text
+    const res = await probe.result
+    return res.code === 0 && bunVersionOk(out)
   } catch {
-    void Promise.resolve().then(() => onExit({ code: null, signal: null, stderr: '' }))
-    return
+    return false // not on PATH (the spawn cannot start) or refused
   }
-  const c: Child = { stream, stopping: false }
-  child = c
-  void pump(c, onEvent, onExit, (text) => $.ui.log(text, { to: 'debug' }))
+}
+
+async function bunInHome($: Engine): Promise<string | null> {
+  try {
+    const path = homeBunPath(await $.env.get('HOME'))
+    return path && (await $.fs.exists(path)) ? path : null
+  } catch {
+    return null
+  }
 }
 
 /** Reads the helper's NDJSON stdout until it ends. Leaving the loop (or `return()`) kills the child. */
@@ -141,6 +190,10 @@ function parseEvent(line: string): HelperEvent | null {
 }
 
 function stopHelper(): void {
+  if (starting) {
+    starting.cancelled = true
+    starting = null
+  }
   const c = child
   if (!c) return
   c.stopping = true

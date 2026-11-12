@@ -678,3 +678,56 @@ describe('Controller final-review fixes', () => {
     expect(errorText('not_in_room')).toBe("You're not in the room anymore.")
   })
 })
+
+const BUN_LINE = 'Coffee Break needs Bun. Install it with: curl -fsSL https://bun.sh/install | bash — then restart Claude Code.'
+
+describe('Controller without Bun (ruling R2)', () => {
+  test('needsBun copy is exact and errorText maps no_bun to it', () => {
+    expect(COPY.needsBun).toBe(BUN_LINE)
+    expect(errorText('no_bun')).toBe(BUN_LINE)
+  })
+
+  test('no_bun at break start shows the Bun line once and spawns nothing more that turn', async () => {
+    const port = new FakePort()
+    port.noBun = true
+    const { c } = await make(port)
+    c.turnStart()
+    port.advance(20_000)
+    await tick()
+    expect(port.spawns).toBe(1)
+    expect(port.toasts).toEqual([BUN_LINE])
+    expect(texts(c).filter((t) => t === BUN_LINE)).toHaveLength(1)
+    expect(texts(c)).not.toContain(COPY.helperGone)
+    expect(port.opens).toEqual([])
+
+    // the same turn: /coffee answers the Bun line without another spawn, nothing more appears
+    expect(await c.command('')).toBe(BUN_LINE)
+    port.advance(60_000)
+    await tick()
+    expect(port.spawns).toBe(1)
+    expect(port.toasts).toEqual([BUN_LINE])
+    expect(port.opens).toEqual([])
+
+    // the next turn tries once more
+    c.turnComplete(false)
+    c.turnStart()
+    port.advance(20_000)
+    await tick()
+    expect(port.spawns).toBe(2)
+    expect(port.toasts).toEqual([BUN_LINE, BUN_LINE])
+  })
+
+  test('/coffee while pending without Bun closes the early pane and shows the Bun line', async () => {
+    const port = new FakePort()
+    port.noBun = true
+    const { c } = await make(port)
+    c.turnStart()
+    expect(await c.command('')).toBe(COPY.opening)
+    await tick()
+    expect(port.spawns).toBe(1)
+    expect(port.toasts).toEqual([BUN_LINE])
+    expect(port.closes).toBe(1)
+    expect(await c.command('')).toBe(BUN_LINE)
+    expect(port.spawns).toBe(1)
+  })
+})

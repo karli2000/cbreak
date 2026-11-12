@@ -36,6 +36,8 @@ export interface SetupHost {
   openPane(focus: boolean, title: string): Promise<boolean>
   /** Kicked or banned for the session; returns the `removed` text. */
   block(reason: string | null): string
+  /** The answer when `lease()` gave null: COPY.needsBun without Bun, else COPY.helperUnavailable. */
+  unavailable(): string
 }
 
 type Step = 'signin' | 'nick' | 'rules' | 'done'
@@ -169,7 +171,12 @@ export class Setup {
           break
         }
         const r = await lease.call('/nickname/claim', { nick }) // success arrives as an `auth` event
-        if (!r.ok && this.step === 'nick') this.check = errorText(r.code)
+        if (r.ok || this.step !== 'nick') break
+        if (r.code === 'not_invited') {
+          // a lasting line (not the live check): the person stays on this step and can retry once invited
+          this.check = null
+          if (this.lines[this.lines.length - 1] !== COPY.notInvited) this.push(COPY.notInvited)
+        } else this.check = errorText(r.code)
         break
       }
       case 'rules': {
@@ -237,7 +244,7 @@ export class Setup {
       return COPY.setupOpening
     }
     const lease = await this.host.lease()
-    if (!lease) return COPY.helperUnavailable
+    if (!lease) return this.host.unavailable()
     const auth = lease.auth()
     if (auth.state === 'ready') {
       await this.host.startBreak()
@@ -321,9 +328,10 @@ export class Setup {
   }
 
   private async status(): Promise<string> {
-    let who = COPY.helperUnavailable
     const lease = await this.host.lease()
-    if (lease) {
+    let who: string
+    if (!lease) who = this.host.unavailable()
+    else {
       try {
         const r = await lease.call('/status', {})
         who = authLine(r.ok ? r.data.auth : lease.auth())
@@ -337,7 +345,7 @@ export class Setup {
   private async name(nick: string): Promise<string> {
     if (!NICK.test(nick)) return errorText('nickname_invalid')
     const lease = await this.host.lease()
-    if (!lease) return COPY.helperUnavailable
+    if (!lease) return this.host.unavailable()
     try {
       const r = await lease.call('/nickname/claim', { nick })
       return r.ok ? COPY.nameSet(nick) : errorText(r.code)
@@ -350,7 +358,7 @@ export class Setup {
   private async account(path: '/logout' | '/delete-account', done: string): Promise<string> {
     await this.host.endBreak()
     const lease = await this.host.lease()
-    if (!lease) return COPY.helperUnavailable
+    if (!lease) return this.host.unavailable()
     try {
       const r = await lease.call(path, {})
       if (r.ok || (path === '/logout' && r.code === 'not_signed_in')) return done
