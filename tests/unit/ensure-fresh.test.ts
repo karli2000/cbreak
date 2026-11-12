@@ -105,6 +105,25 @@ test("persistRefreshes writes sessions from TOKEN_REFRESHED and SIGNED_IN, ignor
   expect(await store.read()).toEqual(s2);
 });
 
+test("persistRefreshes skips a session the store already wrote (no second write racing the first)", async () => {
+  let cb: ((event: string, s: Session | null) => void) | null = null;
+  const client = { auth: { onAuthStateChange: (f: typeof cb) => { cb = f; return { data: { subscription: { unsubscribe() {} } } }; } } };
+  persistRefreshes(client as any, store);
+  const s1 = mk("a1", "r1", now() + 900);
+  await store.write(s1);
+  let writes = 0;
+  const orig = store.write.bind(store);
+  store.write = async (s: Session) => { writes++; return orig(s); };
+  cb!("TOKEN_REFRESHED", s1);
+  await Bun.sleep(20);
+  expect(writes).toBe(0);
+  const s2 = mk("a2", "r2", now() + 900);
+  cb!("TOKEN_REFRESHED", s2);
+  await Bun.sleep(20);
+  expect(writes).toBe(1);
+  expect(await store.read()).toEqual(s2);
+});
+
 test("usableWithoutRefresh: only sessions valid for more than 120 s (auth-js refreshes inside 90 s)", async () => {
   const { usableWithoutRefresh } = await import("../../plugin/helper/auth");
   const t = 1_800_000_000_000;

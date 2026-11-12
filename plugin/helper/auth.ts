@@ -48,16 +48,43 @@ export class AuthStore {
     }
   }
 
-  async write(s: Session): Promise<void> {
-    await this.ensureDir()
-    const tmp = `${this.file}.${process.pid}.tmp`
-    await writeFile(tmp, JSON.stringify({ version: 1, url: this.url, session: s }), { mode: 0o600 })
-    await chmod(tmp, 0o600)
-    await rename(tmp, this.file)
+  /**
+   * Writes are queued, so they land in call order (the last write wins), and each uses its own tmp
+   * name, so two writes in flight can never rename each other's file away.
+   */
+  write(s: Session): Promise<void> {
+    const run = this.writes.then(() => this.writeNow(s))
+    this.writes = run.catch(() => {})
+    return run
+  }
+
+  /** True when `refreshToken` is the one this process last wrote to the file. */
+  written(refreshToken: string): boolean {
+    return this.lastWritten === refreshToken
   }
 
   async clear(): Promise<void> {
+    await this.writes
+    this.lastWritten = null
     await rm(this.file, { force: true })
+  }
+
+  private writes: Promise<void> = Promise.resolve()
+  private lastWritten: string | null = null
+  private tmpSeq = 0
+
+  private async writeNow(s: Session): Promise<void> {
+    await this.ensureDir()
+    const tmp = `${this.file}.${process.pid}.${++this.tmpSeq}.tmp`
+    try {
+      await writeFile(tmp, JSON.stringify({ version: 1, url: this.url, session: s }), { mode: 0o600 })
+      await chmod(tmp, 0o600)
+      await rename(tmp, this.file)
+    } catch (e) {
+      await rm(tmp, { force: true })
+      throw e
+    }
+    this.lastWritten = s.refresh_token
   }
 
   async withLock<T>(fn: () => Promise<T>): Promise<T> {
@@ -205,8 +232,11 @@ export async function ensureFreshSession(
 export function persistRefreshes(client: SupabaseClient, store: AuthStore): void {
   client.auth.onAuthStateChange((event, session) => {
     if ((event !== 'TOKEN_REFRESHED' && event !== 'SIGNED_IN') || !session) return
-    // never await inside the callback (auth-js holds its lock while notifying)
-    setTimeout(() => void store.write(session).catch(() => {}), 0)
+    // never await inside the callback (auth-js holds its lock while notifying); the locked paths
+    // (ensureFreshSession, login) write their own sessions, so skip one that is already on file
+    setTimeout(() => {
+      if (!store.written(session.refresh_token)) void store.write(session).catch(() => {})
+    }, 0)
   })
 }
 

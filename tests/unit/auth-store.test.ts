@@ -83,3 +83,20 @@ test("a file stored for another URL reads as signed out and is left alone", asyn
   expect(await hosted.read()).toBeNull();
   expect(existsSync(join(dir, "auth.json"))).toBe(true);
 });
+
+test("concurrent writes never collide and the last write wins", async () => {
+  const sessions = Array.from({ length: 50 }, (_, i) => ({ ...sess, access_token: `a${i}`, refresh_token: `r${i}` }) as Session);
+  await Promise.all(sessions.map((s) => store.write(s)));
+  expect(await store.read()).toEqual(sessions[49]);
+  // no leftover tmp files
+  const { readdirSync } = await import("node:fs");
+  expect(readdirSync(dir).filter((f) => f.endsWith(".tmp"))).toEqual([]);
+});
+
+test("written() reports the refresh token on file; clear() forgets it", async () => {
+  expect(store.written("r")).toBe(false);
+  await store.write(sess);
+  expect(store.written("r")).toBe(true);
+  await store.clear();
+  expect(store.written("r")).toBe(false);
+});
