@@ -60,6 +60,7 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 | `20261111000750_realtime_policies_liveness.sql` | Drops and recreates both `realtime.messages` policies: the occupancy row must also be live (`last_seen > now() - 90 s`). Otherwise as 000700 |
 | `20261111000800_retention.sql` | `banned_github_ids` (RLS on, no grants), `private.purge_expired()` plus pg_cron job `coffeebreak-purge` (every minute), `delete_my_account()`, `claim_nickname` and `admin_unban` redefined, indexes on `reports(reporter_id)`, `reports(target_id)`, `occupancy(room, instance, last_seen)`, sequences revoked from anon/authenticated |
 | `20261111000900_final_review_fixes.sql` | `messages_select` policy replaced (live occupancy of the same room/instance or staff, never banned, never soft-deleted). `send_message`: `room_closed`, stale row → `not_in_room`, payload gains `user_id`. `heartbeat`: `room_closed`. `report_user`: target from the message when `message_id` is given. `mod_ban`: `kicked` payload is `{user_id}` |
+| `20261112000100_moderator_site.sql` | Plan 3 RPCs: `mod_list_banned()` (moderator, banned profiles, newest first, max 500), `admin_list_staff()` (admin, role <> user), `admin_unban_github_id(github_id, reason)` (admin; deletes the `banned_github_ids` hash row, `not_found` if none, logs `admin_unban_github_id`) |
 
 ## Edge Functions
 
@@ -123,7 +124,7 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 ## Known limitations
 
 - A muted (not banned) user can clear a mute by deleting the account and signing up again with the same GitHub id (only bans are remembered via `banned_github_ids`).
-- `admin_unban`'s hash removal is unreachable once a banned profile deleted itself. Lifting such a ban needs SQL: `delete from public.banned_github_ids where github_id_hash = …`. Plan 3 may add `admin_unban_github_id`.
+- `admin_unban`'s hash removal is unreachable once a banned profile deleted itself. Lift such a ban with `admin_unban_github_id(github_id, reason)` (admin; needs the numeric GitHub id).
 
 ## Client contract (for Plan 2)
 
@@ -194,3 +195,4 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 - Plan 2 (`docs/superpowers/plans/2026-11-12-coffeebreak-02-helper-and-mod.md`) is implemented: helper Tasks 1–4, mod Tasks 5–8. The spike code (`spikes/mod-pane/`, `spikes/login/`) is removed; `spikes/FINDINGS.md` stays.
 - Plan 2 owner run done (2026-11-12): everything works in the owner's real terminal.
 - Plan 3 is written: `docs/superpowers/plans/2026-11-12-coffeebreak-03-moderator-site.md` (8 tasks: backend RPCs, site scaffold/data layer, shell/gate, reports, live view, users/bans, audit/admin, headers/deploy). Next: execute it.
+- **Owner action:** `mod_list_banned`, `admin_list_staff`, `admin_unban_github_id` (migration 20261112000100) need `db push --remote` (owner).
