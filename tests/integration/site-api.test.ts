@@ -150,7 +150,7 @@ test("listActions cursor does not skip actions sharing a created_at", async () =
   const rows = await api.listActions(mod, { targetId: b.userId });
   expect(rows.map((a) => a.reason)).toEqual(["c", "b", "a"]);
   // Give all three the same timestamp (service role), then page one at a time.
-  const ts = "2026-01-01T00:00:00.000Z";
+  const ts = "2026-01-01T00:00:00.123456+00:00";
   const { error } = await adminClient().from("mod_actions").update({ created_at: ts }).in("id", rows.map((r) => r.id));
   expect(error).toBeNull();
   const p1 = await api.listActions(mod, { targetId: b.userId }, 1);
@@ -159,6 +159,14 @@ test("listActions cursor does not skip actions sharing a created_at", async () =
   const p4 = await api.listActions(mod, { targetId: b.userId, before: { created_at: p3[0]!.created_at, id: p3[0]!.id } }, 1);
   expect([p1, p2, p3].map((p) => p[0]!.reason)).toEqual(["c", "b", "a"]);
   expect(p4).toEqual([]);
+  expect(p1[0]!.created_at).toContain(".123456");
+  // A row one microsecond earlier must still come after the tied ones, and later ones must not leak in.
+  const { error: e2 } = await adminClient().from("mod_actions").update({ created_at: "2026-01-01T00:00:00.123455+00:00" }).eq("id", rows[2]!.id);
+  expect(e2).toBeNull();
+  const q1 = await api.listActions(mod, { targetId: b.userId }, 2);
+  const q2 = await api.listActions(mod, { targetId: b.userId, before: { created_at: q1[1]!.created_at, id: q1[1]!.id } }, 2);
+  expect(q1.map((a) => a.reason)).toEqual(["c", "b"]);
+  expect(q2.map((a) => a.reason)).toEqual(["a"]);
 });
 
 test("names resolves ids in one call", async () => {

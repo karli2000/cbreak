@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { AuthProvider } from '../auth.tsx'
 import { ApiError, type ModAction, type Role } from '../api.ts'
+import { errorText } from '../copy.ts'
 import { fakeApi } from '../fake-api.ts'
 import { Audit } from './Audit.tsx'
 
@@ -102,6 +103,14 @@ describe('audit', () => {
     const last = api.calls.filter((c) => c.name === 'listActions').at(-1)!
     expect(last.args[0]).toMatchObject({ before: { created_at: '2026-11-12T10:01:00Z', id: 1 } })
     expect(screen.getByText('reason 2')).toBeTruthy()
+  })
+
+  test('a failed names lookup shows unknown and an error', async () => {
+    setup({ names: async () => Promise.reject(new ApiError('network')) })
+    expect(await screen.findByText('reason 2')).toBeTruthy()
+    expect(screen.getByText(errorText('network'))).toBeTruthy()
+    expect(screen.queryByText('deleted user')).toBeNull()
+    expect(screen.getAllByText('unknown').length).toBe(4)
   })
 
   test('load more disappears when the page is short', async () => {

@@ -23,7 +23,7 @@ function githubAge(iso: string | null): string {
   return iso === null ? 'unknown → slow mode' : new Date(iso).toLocaleDateString()
 }
 
-type Result = { status: 'found'; data: UserLookup; actors: Map<string, { nickname: string; role: Role }> } | { status: 'missing' } | { status: 'error'; text: string }
+type Result = { status: 'found'; data: UserLookup; actors: Map<string, { nickname: string; role: Role }> | null; namesError: string | null } | { status: 'missing' } | { status: 'error'; text: string }
 
 export function Users({ api, role }: { api: Bound; role: Role }) {
   const onAuthError = useOnAuthError()
@@ -35,14 +35,16 @@ export function Users({ api, role }: { api: Bound; role: Role }) {
     const mine = ++gen.current
     try {
       const data = await api.lookupUser(nick)
+      let namesError: string | null = null
       const actors = await api
         .names(data.actions_against.map((a) => a.actor_id).filter((x): x is string => x !== null))
         .catch((e: unknown) => {
           onAuthError(e)
-          return new Map<string, { nickname: string; role: Role }>()
+          namesError = errorText(e instanceof ApiError ? e.code : 'unknown')
+          return null
         })
       if (mine !== gen.current) return
-      setResult({ status: 'found', data, actors })
+      setResult({ status: 'found', data, actors, namesError })
     } catch (e) {
       onAuthError(e)
       if (mine !== gen.current) return
@@ -104,12 +106,13 @@ export function Users({ api, role }: { api: Bound; role: Role }) {
             ))}
           </ul>
           <h3>Actions against them</h3>
+          {found.namesError && <p role="alert">{found.namesError}</p>}
           {found.data.actions_against.length === 0 && <p className="muted">None.</p>}
           <ul className="reports">
             {found.data.actions_against.map((a) => (
               <li key={a.id} className="report">
                 <p>
-                  <strong>{a.action}</strong> by {a.actor_id ? (found.actors.get(a.actor_id)?.nickname ?? 'deleted user') : 'system'} ·{' '}
+                  <strong>{a.action}</strong> by {a.actor_id ? (found.actors ? (found.actors.get(a.actor_id)?.nickname ?? 'deleted user') : 'unknown') : 'system'} ·{' '}
                   <time dateTime={a.created_at}>{new Date(a.created_at).toLocaleString()}</time>
                 </p>
                 {a.reason && <p className="snap-body">{a.reason}</p>}

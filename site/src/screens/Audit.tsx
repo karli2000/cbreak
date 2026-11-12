@@ -36,6 +36,8 @@ export function Audit({ api, pageSize = 50 }: { api: Bound; pageSize?: number })
   const [target, setTarget] = useState('')
   const [rows, setRows] = useState<ModAction[]>([])
   const [who, setWho] = useState<Who>(new Map())
+  const [unresolved, setUnresolved] = useState<Set<string>>(new Set())
+  const [resolving, setResolving] = useState(false)
   const [more, setMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -52,12 +54,20 @@ export function Audit({ api, pageSize = 50 }: { api: Bound; pageSize?: number })
       const last = append ? current[current.length - 1] : undefined
       const page = await api.listActions(last ? { ...filters, before: { created_at: last.created_at, id: last.id } } : filters, pageSize)
       const ids = page.flatMap((a) => [a.actor_id, a.target_id]).filter((x): x is string => x !== null)
+      let namesError: string | null = null
       const found = await api.names(ids).catch((e: unknown) => {
         onAuthError(e)
+        namesError = errorText(e instanceof ApiError ? e.code : 'unknown')
         return new Map() as Who
       })
       if (mine !== gen.current) return
       setWho((w) => new Map([...(append ? w : []), ...found]))
+      setUnresolved((u) => {
+        const n = new Set(append ? u : [])
+        if (namesError) for (const id of ids) n.add(id)
+        return n
+      })
+      if (namesError) setError(namesError)
       setRows(append ? [...current, ...page] : page)
       setMore(page.length === pageSize)
     } catch (e) {
@@ -88,8 +98,10 @@ export function Audit({ api, pageSize = 50 }: { api: Bound; pageSize?: number })
 
   async function submit(ev: React.FormEvent) {
     ev.preventDefault()
+    if (resolving) return
     const mine = ++gen.current
     setError(null)
+    setResolving(true)
     try {
       const [actorId, targetId] = await Promise.all([resolve(actor), resolve(target)])
       if (mine !== gen.current) return
@@ -105,6 +117,8 @@ export function Audit({ api, pageSize = 50 }: { api: Bound; pageSize?: number })
       const code = e instanceof ApiError ? e.code : 'unknown'
       setError(code === 'not_found' ? 'No user with that nickname.' : errorText(code))
       setLoading(false)
+    } finally {
+      setResolving(false)
     }
   }
 
@@ -128,7 +142,9 @@ export function Audit({ api, pageSize = 50 }: { api: Bound; pageSize?: number })
         <label>
           Target <input value={target} onChange={(e) => setTarget(e.target.value)} />
         </label>{' '}
-        <button type="submit">Filter</button>
+        <button type="submit" disabled={resolving}>
+          Filter
+        </button>
       </form>
       {error && <p role="alert">{error}</p>}
       <table>
@@ -148,9 +164,9 @@ export function Audit({ api, pageSize = 50 }: { api: Bound; pageSize?: number })
               <td>
                 <time dateTime={a.created_at}>{new Date(a.created_at).toLocaleString()}</time>
               </td>
-              <td>{a.actor_id === null ? 'system' : (who.get(a.actor_id)?.nickname ?? 'deleted user')}</td>
+              <td>{a.actor_id === null ? 'system' : (who.get(a.actor_id)?.nickname ?? (unresolved.has(a.actor_id) ? 'unknown' : 'deleted user'))}</td>
               <td>{a.action}</td>
-              <td>{a.target_id === null ? '—' : (who.get(a.target_id)?.nickname ?? 'deleted user')}</td>
+              <td>{a.target_id === null ? '—' : (who.get(a.target_id)?.nickname ?? (unresolved.has(a.target_id) ? 'unknown' : 'deleted user'))}</td>
               <td className="snap-body">{a.reason ?? ''}</td>
               <td className="snap-body">{detailsText(a.details)}</td>
             </tr>
@@ -159,7 +175,7 @@ export function Audit({ api, pageSize = 50 }: { api: Bound; pageSize?: number })
       </table>
       {!loading && rows.length === 0 && !error && <p className="muted">No actions.</p>}
       {more && (
-        <button disabled={loading} onClick={() => !busy.current && void load(applied.current, true, rows)}>
+        <button disabled={loading || resolving} onClick={() => !busy.current && void load(applied.current, true, rows)}>
           Load more
         </button>
       )}

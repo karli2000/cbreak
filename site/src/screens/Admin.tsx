@@ -177,6 +177,10 @@ function RoomRow({ room, api, onSaved }: { room: Room; api: Bound; onSaved(): Pr
   const [lang, setLang] = useState(room.lang ?? '')
   const [open, setOpen] = useState(room.is_open)
   async function save() {
+    if (!title.trim()) {
+      g.setError('Enter a title.')
+      return
+    }
     const ok = await g.run(() => api.upsertRoom({ slug: room.slug, title: title.trim(), kind: kind.trim(), lang: lang.trim() || null, is_open: open }))
     if (ok) await onSaved()
   }
