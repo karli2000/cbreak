@@ -27,6 +27,7 @@ function Gate({ api }: { api: Bound }) {
   const onAuthError = useOnAuthError()
   const [loaded, setLoaded] = useState<MeState | null>(null)
   const [signInError, setSignInError] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
   const userId = session?.user.id
   // A result for another user counts as still loading, so an old Shell never shows for a new user.
   const state: { status: 'loading' } | MeResult = loaded && loaded.uid === userId ? loaded : { status: 'loading' }
@@ -46,7 +47,7 @@ function Gate({ api }: { api: Bound }) {
     return () => {
       alive = false
     }
-  }, [api, userId, onAuthError])
+  }, [api, userId, onAuthError, attempt])
 
   if (loading) return <p className="center">Loading…</p>
 
@@ -79,6 +80,14 @@ function Gate({ api }: { api: Bound }) {
     return (
       <main className="center">
         <p role="alert">{errorText(state.code)}</p>
+        <button
+          onClick={() => {
+            setLoaded(null)
+            setAttempt((n) => n + 1)
+          }}
+        >
+          {COPY.retry}
+        </button>{' '}
         {signOutButton}
       </main>
     )

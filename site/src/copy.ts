@@ -3,6 +3,7 @@ export const COPY = {
   banned: 'Your account is banned.',
   signIn: 'Sign in with GitHub',
   signOut: 'Sign out',
+  retry: 'Retry',
   expiredMessage: 'That message is already gone (messages expire after 15 minutes).',
   retention: 'Chat messages expire after 15 minutes; the snapshot is the record.',
   resolvedRetention: 'Resolved reports are kept 90 days.',

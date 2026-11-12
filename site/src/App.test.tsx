@@ -59,6 +59,24 @@ describe('gate', () => {
     }
   })
 
+  test('a failed profile load offers Retry, which loads it again', async () => {
+    const { client } = fakeClient(true)
+    let n = 0
+    const api = fakeApi({
+      me: async () => {
+        if (n++ === 0) throw new ApiError('network')
+        return staff('moderator')
+      },
+      listReports: async () => [],
+    })
+    render(<App client={client} api={api} />)
+    expect((await screen.findByRole('alert')).textContent).toBe("Can't reach the server. Check your connection.")
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeTruthy()
+    ;(await screen.findByRole('button', { name: 'Retry' })).click()
+    expect(await screen.findByText('☕ Coffee Break moderation · karli (moderator)')).toBeTruthy()
+    expect(api.calls.filter((c) => c.name === 'me')).toHaveLength(2)
+  })
+
   test('moderator sees the tabs without Admin; admin sees Admin', async () => {
     for (const role of ['moderator', 'admin'] as const) {
       const { client } = fakeClient(true)
