@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Session } from "@supabase/supabase-js";
-import { AuthStore, ensureFreshSession } from "../../plugin/helper/auth";
+import { AuthStore, ensureFreshSession, persistRefreshes } from "../../plugin/helper/auth";
 
 let root: string, dir: string, store: AuthStore;
 beforeEach(() => { root = mkdtempSync(join(tmpdir(), "cb-ef-")); dir = join(root, "d"); store = new AuthStore(dir); });
@@ -14,13 +14,15 @@ const mk = (access: string, refresh: string, exp: number) =>
 const now = () => Math.floor(Date.now() / 1000);
 
 function stub(current: Session | null, refreshResult: { data?: { session: Session }; error?: object }) {
-  const calls = { refresh: 0, lockHeld: false, setAuth: [] as string[] };
+  const calls = { refresh: 0, lockHeld: false, setAuth: [] as string[], refreshTokens: [] as string[], fileAtRefresh: null as Session | null };
   const client = {
     auth: {
       getSession: async () => ({ data: { session: current } }),
       setSession: async () => ({ error: null }),
-      refreshSession: async () => {
+      refreshSession: async (arg: { refresh_token: string }) => {
         calls.refresh++;
+        calls.refreshTokens.push(arg.refresh_token);
+        calls.fileAtRefresh = await store.read();
         calls.lockHeld = existsSync(join(dir, "auth.lock"));
         return refreshResult.error ? { data: { session: null }, error: refreshResult.error } : { data: refreshResult.data, error: null };
       },
@@ -63,4 +65,53 @@ test("retryable refresh errors keep the file and throw network", async () => {
     await expect(ensureFreshSession(client, store, 120)).rejects.toMatchObject({ code: "network" });
     expect(await store.read()).toEqual(expired);
   }
+});
+
+test("a newer in-memory session wins over an older file: its refresh token is used and persisted first", async () => {
+  const onDisk = mk("a1", "r1", now() - 300); // stale copy (memory was refreshed without reaching the file)
+  await store.write(onDisk);
+  const mem = mk("a2", "r2", now() - 100);
+  const fresh = mk("a3", "r3", now() + 3600);
+  const { client, calls } = stub(mem, { data: { session: fresh } });
+  expect(await ensureFreshSession(client, store, 120)).toEqual(fresh);
+  expect(calls.refreshTokens).toEqual(["r2"]);
+  expect(calls.fileAtRefresh).toEqual(mem); // persisted before spending it
+  expect(await store.read()).toEqual(fresh);
+});
+
+test("a newer in-memory session is kept on disk when its refresh fails transiently", async () => {
+  await store.write(mk("a1", "r1", now() - 300));
+  const mem = mk("a2", "r2", now() - 100);
+  const { client } = stub(mem, { error: { name: "AuthRetryableFetchError", status: 0, message: "fetch failed" } });
+  await expect(ensureFreshSession(client, store, 120)).rejects.toMatchObject({ code: "network" });
+  expect(await store.read()).toEqual(mem);
+});
+
+test("persistRefreshes writes sessions from TOKEN_REFRESHED and SIGNED_IN, ignores other events", async () => {
+  let cb: ((event: string, s: Session | null) => void) | null = null;
+  const client = { auth: { onAuthStateChange: (f: typeof cb) => { cb = f; return { data: { subscription: { unsubscribe() {} } } }; } } };
+  persistRefreshes(client as any, store);
+  const s1 = mk("a1", "r1", now() + 900);
+  cb!("TOKEN_REFRESHED", s1);
+  await Bun.sleep(20);
+  expect(await store.read()).toEqual(s1);
+  const s2 = mk("a2", "r2", now() + 900);
+  cb!("SIGNED_IN", s2);
+  await Bun.sleep(20);
+  expect(await store.read()).toEqual(s2);
+  cb!("SIGNED_OUT", null);
+  cb!("USER_UPDATED", mk("a3", "r3", now() + 900));
+  await Bun.sleep(20);
+  expect(await store.read()).toEqual(s2);
+});
+
+test("usableWithoutRefresh: only sessions valid for more than 120 s (auth-js refreshes inside 90 s)", async () => {
+  const { usableWithoutRefresh } = await import("../../plugin/helper/auth");
+  const t = 1_800_000_000_000;
+  const s = (expS: number) => mk("a", "r", expS);
+  expect(usableWithoutRefresh(s(t / 1000 + 3600), t)).toBe(true);
+  expect(usableWithoutRefresh(s(t / 1000 + 121), t)).toBe(true);
+  expect(usableWithoutRefresh(s(t / 1000 + 120), t)).toBe(false);
+  expect(usableWithoutRefresh(s(t / 1000 + 60), t)).toBe(false);
+  expect(usableWithoutRefresh(s(t / 1000 - 10), t)).toBe(false);
 });

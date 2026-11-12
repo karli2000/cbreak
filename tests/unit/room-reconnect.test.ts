@@ -248,3 +248,37 @@ test('the same non-network heartbeat error is emitted once until a heartbeat suc
   await room.heartbeat()
   expect(events.filter((e) => e.type === 'error')).toHaveLength(2)
 })
+
+test('helper-initiated calls (heartbeat, kicked my_profile) refresh the session first', async () => {
+  const { client, calls } = fakeClient([], {
+    heartbeat: () => ({ error: { message: 'banned' } }),
+    my_profile: () => ({ data: { ban_reason: 'bye' } }),
+  })
+  const room = new RoomSession({
+    client,
+    emit: () => {},
+    userId: 'me',
+    cache: new NicknameCache(client),
+    fresh: async () => void calls.push('fresh'),
+  })
+  await room.join('r')
+  await room.heartbeat()
+  const seq = calls.filter((c) => ['fresh', 'heartbeat', 'my_profile'].includes(c))
+  expect(seq).toEqual(['fresh', 'heartbeat', 'fresh', 'my_profile'])
+})
+
+test('a failing refresh does not stop the call', async () => {
+  const { client, calls } = fakeClient([])
+  const room = new RoomSession({
+    client,
+    emit: () => {},
+    userId: 'me',
+    cache: new NicknameCache(client),
+    fresh: async () => {
+      throw new Error('network')
+    },
+  })
+  await room.join('r')
+  await room.heartbeat()
+  expect(calls).toContain('heartbeat')
+})

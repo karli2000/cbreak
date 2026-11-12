@@ -47,13 +47,21 @@ const BACKOFF_S = [1, 2, 4, 8, 16, 30]
 const UNAVAILABLE_AFTER = 3
 const BACKLOG_LIMIT = 100
 
-type Deps = { client: SupabaseClient; emit: (e: HelperEvent) => void; userId: string; cache: NicknameCache }
+type Deps = {
+  client: SupabaseClient
+  emit: (e: HelperEvent) => void
+  userId: string
+  cache: NicknameCache
+  /** Refreshes the session under the store lock (ensureFreshSession); run before calls the helper makes on its own. */
+  fresh?: () => Promise<unknown>
+}
 
 export class RoomSession {
   private client: SupabaseClient
   private emit: (e: HelperEvent) => void
   readonly userId: string
   private cache: NicknameCache
+  private freshFn: (() => Promise<unknown>) | undefined
 
   private info: JoinInfo | null = null
   private channel: RealtimeChannel | null = null
@@ -74,6 +82,7 @@ export class RoomSession {
     this.emit = deps.emit
     this.userId = deps.userId
     this.cache = deps.cache
+    this.freshFn = deps.fresh
   }
 
   current(): JoinInfo | null {
@@ -94,6 +103,7 @@ export class RoomSession {
     const gen = this.roomGen
     let hb: JoinInfo
     try {
+      await this.freshen()
       hb = await rpc<JoinInfo>(this.client, 'heartbeat')
     } catch (e) {
       if (gen !== this.roomGen) return
@@ -186,6 +196,17 @@ export class RoomSession {
     if (code === 'banned') return this.onKicked()
     this.emit(code === 'room_closed' ? { type: 'room_closed' } : { type: 'room_lost', code })
     await this.leave()
+  }
+
+  /**
+   * Calls not made through a socket route (heartbeat, presence lookups, my_profile after a kick) refresh
+   * the session first, so supabase-js never refreshes on its own outside the store lock. A failed
+   * refresh is ignored: the call itself reports the problem.
+   */
+  private async freshen(): Promise<void> {
+    try {
+      await this.freshFn?.()
+    } catch {}
   }
 
   private emitError(e: unknown) {
@@ -329,6 +350,7 @@ export class RoomSession {
     this.failures = 0
     let reason: string | null = null
     try {
+      await this.freshen()
       reason = (await rpc<{ ban_reason: string | null }>(this.client, 'my_profile')).ban_reason ?? null
     } catch {}
     this.emit({ type: 'kicked', reason })

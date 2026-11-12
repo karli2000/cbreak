@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { statSync } from "node:fs";
 import { join } from "node:path";
-import { adminClient, bareUser, runId, setup, teardown, testRoom, userClient } from "./_env";
+import { authFileName } from "../../plugin/helper/auth";
+import { adminClient, bareUser, env, runId, setup, teardown, testRoom, userClient } from "./_env";
 import { cleanupHelpers, makeDataDir, startHelper } from "./_helper";
 
 beforeAll(setup, 60_000);
@@ -65,11 +66,11 @@ test("maps RPC errors to codes", async () => {
   await h.stop();
 });
 
-test("writes auth.json with mode 600 and logout clears it", async () => {
+test("writes the auth file with mode 600 and logout clears it", async () => {
   const u = await userClient("hp2");
   const h = await startHelper({ session: await sessionOf(u) });
   await h.waitFor("auth");
-  const f = join(h.dataDir, "auth.json");
+  const f = join(h.dataDir, authFileName(env().url)); // auth-127.0.0.1_54321.json: the local stack's own file
   expect(statSync(f).mode & 0o777).toBe(0o600);
   expect(await h.call("/logout")).toEqual({ ok: true, data: {} });
   expect(await h.waitFor("auth")).toMatchObject({ state: "signed_out" });

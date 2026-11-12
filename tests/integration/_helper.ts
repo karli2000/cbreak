@@ -4,6 +4,7 @@ import type { Subprocess } from "bun";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { authFileName } from "../../plugin/helper/auth";
 import type { Api, ApiPath, ApiResult, HelperEvent } from "../../plugin/shared/protocol";
 import { env } from "./_env";
 
@@ -25,13 +26,14 @@ export type StartedHelper = {
   stop(): Promise<number | null>;
 };
 
-/** Writes a data dir (optionally pre-filled with auth.json) and returns its path. */
+/** Writes a data dir (optionally pre-filled with the local backend's auth file) and returns its path. */
 export function makeDataDir(session?: Session): string {
   const dir = mkdtempSync(join(tmpdir(), "cb-helper-"));
   dirs.push(dir);
   if (session) {
     mkdirSync(dir, { recursive: true, mode: 0o700 });
-    writeFileSync(join(dir, "auth.json"), JSON.stringify({ version: 1, session }), { mode: 0o600 });
+    const url = env().url;
+    writeFileSync(join(dir, authFileName(url)), JSON.stringify({ version: 1, url: new URL(url).origin, session }), { mode: 0o600 });
   }
   return dir;
 }

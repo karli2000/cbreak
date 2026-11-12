@@ -113,3 +113,5 @@ Consequences for Plan 2:
    - Result:
 7. Closing the terminal window mid-break: within about 60 s, `pgrep -af helper/main.ts` prints nothing.
    - Result:
+8. Sleep and resume mid-break: start a long task, join the room, then suspend the laptop (or close the lid) for at least 2 minutes and wake it while the task still runs. The helper must not exit on wake (no `Coffee break stopped unexpectedly` line), the room comes back (a `Connection lost, reconnecting…` line followed by `Reconnected.` is fine), and after the task ends `/coffee status` still says `Signed in as …` (the login survived). Also check that a later, new session still starts signed in.
+   - Result:

@@ -3,7 +3,8 @@ import { mkdirSync, mkdtempSync, rmSync, statSync, utimesSync, writeFileSync, ex
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Session } from "@supabase/supabase-js";
-import { AuthStore } from "../../plugin/helper/auth";
+import { AuthStore, authFileName } from "../../plugin/helper/auth";
+import { SUPABASE_URL } from "../../plugin/shared/backend";
 
 let root: string, dir: string, store: AuthStore;
 beforeEach(() => {
@@ -52,4 +53,33 @@ test("a stale lock is taken over", async () => {
   utimesSync(lock, old, old);
   expect(await store.withLock(async () => "ok")).toBe("ok");
   expect(existsSync(lock)).toBe(false);
+});
+
+test("the auth file is per backend: auth.json for the hosted project, auth-<host>.json otherwise", () => {
+  expect(authFileName(SUPABASE_URL)).toBe("auth.json");
+  expect(authFileName(SUPABASE_URL + "/")).toBe("auth.json");
+  expect(authFileName("http://127.0.0.1:54321")).toBe("auth-127.0.0.1_54321.json");
+});
+
+test("a login for another backend neither reads nor touches the hosted one", async () => {
+  const hosted = new AuthStore(dir, SUPABASE_URL);
+  const local = new AuthStore(dir, "http://127.0.0.1:54321");
+  const other = { ...sess, access_token: "local" } as Session;
+  await hosted.write(sess);
+  expect(await local.read()).toBeNull();
+  await local.write(other);
+  expect(await hosted.read()).toEqual(sess);
+  expect(await local.read()).toEqual(other);
+  await local.clear();
+  expect(await hosted.read()).toEqual(sess);
+});
+
+test("a file stored for another URL reads as signed out and is left alone", async () => {
+  const hosted = new AuthStore(dir, SUPABASE_URL);
+  await hosted.write(sess);
+  writeFileSync(join(dir, "auth.json"), JSON.stringify({ version: 1, url: "http://elsewhere:1", session: sess }));
+  expect(await hosted.read()).toBeNull();
+  writeFileSync(join(dir, "auth.json"), JSON.stringify({ version: 1, session: sess })); // no url
+  expect(await hosted.read()).toBeNull();
+  expect(existsSync(join(dir, "auth.json"))).toBe(true);
 });

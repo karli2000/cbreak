@@ -6,9 +6,10 @@ import { join } from 'node:path'
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../shared/backend'
 import { PROTOCOL_VERSION } from '../shared/protocol'
 import { emitAuth, fetchGithubAgeIfNeeded, startServer, type Ctx } from './api'
-import { AuthStore, createHelperClient, ensureFreshSession, peekSession } from './auth'
+import { AuthStore, createHelperClient, ensureFreshSession, peekSession, persistRefreshes, usableWithoutRefresh } from './auth'
 import { createEmitter } from './emit'
-import { CoffeeError, rpc } from './rpc'
+import { IdleWatch } from './idle'
+import { CoffeeError, codeOf, rpc } from './rpc'
 
 const num = (name: string, dflt: number) => {
   const v = Number(process.env[name])
@@ -36,16 +37,21 @@ const emit = createEmitter(
 // a closed stdout surfaces asynchronously as an 'error' event on the stream
 process.stdout.on('error', () => void shutdown('stdout_closed'))
 
-const client = createHelperClient(process.env.COFFEEBREAK_SUPABASE_URL ?? SUPABASE_URL, process.env.COFFEEBREAK_SUPABASE_ANON_KEY ?? SUPABASE_ANON_KEY)
-const store = new AuthStore(dataDir)
+const backendUrl = process.env.COFFEEBREAK_SUPABASE_URL ?? SUPABASE_URL
+const client = createHelperClient(backendUrl, process.env.COFFEEBREAK_SUPABASE_ANON_KEY ?? SUPABASE_ANON_KEY)
+// the login file is per backend (auth.json for the hosted project), so a dev run never touches the real login
+const store = new AuthStore(dataDir, backendUrl)
+// any refresh supabase-js does on its own (e.g. Realtime asking for a token) still reaches the file
+persistRefreshes(client, store)
 
-let lastRequest = Date.now()
+const idleIntervalMs = Math.max(50, Math.min(1000, idleExitMs / 4))
+const idleWatch = new IdleWatch({ idleExitMs, intervalMs: idleIntervalMs })
 const ctx: Ctx = {
   client,
   store,
   emit,
   room: null,
-  touch: () => void (lastRequest = Date.now()),
+  touch: () => idleWatch.touch(),
   marginS,
   signedIn: false,
 }
@@ -73,9 +79,18 @@ async function refresh(): Promise<boolean> {
   }
 }
 
+/** Error event for a failed tick or start; the same code is not repeated until a tick succeeds. */
+let tickError: string | null = null
+function emitTickError(e: unknown) {
+  const code = codeOf(e)
+  if (code === tickError) return
+  tickError = code
+  emit({ type: 'error', code, ...(e instanceof Error && e.message !== code ? { message: e.message } : {}) })
+}
+
 async function start() {
   const has = await refresh().catch((e) => {
-    emit({ type: 'error', code: 'unknown', message: String(e) })
+    emitTickError(e)
     return false
   })
   if (!has) {
@@ -89,14 +104,16 @@ async function start() {
 const tick = setInterval(() => {
   refresh()
     .then(async (has) => {
+      tickError = null
       if (has) await ctx.room?.heartbeat()
     })
-    .catch((e) => emit({ type: 'error', code: 'unknown', message: String(e) }))
+    .catch(emitTickError)
 }, tickMs)
 
+// suspend-aware: after laptop sleep the first check resets the idle time instead of exiting
 const idle = setInterval(() => {
-  if (Date.now() - lastRequest >= idleExitMs) void shutdown('idle')
-}, Math.max(50, Math.min(1000, idleExitMs / 4)))
+  if (idleWatch.check()) void shutdown('idle')
+}, idleIntervalMs)
 
 const parentPid = process.ppid
 const orphan = setInterval(() => {
@@ -110,10 +127,15 @@ shutdown = async (_reason: string) => {
   clearInterval(idle)
   clearInterval(orphan)
   try {
-    if (await peekSession(client)) {
+    const session = await peekSession(client)
+    if (session && usableWithoutRefresh(session)) {
       // RoomSession.leave = leave_room + remove the channel; never throws
       const leaving = ctx.room ? ctx.room.leave() : rpc(client, 'leave_room').catch(() => {})
       await Promise.race([leaving, Bun.sleep(3000)])
+    } else {
+      // a token close to expiry would make supabase-js refresh outside the lock, and an exit in the
+      // middle would leave a spent refresh token in the file: skip leave_room (the row goes stale in 90 s)
+      ctx.room?.drop()
     }
   } catch {}
   try {

@@ -104,6 +104,7 @@ async function roomOf(ctx: Ctx): Promise<RoomSession> {
     emit: ctx.emit,
     userId: session.user.id,
     cache: new NicknameCache(ctx.client),
+    fresh: () => ensureFreshSession(ctx.client, ctx.store, ctx.marginS),
   })
   return ctx.room
 }

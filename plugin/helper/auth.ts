@@ -1,6 +1,7 @@
 import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js'
 import { chmod, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { SUPABASE_URL } from '../shared/backend'
 import type { AuthState, Role } from '../shared/protocol'
 import { CoffeeError, rpc } from './rpc'
 
@@ -8,11 +9,26 @@ const LOCK_RETRY_MS = 100
 const LOCK_WAIT_MS = 10_000
 const LOCK_STALE_MS = 30_000
 
+/**
+ * The login file for a backend: `auth.json` for the hosted project, `auth-<host>.json` for any other
+ * (a dev run against a local stack must never read, refresh or delete the hosted login).
+ */
+export function authFileName(url: string): string {
+  const origin = new URL(url).origin
+  if (origin === new URL(SUPABASE_URL).origin) return 'auth.json'
+  return `auth-${new URL(url).host.toLowerCase().replace(/[^a-z0-9.-]/g, '_')}.json`
+}
+
 export class AuthStore {
   private file: string
   private lock: string
-  constructor(private dataDir: string) {
-    this.file = join(dataDir, 'auth.json')
+  private url: string
+  constructor(
+    private dataDir: string,
+    url: string = SUPABASE_URL,
+  ) {
+    this.url = new URL(url).origin
+    this.file = join(dataDir, authFileName(url))
     this.lock = join(dataDir, 'auth.lock')
   }
 
@@ -24,7 +40,8 @@ export class AuthStore {
   async read(): Promise<Session | null> {
     try {
       const j = JSON.parse(await readFile(this.file, 'utf8'))
-      if (j?.version !== 1 || !j.session) return null
+      // a file of another backend reads as signed out and is left alone
+      if (j?.version !== 1 || !j.session || j.url !== this.url) return null
       return j.session as Session
     } catch {
       return null
@@ -34,7 +51,7 @@ export class AuthStore {
   async write(s: Session): Promise<void> {
     await this.ensureDir()
     const tmp = `${this.file}.${process.pid}.tmp`
-    await writeFile(tmp, JSON.stringify({ version: 1, session: s }), { mode: 0o600 })
+    await writeFile(tmp, JSON.stringify({ version: 1, url: this.url, session: s }), { mode: 0o600 })
     await chmod(tmp, 0o600)
     await rename(tmp, this.file)
   }
@@ -115,6 +132,17 @@ async function failRefresh(store: AuthStore, error: AuthErr): Promise<null> {
 }
 
 const nowS = () => Math.floor(Date.now() / 1000)
+
+/** auth-js refreshes on its own when a token expires within 90 s (EXPIRY_MARGIN_MS); keep 30 s of slack. */
+const SELF_REFRESH_S = 120
+
+/**
+ * Whether supabase-js can use the session without refreshing it on its own (outside the store lock,
+ * never persisted). Used where a refresh is not affordable, e.g. the best-effort leave_room on shutdown.
+ */
+export function usableWithoutRefresh(s: Session, nowMs = Date.now()): boolean {
+  return (s.expires_at ?? 0) * 1000 - nowMs > SELF_REFRESH_S * 1000
+}
 const fresh = (s: Session | null | undefined, marginS: number): boolean =>
   !!s && (s.expires_at ?? 0) > nowS() + marginS
 
@@ -155,14 +183,30 @@ export async function ensureFreshSession(
       }
       return onDisk
     }
-    const refresh_token = (onDisk ?? current)?.refresh_token
+    // spend the newest refresh token we know of: memory can be ahead of the file after a refresh
+    // supabase-js did on its own; persist it first, so a failed refresh never leaves a spent token on disk
+    const base = !onDisk || (current && (current.expires_at ?? 0) > (onDisk.expires_at ?? 0)) ? current : onDisk
+    const refresh_token = base?.refresh_token
     if (!refresh_token) return null
+    if (base !== onDisk) await store.write(base!)
     const { data, error } = await client.auth.refreshSession({ refresh_token })
     if (error) return failRefresh(store, error)
     if (!data.session) return failRefresh(store, { status: 500, message: 'no session returned' })
     await store.write(data.session)
     await client.realtime.setAuth(data.session.access_token)
     return data.session
+  })
+}
+
+/**
+ * Persists every session supabase-js reports as refreshed or signed in, so a refresh it does on its
+ * own (outside ensureFreshSession) still reaches the file and the next process never reads a spent token.
+ */
+export function persistRefreshes(client: SupabaseClient, store: AuthStore): void {
+  client.auth.onAuthStateChange((event, session) => {
+    if ((event !== 'TOKEN_REFRESHED' && event !== 'SIGNED_IN') || !session) return
+    // never await inside the callback (auth-js holds its lock while notifying)
+    setTimeout(() => void store.write(session).catch(() => {}), 0)
   })
 }
 
