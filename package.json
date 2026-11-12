@@ -8,6 +8,7 @@
     "db:test": "bunx supabase db reset && bunx supabase test db",
     "test:int": "bun test tests/integration",
     "test:unit": "bun test tests/unit",
+    "validate:all": "claude plugin validate . && claude plugin validate plugin",
     "test:mod": "claude plugin validate plugin && claude plugin test plugin",
     "helper:bundle": "bun scripts/bundle-helper.ts",
     "dev": "claude --plugin-dir plugin",

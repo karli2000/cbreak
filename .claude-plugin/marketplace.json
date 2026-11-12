@@ -1,0 +1,8 @@
+{
+  "name": "coffeebreak",
+  "description": "Coffee Break: chat with other people while Claude works",
+  "owner": { "name": "Max Kossatz", "url": "https://github.com/karli2000" },
+  "plugins": [
+    { "name": "coffeebreak", "source": "./plugin", "description": "Join a shared chat room while Claude is busy on your task" }
+  ]
+}
