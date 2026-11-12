@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError, type Bound, type Report, type Role } from '../api.ts'
 import { useOnAuthError } from '../auth.tsx'
-import { errorText } from '../copy.ts'
+import { COPY, errorText } from '../copy.ts'
 import { ActionBar } from '../components/ActionBar.tsx'
 import { Snapshot } from '../components/Snapshot.tsx'
 
@@ -62,6 +62,7 @@ export function Reports({ api }: { api: Bound }) {
           ))}
         </select>
       </label>
+      <p className="muted">{COPY.resolvedRetention}</p>
       {error && <p role="alert">{error}</p>}
       {items === null && !error && <p>Loading…</p>}
       {items?.length === 0 && <p className="muted">No {status} reports.</p>}

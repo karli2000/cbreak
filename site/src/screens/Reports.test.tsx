@@ -74,6 +74,12 @@ describe('reports', () => {
     expect(screen.getByRole('button', { name: 'Dismiss' })).toBeTruthy()
   })
 
+  test('states how long resolved reports are kept', async () => {
+    setup()
+    expect(await screen.findByText('Resolved reports are kept 90 days.')).toBeTruthy()
+    expect(COPY.resolvedRetention).toBe('Resolved reports are kept 90 days.')
+  })
+
   test('a deleted account shows deleted user', async () => {
     setup({}, [report({ reporter_id: null })])
     expect(await screen.findByText('deleted user → troll')).toBeTruthy()

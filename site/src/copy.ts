@@ -5,6 +5,7 @@ export const COPY = {
   signOut: 'Sign out',
   expiredMessage: 'That message is already gone (messages expire after 15 minutes).',
   retention: 'Chat messages expire after 15 minutes; the snapshot is the record.',
+  resolvedRetention: 'Resolved reports are kept 90 days.',
   reasonRequired: 'A reason is required.',
 }
 
