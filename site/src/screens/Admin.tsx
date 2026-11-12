@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ApiError, type Bound, type Role, type Room } from '../api.ts'
+import { ApiError, type Bound, type Invite, type Role, type Room } from '../api.ts'
 import { useOnAuthError } from '../auth.tsx'
 import { COPY, errorText } from '../copy.ts'
 
@@ -342,8 +342,6 @@ function FilterRow({ filter, api, onRemoved }: { filter: Filter; api: Bound; onR
     </li>
   )
 }
-
-type Invite = { github_id: number; github_login: string; note: string | null; created_at: string }
 
 function InvitesSection({ api }: { api: Bound }) {
   const { items, error, reload } = useList<Invite>(() => api.listInvites())
