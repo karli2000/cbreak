@@ -114,7 +114,51 @@ function setStatus($) {
 function pushMessage($, nick, body) {
   messages.push({ nick, body })
   if (messages.length > MAX_MESSAGES) messages = messages.slice(-MAX_MESSAGES)
-  if (paneState !== 'closed') $.ui.invalidate('ui.render')
+  if (paneState !== 'closed') {
+    $.ui.invalidate('ui.render')
+    scrollToInput($)
+  }
+}
+
+/**
+ * Keep the entry field in view: scroll the pane so the Input (key 'say')
+ * sits at the bottom edge after each redraw that adds a line.
+ * @param {Engine} $
+ */
+function scrollToInput($) {
+  try {
+    $.clock.after(50, () => {
+      $.ui.scroll({ in: PANE, to: { key: 'say' }, block: 'end' }).then(
+        r => { if (r && r.deny) void log($, 'scroll.deny', { deny: String(r.deny) }) },
+        err => void log($, 'scroll.error', { error: errText(err) }),
+      )
+    })
+  } catch {}
+}
+
+/**
+ * Stable per-nickname color: FNV-1a hash of the lowercased nick → hue,
+ * fixed saturation/lightness so every color stays readable on dark and light themes.
+ * @param {string} nick
+ */
+function nickColor(nick) {
+  let h = 0x811c9dc5
+  for (const ch of nick.toLowerCase()) {
+    h ^= ch.codePointAt(0) ?? 0
+    h = Math.imul(h, 0x01000193) >>> 0
+  }
+  const hue = h % 360
+  return hslToHex(hue, 65, 55)
+}
+
+/** @param {number} h @param {number} s @param {number} l */
+function hslToHex(h, s, l) {
+  s /= 100; l /= 100
+  const k = (/** @type {number} */ n) => (n + h / 30) % 12
+  const a = s * Math.min(l, 1 - l)
+  const f = (/** @type {number} */ n) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)))
+  const hex = (/** @type {number} */ x) => Math.round(x * 255).toString(16).padStart(2, '0')
+  return `#${hex(f(0))}${hex(f(8))}${hex(f(4))}`
 }
 
 // ---------- pane ----------
@@ -141,6 +185,7 @@ async function openPane($, why, focus) {
   if (res.isPlaced) {
     paneState = 'placed'
     await log($, 'ui.open', { why, focus, isPlaced: true })
+    scrollToInput($)
   } else {
     paneState = 'waiting'
     await log($, 'ui.open', { why, focus, isPlaced: false, reason: res.reason })
@@ -494,7 +539,11 @@ export const register = on => {
       h(Text, { dimColor: true }, header),
       ...messages
         .slice(-room)
-        .map(m => h(Text, { dimColor: m.nick === '☕' }, `${m.nick}: ${m.body}`)),
+        .map(m =>
+          m.nick === '☕'
+            ? h(Text, { dimColor: true }, `${m.nick}: ${m.body}`)
+            : h(Text, {}, h(Text, { color: nickColor(m.nick), bold: true }, m.nick), `: ${m.body}`),
+        ),
       h(Input, {
         key: 'say',
         placeholder: 'say something',

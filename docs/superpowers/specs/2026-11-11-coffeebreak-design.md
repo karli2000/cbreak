@@ -93,6 +93,8 @@ Distributed through a plugin **marketplace** (a GitHub repo with `.claude-plugin
 - **On join:** show the last ~15 minutes of messages so you don't land in silence.
 - **Status line** (mod `$.ui.status`, not the settings `statusLine`, which plugins can't set): `☕ 7 on break` while on break. **[my call]** When not on break, show nothing. This avoids holding a websocket open all day (see 6.6).
 - In-pane commands: `/report <nick> <reason>`, `/me`, `/leave`, plus moderator commands `/mute`, `/ban`, `/del`. Selecting a message and pressing `r` reports it. **[my call]**
+- **Keep the entry field in view [owner]:** after every new message and when the pane opens, the pane scrolls so the input line sits at the bottom (`$.ui.scroll` to the Input's key). Exception: if the user has scrolled up to read history, don't yank them down; show a "↓ new messages" hint instead **[my call]**.
+- **Per-user colors [owner]:** each nickname gets a stable color derived from a hash of the lowercased nickname (FNV-1a → hue, HSL 65%/55%), so the same person has the same color for everyone. **[my call]** on the exact formula; system lines stay dim.
 - `@nickname` mentions are highlighted in v1. A sound/terminal notification for mentions comes later. **[my call]**
 - Mockup reference: `.superpowers/brainstorm/*/content/chat-placement.html`, option B.
 

@@ -56,7 +56,7 @@ let n = 0
 let orphanLogged = false
 setInterval(() => {
   n += 1
-  emit({ type: 'message', nick: 'bot', body: `tick ${n}` })
+  emit({ type: 'message', nick: ['lena', 'yuki', 'ravi', 'max_k', 'bot'][n % 5], body: `tick ${n}` })
   if (n % 10 === 0) tlog(`alive tick ${n}`)
   if (!orphanLogged && process.ppid !== startPpid) {
     orphanLogged = true
