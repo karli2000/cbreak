@@ -1,6 +1,0 @@
-{
-  "name": "coffee-spike",
-  "version": "0.1.0",
-  "description": "Throwaway spike S1: a chat pane that opens while Claude works and closes when it's done",
-  "author": { "name": "Coffee Break" }
-}
