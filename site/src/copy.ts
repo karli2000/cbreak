@@ -6,6 +6,7 @@ export const COPY = {
   expiredMessage: 'That message is already gone (messages expire after 15 minutes).',
   retention: 'Chat messages expire after 15 minutes; the snapshot is the record.',
   resolvedRetention: 'Resolved reports are kept 90 days.',
+  adminIsFinal: "Admins can't be changed from this site afterwards.",
   reasonRequired: 'A reason is required.',
 }
 

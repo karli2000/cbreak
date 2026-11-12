@@ -49,8 +49,36 @@ describe('admin staff', () => {
 
   test('a failed role change shows the error', async () => {
     setup({ setRole: async () => Promise.reject(new ApiError('forbidden')) })
-    fireEvent.change(await screen.findByLabelText('Role of modmax'), { target: { value: 'admin' } })
+    fireEvent.change(await screen.findByLabelText('Role of modmax'), { target: { value: 'user' } })
     expect(await screen.findByText(errorText('forbidden'))).toBeTruthy()
+  })
+
+  test('admin rows, including your own, are read-only', async () => {
+    setup()
+    await screen.findByLabelText('Role of modmax')
+    expect(screen.queryByLabelText('Role of boss')).toBeNull()
+    const row = within(screen.getByRole('region', { name: 'Staff' })).getByText('boss').closest('li') as HTMLElement
+    expect(within(row).getByText('admin')).toBeTruthy()
+    expect(within(row).queryByRole('combobox')).toBeNull()
+  })
+
+  test('making someone admin needs a confirmation', async () => {
+    const api = setup()
+    fireEvent.change(await screen.findByLabelText('Role of modmax'), { target: { value: 'admin' } })
+    expect(callsOf(api, 'setRole')).toHaveLength(0)
+    expect(screen.getByText("Admins can't be changed from this site afterwards.")).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Make modmax admin' }))
+    await waitFor(() => expect(callsOf(api, 'setRole')[0]?.args).toEqual(['m1', 'admin']))
+    await waitFor(() => expect(callsOf(api, 'listStaff').length).toBe(2))
+  })
+
+  test('cancelling the admin confirmation changes nothing', async () => {
+    const api = setup()
+    fireEvent.change(await screen.findByLabelText('Role of modmax'), { target: { value: 'admin' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('button', { name: 'Make modmax admin' })).toBeNull()
+    expect((screen.getByLabelText('Role of modmax') as HTMLSelectElement).value).toBe('moderator')
+    expect(callsOf(api, 'setRole')).toHaveLength(0)
   })
 
   test('add moderator looks up then sets moderator', async () => {

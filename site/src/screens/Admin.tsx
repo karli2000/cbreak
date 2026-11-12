@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError, type Bound, type Role, type Room } from '../api.ts'
 import { useOnAuthError } from '../auth.tsx'
-import { errorText } from '../copy.ts'
+import { COPY, errorText } from '../copy.ts'
 
 const SLUG = /^[a-z0-9-]{2,32}$/
 const SLUG_TEXT = 'Room names are 2–32 characters: a–z, 0–9 and -.'
@@ -134,23 +134,48 @@ function StaffSection({ api }: { api: Bound }) {
 
 function StaffRow({ staff, api, onChanged }: { staff: Staff; api: Bound; onChanged(): Promise<void> }) {
   const g = useGuarded()
-  async function change(role: Role) {
-    if (role === staff.role) return
+  const [confirmAdmin, setConfirmAdmin] = useState(false)
+  async function apply(role: Role) {
+    setConfirmAdmin(false)
     if (await g.run(() => api.setRole(staff.id, role))) await onChanged()
+  }
+  function change(role: Role) {
+    if (role === staff.role) return
+    // Promoting to admin cannot be undone here: the server refuses any action on an admin.
+    if (role === 'admin') {
+      setConfirmAdmin(true)
+      return
+    }
+    void apply(role)
   }
   return (
     <li className="report">
       <strong>{staff.nickname}</strong>{' '}
-      <label>
-        <span className="muted">Role of {staff.nickname}</span>{' '}
-        <select value={staff.role} disabled={g.busy} onChange={(e) => void change(e.target.value as Role)}>
-          {ROLES.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
-          ))}
-        </select>
-      </label>
+      {staff.role === 'admin' ? (
+        <span className="muted">admin</span>
+      ) : (
+        <label>
+          <span className="muted">Role of {staff.nickname}</span>{' '}
+          <select value={staff.role} disabled={g.busy || confirmAdmin} onChange={(e) => change(e.target.value as Role)}>
+            {ROLES.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {confirmAdmin && (
+        <div className="actions-buttons">
+          <span>{COPY.adminIsFinal}</span>{' '}
+          <button type="button" disabled={g.busy} onClick={() => void apply('admin')}>
+            Make {staff.nickname} admin
+          </button>{' '}
+          <button type="button" disabled={g.busy} onClick={() => setConfirmAdmin(false)}>
+            Cancel
+          </button>
+        </div>
+      )}
       {g.error && <p role="alert">{g.error}</p>}
     </li>
   )
