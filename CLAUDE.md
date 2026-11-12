@@ -104,6 +104,6 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 ## Next up / owner actions
 
 - Plan 1 remaining tasks:
-- Spike S1: the owner runs the mod-pane spike in their WSL terminal. Follow the steps in `spikes/mod-pane/README.md` and record the answers in `spikes/FINDINGS.md`.
+- Spike S1: **done** (verdict: mods are viable; see `spikes/FINDINGS.md`). The owner uses a 100-column terminal, so the pane never auto-opens (needs 144); the toast/status hint plus `/coffee` is the main path. Owner requirements for Plan 2: the pane keeps the input line in view (auto-scroll), and each nickname gets a stable color from a hash of the name. Both are in the spike; the owner re-checks them.
 - Task 11: deploy to a new free-tier Supabase project `coffeebreak`. The owner approves creating it and sets up the GitHub OAuth app.
 - Spike S3: GitHub login against the hosted project.
