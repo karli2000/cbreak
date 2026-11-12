@@ -47,6 +47,19 @@ begin
   insert into auth.identities (id, provider_id, user_id, identity_data, provider, created_at, updated_at)
   values (gen_random_uuid(), gh_id::text, uid,
           jsonb_build_object('sub', gh_id::text), 'github', now(), now());
+  -- invited by default so first-claim tests keep working while invite_only is on
+  insert into public.beta_invites (github_id, github_login) values (gh_id, 'test-' || gh_id)
+  on conflict do nothing;
   return uid;
 end $$;
 grant execute on function tests.create_auth_user(bigint) to public;
+
+-- same as create_auth_user but NOT on the invite allowlist
+create or replace function tests.create_uninvited_auth_user(gh_id bigint default (random() * 1e12)::bigint)
+returns uuid language plpgsql as $$
+declare uid uuid := tests.create_auth_user(gh_id);
+begin
+  delete from public.beta_invites where github_id = gh_id;
+  return uid;
+end $$;
+grant execute on function tests.create_uninvited_auth_user(bigint) to public;
