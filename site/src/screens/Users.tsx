@@ -30,9 +30,12 @@ export function Users({ api, role }: { api: Bound; role: Role }) {
   const [query, setQuery] = useState('')
   const [result, setResult] = useState<Result | null>(null)
   const gen = useRef(0)
+  /** Nickname of the newest lookup the moderator started (null after an empty query). */
+  const subject = useRef<string | null>(null)
 
   async function run(nick: string) {
     const mine = ++gen.current
+    subject.current = nick
     try {
       const data = await api.lookupUser(nick)
       let namesError: string | null = null
@@ -58,6 +61,7 @@ export function Users({ api, role }: { api: Bound; role: Role }) {
     const nick = query.trim().toLowerCase().replace(/^@/, '')
     if (!nick) {
       gen.current++
+      subject.current = null
       setResult({ status: 'error', text: 'Enter a nickname.' })
       return
     }
@@ -87,7 +91,11 @@ export function Users({ api, role }: { api: Bound; role: Role }) {
             target={{ userId: found.data.profile.id, nickname: found.data.profile.nickname }}
             actions={actions}
             api={api}
-            onDone={() => void run(found.data.profile.nickname)}
+            onDone={() => {
+              // An action that finishes after the moderator looked up someone else must not bring this user back.
+              const nick = found.data.profile.nickname
+              if (subject.current === nick) void run(nick)
+            }}
           />
           <h3>Reports against them</h3>
           {found.data.reports_against.length === 0 && <p className="muted">None.</p>}

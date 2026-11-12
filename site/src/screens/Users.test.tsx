@@ -151,6 +151,25 @@ describe('users', () => {
     await waitFor(() => expect(api.calls.filter((c) => c.name === 'lookupUser').length).toBe(2))
   })
 
+  test('an action finishing after another lookup does not bring the old user back', async () => {
+    let release!: () => void
+    const held = new Promise<void>((r) => (release = r))
+    const api = setup('moderator', {
+      lookupUser: async (n) => ({ ...lookup(), profile: { ...lookup().profile, id: `id-${n}`, nickname: n } }),
+      mute: () => held,
+    })
+    search('usera')
+    await screen.findByRole('heading', { name: /usera/ })
+    fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'because' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Mute 10m' }))
+    search('userb')
+    await screen.findByRole('heading', { name: /userb/ })
+    release()
+    await new Promise((r) => setTimeout(r, 20))
+    expect(api.calls.filter((c) => c.name === 'lookupUser').map((c) => c.args[0])).toEqual(['usera', 'userb'])
+    expect(screen.getByRole('heading', { name: /userb/ })).toBeTruthy()
+  })
+
   test('ActionBar state does not carry over to another user', async () => {
     const api = setup('moderator', {
       lookupUser: async (n) => ({ ...lookup(), profile: { ...lookup().profile, id: `id-${n}`, nickname: n } }),
