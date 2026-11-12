@@ -1,6 +1,7 @@
 // GitHub login through Supabase Auth (PKCE) with a one-shot 127.0.0.1 callback server. Approach from spikes/login/login.ts.
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import { spawn } from 'node:child_process'
+import { snapshotPkce } from './auth'
 import { existsSync, readFileSync } from 'node:fs'
 
 export function browserCommand(url: string, platform: NodeJS.Platform, isWsl: boolean): [string, string[]] {
@@ -50,6 +51,7 @@ export async function startLogin(
     settle(r)
   }
 
+  let restorePkce: () => void = () => {}
   const server = Bun.serve({
     hostname: '127.0.0.1',
     port: 0,
@@ -66,7 +68,10 @@ export async function startLogin(
       // a stray request (no code, no error) or a code that does not exchange must not end a pending login
       if (!code) return page('Login failed: no code in this request.', 400)
       const { data, error } = await client.auth.exchangeCodeForSession(code)
-      if (error || !data.session) return page(`Login failed: ${escapeHtml(error?.message ?? 'no session')}`, 400)
+      if (error || !data.session) {
+        restorePkce() // a stray code must not consume the verifier the real callback needs
+        return page(`Login failed: ${escapeHtml(error?.message ?? 'no session')}`, 400)
+      }
       finish({ ok: true, session: data.session })
       return page('☕ Signed in to Coffee Break. You can close this tab.')
     },
@@ -85,6 +90,7 @@ export async function startLogin(
       options: { redirectTo, skipBrowserRedirect: true },
     })
     if (error || !data.url) throw error ?? new Error('no oauth url')
+    restorePkce = snapshotPkce(client)
     const done = outcome.then((r) => {
       stop()
       if (!r.ok) throw r.error

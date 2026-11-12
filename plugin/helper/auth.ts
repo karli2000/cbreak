@@ -90,6 +90,16 @@ export async function peekSession(client: SupabaseClient): Promise<Session | nul
   return null
 }
 
+/** Snapshots the client's PKCE verifier entries; the returned function puts them back (auth-js deletes them even after a failed exchange). */
+export function snapshotPkce(client: SupabaseClient): () => void {
+  const mem = storages.get(client)
+  if (!mem) return () => {}
+  const saved = [...mem].filter(([k]) => k.includes('code-verifier'))
+  return () => {
+    for (const [k, v] of saved) mem.set(k, v)
+  }
+}
+
 type AuthErr = { name?: string; status?: number; code?: string; message?: string }
 
 /** Revoked/invalid token (4xx except 429): drop the login. Retryable (5xx, 429, network, unknown): keep the file. */
