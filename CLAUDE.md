@@ -104,6 +104,6 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 ## Next up / owner actions
 
 - Plan 1 remaining tasks:
-- Spike S1: the owner runs the mod-pane spike in their WSL terminal.
+- Spike S1: the owner runs the mod-pane spike in their WSL terminal. Follow the steps in `spikes/mod-pane/README.md` and record the answers in `spikes/FINDINGS.md`.
 - Task 11: deploy to a new free-tier Supabase project `coffeebreak`. The owner approves creating it and sets up the GitHub OAuth app.
 - Spike S3: GitHub login against the hosted project.
