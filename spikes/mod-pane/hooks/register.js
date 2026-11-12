@@ -487,6 +487,11 @@ export const register = on => {
       await closePane($, 'command')
       return { text: 'Coffee spike pane closed.' }
     }
+    // Owner rule: the coffee room only exists while Claude is working.
+    if (!busy) {
+      await log($, 'open.refused', { why: 'claude idle', args: e.args })
+      return { text: '☕ The coffee room is only open while Claude is working. Start a task first.' }
+    }
     if (e.args.trim() === 'ping') {
       // Q5 without typing: open, wait for the ticker's port, POST "ping" over
       // TCP and the Unix socket, report which echoes came back.

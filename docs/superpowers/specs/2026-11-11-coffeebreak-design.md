@@ -138,7 +138,7 @@ Stored in `${CLAUDE_PLUGIN_DATA}/config.json`, which survives plugin updates. Ch
 | auto-open pane | on | `/coffee config` |
 | enabled | on | `/coffee off` · `/coffee on` |
 
-Other commands: `/coffee` (open the pane now, even when not busy, read-only if not on break **[my call]**), `/coffee status`, `/coffee logout`, `/coffee delete-account` (removes profile and personal data; ban records keep only the GitHub id hash so bans still stick). **[my call]**
+Other commands: `/coffee` (open the pane now, **only while Claude is busy**; when Claude is idle it answers "☕ The coffee room is only open while Claude is working." **[owner]**), `/coffee status`, `/coffee logout`, `/coffee delete-account` (removes profile and personal data; ban records keep only the GitHub id hash so bans still stick). **[my call]**
 
 ## 6. Backend: Supabase [owner]
 
