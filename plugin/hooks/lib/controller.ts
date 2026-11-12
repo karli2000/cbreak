@@ -1,43 +1,14 @@
 // The mod's brain: break lifecycle, chat and /coffee commands. Pure: every side effect goes
 // through `Port`, the only timers are `Port.after`. Runs in the mod environment (no Node, no DOM).
 // It never sees prompt text: turn hooks pass no arguments.
-import type { Api, ApiPath, ApiResult, AuthState, ChatMessage, HelperEvent, JoinInfo, Role } from '../../shared/protocol.ts'
+import type { Api, ApiPath, ApiResult, AuthState, ChatMessage, HelperEvent, JoinInfo } from '../../shared/protocol.ts'
 import { parseCoffeeArgs, parsePaneInput, type PaneCommand } from './commands.ts'
 import { COPY, errorText } from './copy.ts'
-import { isAction, nickColor, segments, type Segment } from './format.ts'
+import { isAction, nickColor, segments } from './format.ts'
+import type { Line, PaneView, Port, Timer } from './port.ts'
 import { DEFAULTS, type Settings } from './settings.ts'
 
-export interface Timer {
-  cancel(): void
-}
-
-export interface Port {
-  spawnHelper(
-    onEvent: (e: HelperEvent) => void,
-    onExit: (info: { code: number | null; signal: string | null; stderr: string }) => void,
-  ): void
-  stopHelper(): void
-  call<P extends ApiPath>(socket: string, path: P, body: Api[P]['req']): Promise<ApiResult<P>>
-  /** `title` is COPY.title. */
-  openPane(focus: boolean, title: string): Promise<{ placed: boolean }>
-  /** false when refused or threw. */
-  closePane(): Promise<boolean>
-  redraw(): void
-  scrollToEnd(): void
-  status(text: string | undefined): void
-  toast(text: string): void
-  after(ms: number, fn: () => void): Timer
-  loadSettings(): Promise<Settings>
-  saveSettings(s: Settings): Promise<void>
-}
-
-export type Line =
-  | { kind: 'message'; id: number; nickname: string; color: string; action: boolean; segments: Segment[]; role?: Role }
-  | { kind: 'system'; text: string }
-
-export type PaneView =
-  | { mode: 'chat'; header: string; busy: boolean; lines: Line[]; draft: string; inputEnabled: boolean }
-  | { mode: 'setup'; lines: string[]; draft: string; placeholder: string }
+export type { Line, PaneView, Port, Timer } from './port.ts'
 
 const HELLO_TIMEOUT_MS = 10_000
 const PING_MS = 20_000
