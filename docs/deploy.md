@@ -1,5 +1,7 @@
 # Deploy notes: hosted Supabase project
 
+Beta operations (inviting friends, shipping updates, pre-publication checklist): [beta.md](beta.md).
+
 - **Project:** `coffeebreak`, ref `meioekkvutvrspfvqgye`, region `eu-central-1` (Frankfurt), free tier, organization `coffeebreak`. Created 2026-11-12.
 - **API URL:** `https://meioekkvutvrspfvqgye.supabase.co`
 - **Keys:** never committed. Get them with `bunx supabase projects api-keys --project-ref meioekkvutvrspfvqgye`.

@@ -240,6 +240,21 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 ## Packaging (Plan 4, Task 4)
 
 - Marketplace: `.claude-plugin/marketplace.json` (name `coffeebreak`, one plugin, `source: ./plugin`). Install: `claude plugin marketplace add karli2000/coffeebreak` then `claude plugin install coffeebreak@coffeebreak`; local test: `marketplace add ./`. Manifest: `plugin/.claude-plugin/plugin.json` (`displayName` Coffee Break, version 0.2.0, MIT, no icon).
-- Skill: `plugin/skills/coffee/SKILL.md` (help: commands, Bun, invite-only, privacy, issues). **Task 5: the README's `## Privacy` must reuse the skill's `## Privacy` paragraph verbatim.**
-- `bun run validate:all` validates marketplace and plugin. Only warning/finding accepted until Task 5: README too short (README_TRIVIAL, directory profile); ICON_MISSING is an optional directory warning.
+- Skill: `plugin/skills/coffee/SKILL.md` (help: commands, Bun, invite-only, privacy, issues). The README's `## Privacy` reuses the skill's `## Privacy` paragraph verbatim (the rules copy links to `#privacy`, keep the heading).
+- `bun run validate:all` validates marketplace and plugin. The only accepted warning is ICON_MISSING (no icon by plan decision); README_TRIVIAL is gone since the README rewrite.
 - Release: bump `version` in `plugin/.claude-plugin/plugin.json`, `bun run helper:bundle`, commit, push.
+
+## Publication (Plan 4, Task 5)
+
+- `LICENSE` (MIT, Copyright (c) 2026 Max Kossatz), `README.md` (pitch, status, requirements, install, how it works, commands, `## Privacy`, rules, moderation, troubleshooting, development), `docs/beta.md` (owner runbook: pre-publication checklist, inviting, friend message, free-tier limits, shipping updates, turning invite-only off, before a public launch).
+- `scripts/prepublish-audit.sh [--history]` (wrapper over `scripts/prepublish-audit.ts`, needs only bash, git and bun, no network): scans tracked files, and with `--history` every added line of `git log --all -p`. Flags JWTs whose decoded payload has `role: service_role` (the anon JWT in `plugin/shared/backend.ts` passes because the payload is decoded, no file allow-list), `sb_secret_`, `sbp_`+40 hex, `ghp_`/`gho_`/`github_pat_`, private key headers, `SUPABASE_SERVICE_ROLE_KEY=<value>`, tracked `.env*` (not `.example`/`.sample`) and `*.log`. Prints `file:line: reason`, exit 1 on a hit. Tests: `tests/unit/prepublish-audit.test.ts`. Last run on this repo (`--history`): clean.
+
+## Owner actions before and after going public (in order)
+
+1. `bunx supabase db push --remote` (migration 20261113000100, invite gate).
+2. `bun run site:deploy` (invites UI, CSP).
+3. No self-invite needed (existing profile); invite friends on the site (Admin, Invites).
+4. Decide about the commit-author email (`675365+karli2000@users.noreply.github.com` in every commit) before going public: accept it, rewrite history to a noreply address (`git filter-repo --mailmap`, force-push, destructive, owner runs it), or use noreply for future commits only.
+5. `scripts/prepublish-audit.sh --history` must exit 0, then `gh repo edit karli2000/coffeebreak --visibility public --accept-visibility-change-consequences`.
+6. Test the install from a clean session: `claude plugin marketplace add karli2000/coffeebreak` + `claude plugin install coffeebreak@coffeebreak`, then in a fresh Claude Code session check that `/coffee` is registered (the mod loaded from the installed copy) and `/coffee status` answers (the bundled helper spawns via Bun). `claude plugin details` once showed `Hooks (0)`, so only a real session confirms the mod loads.
+7. Send friends the message from `docs/beta.md`.
