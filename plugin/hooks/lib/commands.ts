@@ -19,7 +19,8 @@ const nick = (s: string) => s.replace(/^@/, '').toLowerCase()
 
 export function parseCoffeeArgs(args: string): CoffeeCommand {
   const parts = args.trim().split(/\s+/).filter(Boolean)
-  const [cmd, a, b] = parts
+  const [rawCmd, a, b] = parts
+  const cmd = rawCmd?.toLowerCase()
   switch (cmd) {
     case undefined: return { kind: 'open' }
     case 'setup': return { kind: 'setup' }
@@ -65,8 +66,9 @@ export function parsePaneInput(text: string): PaneCommand {
   if (t.startsWith('//')) return { kind: 'say', body: t.slice(1) }
   if (!t.startsWith('/')) return { kind: 'say', body: t }
   const m = /^\/(\S+)\s*(.*)$/s.exec(t)
-  const cmd = m![1]!.toLowerCase()
-  const rest = m![2]!
+  if (!m) return { kind: 'invalid', error: 'Type /help for commands.' }
+  const cmd = m[1]!.toLowerCase()
+  const rest = m[2]!
   const [who, ...more] = rest.split(/\s+/).filter(Boolean)
   switch (cmd) {
     case 'leave': return { kind: 'leave' }

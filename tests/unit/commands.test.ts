@@ -9,6 +9,7 @@ describe('parseCoffeeArgs', () => {
     expect(parseCoffeeArgs('name Lena')).toEqual({ kind: 'name', nick: 'lena' })
     expect(parseCoffeeArgs('name @Lena')).toEqual({ kind: 'name', nick: 'lena' })
     expect(parseCoffeeArgs('room Lobby-DE')).toEqual({ kind: 'room', slug: 'lobby-de' })
+    expect(parseCoffeeArgs('Setup')).toEqual({ kind: 'setup' })
     expect(parseCoffeeArgs('on')).toEqual({ kind: 'on' })
     expect(parseCoffeeArgs('off')).toEqual({ kind: 'off' })
     expect(parseCoffeeArgs('status')).toEqual({ kind: 'status' })
@@ -55,6 +56,8 @@ describe('parsePaneInput', () => {
     expect(parsePaneInput('/leave')).toEqual({ kind: 'leave' })
     expect(parsePaneInput('/help')).toEqual({ kind: 'help' })
     expect(parsePaneInput('/xyz').kind).toBe('invalid')
+    expect(parsePaneInput('/')).toEqual({ kind: 'invalid', error: 'Type /help for commands.' })
+    expect(parsePaneInput('/ hi').kind).toBe('invalid')
   })
 })
 
@@ -70,6 +73,19 @@ describe('copy', () => {
     expect(errorText('muted', { mutedUntil: iso })).toBe(`You're muted until ${hh}:${mm}.`)
     expect(errorText('realtime_unavailable')).toBe(COPY.full)
     expect(errorText('weird')).toBe('Something went wrong (weird).')
+  })
+  test('all codes', () => {
+    const table: Record<string, string> = {
+      rate_limited: 'Slow down a little.', duplicate: 'You just said that.',
+      too_long: 'Messages are at most 280 characters.', filtered: 'That message was blocked by the word filter.',
+      room_closed: 'This room is closed.', forbidden: "You can't do that.", not_found: 'Not found.',
+      already_reported: 'You already reported them recently.', cannot_report_self: "You can't report yourself.",
+      nickname_invalid: '3–20 characters: a–z, 0–9, _ and -.', nickname_reserved: 'That name is reserved.',
+      nickname_taken: 'That name is taken.', nickname_change_too_soon: 'You can change your name once every 30 days.',
+      not_signed_in: 'Not signed in. Run /coffee setup.', network: "Can't reach coffee break, retrying…",
+      login_failed: 'GitHub sign-in failed. Run /coffee setup to try again.',
+    }
+    for (const [c, t] of Object.entries(table)) expect(errorText(c)).toBe(t)
   })
   test('placeholders', () => {
     expect(COPY.title('lobby', 3)).toBe('☕ lobby · 3 here')
