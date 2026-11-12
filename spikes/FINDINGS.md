@@ -85,7 +85,7 @@ Consequences for Plan 2:
 - **Result (2026-11-12, owner run): works end to end.** user `karli2000`, GitHub id 675365. `claim_nickname`, `accept_rules` and the `github-age` function all succeeded (`github_created_at` 2011-03-17).
 - **Random localhost port works** with the redirect allow-list entry `http://127.0.0.1:*/callback`.
 - **`identity_data`** has `provider_id` (numeric GitHub id), `user_name`, `preferred_username`, `email`, `avatar_url`, `full_name`, `sub`, `iss`. **No account creation date**, so the `github-age` function is needed.
-- **Tokens:** access token 3600 s, refresh token present.
+- **Tokens:** access token 3600 s, refresh token present. (hosted access token expiry is now 900 s, see docs/deploy.md)
 - **Setup pitfalls hit during the run (document for the README):**
   1. The Client ID field must hold the app's Client ID (`Ov23li…` OAuth App / `Iv23li…` GitHub App), not the app name. Otherwise GitHub returns 404.
   2. The **Site URL** must be one real URL. The wildcard `http://127.0.0.1:*/callback` belongs only in **Redirect URLs**. A wildcard Site URL makes Auth fail with 500 `invalid port ":*"`.

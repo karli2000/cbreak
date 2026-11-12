@@ -30,6 +30,12 @@
 - **Redirect URLs:** `http://127.0.0.1:*/callback` (coffeebreakd's local login callback). Add the moderator site's origin in Plan 3.
 - **Do not run `supabase config push`.** It would overwrite these dashboard settings with the local `config.toml`.
 
+## Before the friends beta (owner checks)
+
+1. **Auth → Providers → Email:** keep **Confirm email** ON and do not configure custom SMTP. Otherwise outsiders could sign up with an email address, and bans would not stick (bans are keyed by GitHub id). The hosted integration tests rely on the Email provider being enabled, so leave it enabled.
+2. **`GITHUB_TOKEN` secret:** create a fine-grained GitHub token with no scopes and set it with `bunx supabase secrets set GITHUB_TOKEN=…`. Without it, `github-age` shares GitHub's unauthenticated limit of 60 requests/hour per IP with every other function on the same egress IP.
+3. **Migration 000900:** after the final-review fix wave, `bunx supabase db push --remote` applies `20261111000900_final_review_fixes.sql` (done by the controller).
+
 ## Recommended, not done
 
 - Free projects pause after about a week without activity. Unpause from the dashboard if that happens during the beta.

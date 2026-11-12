@@ -53,8 +53,9 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 | `20261111000600_moderation.sql` | `private.require_rank_over(target, min_role)`, `private.log_action`. RPCs `mod_delete_message`, `mod_mute`, `mod_unmute`, `mod_ban`, `mod_resolve_report`, `mod_lookup_user`, `admin_unban`, `admin_set_role`, `admin_upsert_room`, `admin_add_filter`, `admin_remove_filter` |
 | `20261111000650_moderation_fixes.sql` | `is_staff`/`is_admin` return false for banned users. `private.require_rank_over` raises `banned` for a banned caller. `mod_resolve_report` enforces rank over the report's target |
 | `20261111000700_realtime_policies.sql` | RLS on `realtime.messages`: `room_members_read` (SELECT) and `room_members_presence` (INSERT, `extension = 'presence'` only). Both require a `room:%` topic, a non-banned caller, and the caller's occupancy topic = `realtime.topic()` or `is_staff()` |
-| `20261111000800_retention.sql` | `banned_github_ids` (RLS on, no grants), `private.purge_expired()` plus pg_cron job `coffeebreak-purge` (every minute), `delete_my_account()`, `claim_nickname` and `admin_unban` redefined, indexes on `reports(reporter_id)`, `reports(target_id)`, `occupancy(room, instance, last_seen)`, sequences revoked from anon/authenticated |
 | `20261111000750_realtime_policies_liveness.sql` | Drops and recreates both `realtime.messages` policies: the occupancy row must also be live (`last_seen > now() - 90 s`). Otherwise as 000700 |
+| `20261111000800_retention.sql` | `banned_github_ids` (RLS on, no grants), `private.purge_expired()` plus pg_cron job `coffeebreak-purge` (every minute), `delete_my_account()`, `claim_nickname` and `admin_unban` redefined, indexes on `reports(reporter_id)`, `reports(target_id)`, `occupancy(room, instance, last_seen)`, sequences revoked from anon/authenticated |
+| `20261111000900_final_review_fixes.sql` | `messages_select` policy replaced (live occupancy of the same room/instance or staff, never banned, never soft-deleted). `send_message`: `room_closed`, stale row → `not_in_room`, payload gains `user_id`. `heartbeat`: `room_closed`. `report_user`: target from the message when `message_id` is given. `mod_ban`: `kicked` payload is `{user_id}` |
 
 ## Edge Functions
 
@@ -106,6 +107,30 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 - `coffeebreak`, ref `meioekkvutvrspfvqgye`, `eu-central-1`, free tier. The repo is linked (`bunx supabase link`). Deploy with `bunx supabase db push --remote` (needs the owner's OK: it changes production) and `bunx supabase functions deploy github-age`. Full notes: `docs/deploy.md`.
 - **Never run `bunx supabase config push`**: auth (GitHub provider, Site URL, redirect URLs) is configured in the dashboard and would be overwritten.
 - Owner account: `karli2000` (admin).
+- Final review (migration 000900):
+  - REST reads of `messages` mirror the realtime rule: `deleted_at is null`, caller not banned, and a live occupancy row (`last_seen` within 90 s) in the message's room/instance, or `is_staff()`. Nobody reads soft-deleted rows via REST; mod tools get context from report snapshots and `mod_lookup_user`.
+  - `send_message` on a stale occupancy row raises `not_in_room` and does not revive it (no capacity check there); the client re-joins. The old 040 test that allowed a stale send now expects `not_in_room`.
+  - `send_message` and `heartbeat` raise `room_closed` when the caller's room has `is_open = false` (checked right after the occupancy lookup, before the stale check).
+  - `message` broadcast payload: `id, user_id, nickname, body, created_at, role`.
+  - `report_user` with a `message_id`: the target is the message's author, accepted when `target_nickname` matches the author's current nickname or the nickname stored on the message (so renames still work and the new holder of an old name is never hit). Otherwise `not_found`. Without `message_id` the nickname path is unchanged. Check order: … empty/too_long, message + author lookup (`not_found`), `cannot_report_self`, lock, `already_reported`.
+  - `kicked` payload is `{user_id}` only (no ban reason to the room). The banned client reads `ban_reason` via `my_profile()`.
+  - `realtime.send` adds its own generated uuid `id` to any payload that lacks an `id` key, so `kicked` arrives as `{id, user_id}`.
+
+## Known limitations
+
+- A muted (not banned) user can clear a mute by deleting the account and signing up again with the same GitHub id (only bans are remembered via `banned_github_ids`).
+- `admin_unban`'s hash removal is unreachable once a banned profile deleted itself. Lifting such a ban needs SQL: `delete from public.banned_github_ids where github_id_hash = …`. Plan 3 may add `admin_unban_github_id`.
+
+## Client contract (for Plan 2)
+
+- RPC errors come back as PostgREST 400 with `message = '<code>'`.
+- Break start: `join_room(slug)`; subscribe to the returned `topic` only after it succeeds.
+- `heartbeat()` about every 30 s. The token refresh every 15 min (hosted JWT expiry 900 s) re-checks the live-occupancy realtime policy.
+- `not_in_room` from `heartbeat`/`send_message` → call `join_room` again and switch to its topic. `join_room` may move you to another instance, so don't call it on mere reconnects; re-subscribe to the topic `heartbeat` returns instead.
+- `room_closed` → leave the room.
+- `kicked` → act only if `payload.user_id` is yours, then read the reason via `my_profile()` (`ban_reason`).
+- Break end: `leave_room()`.
+- Presence is advisory. Names come from `public_profiles`, "N here" from `room_counts()`.
 
 ## Next up / owner actions
 
