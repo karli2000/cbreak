@@ -150,4 +150,31 @@ describe('users', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Mute 10m' }))
     await waitFor(() => expect(api.calls.filter((c) => c.name === 'lookupUser').length).toBe(2))
   })
+
+  test('ActionBar state does not carry over to another user', async () => {
+    const api = setup('moderator', {
+      lookupUser: async (n) => ({ ...lookup(), profile: { ...lookup().profile, id: `id-${n}`, nickname: n } }),
+      ban: async () => {},
+    })
+    search('usera')
+    await screen.findByRole('heading', { name: /usera/ })
+    fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'old reason' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Ban' }))
+    expect(screen.getByRole('button', { name: 'Confirm ban' })).toBeTruthy()
+    search('userb')
+    await screen.findByRole('heading', { name: /userb/ })
+    fireEvent.click(screen.getByRole('button', { name: 'Ban' }))
+    expect(api.calls.some((c) => c.name === 'ban')).toBe(false)
+    expect((screen.getByLabelText('Reason') as HTMLInputElement).value).toBe('')
+    expect(screen.queryByRole('button', { name: 'Confirm ban' })).toBeNull()
+  })
+
+  test('profile still shows when names fails; empty query gives feedback', async () => {
+    setup('moderator', { names: async () => Promise.reject(new ApiError('network')) })
+    search('@')
+    expect(await screen.findByText('Enter a nickname.')).toBeTruthy()
+    search('troll')
+    expect(await screen.findByText(/modmax|deleted user/)).toBeTruthy()
+    expect(screen.getByText(/deleted user/)).toBeTruthy()
+  })
 })

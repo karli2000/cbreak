@@ -35,7 +35,12 @@ export function Users({ api, role }: { api: Bound; role: Role }) {
     const mine = ++gen.current
     try {
       const data = await api.lookupUser(nick)
-      const actors = await api.names(data.actions_against.map((a) => a.actor_id).filter((x): x is string => x !== null))
+      const actors = await api
+        .names(data.actions_against.map((a) => a.actor_id).filter((x): x is string => x !== null))
+        .catch((e: unknown) => {
+          onAuthError(e)
+          return new Map<string, { nickname: string; role: Role }>()
+        })
       if (mine !== gen.current) return
       setResult({ status: 'found', data, actors })
     } catch (e) {
@@ -49,7 +54,12 @@ export function Users({ api, role }: { api: Bound; role: Role }) {
   function submit(ev: React.FormEvent) {
     ev.preventDefault()
     const nick = query.trim().toLowerCase().replace(/^@/, '')
-    if (nick) void run(nick)
+    if (!nick) {
+      gen.current++
+      setResult({ status: 'error', text: 'Enter a nickname.' })
+      return
+    }
+    void run(nick)
   }
 
   const found = result?.status === 'found' ? result : null
@@ -71,6 +81,7 @@ export function Users({ api, role }: { api: Bound; role: Role }) {
         <>
           <Profile p={found.data.profile} />
           <ActionBar
+            key={found.data.profile.id}
             target={{ userId: found.data.profile.id, nickname: found.data.profile.nickname }}
             actions={actions}
             api={api}
