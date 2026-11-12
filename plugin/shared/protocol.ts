@@ -33,6 +33,8 @@ export type HelperEvent =
   | { type: 'presence'; here: number; joined: string[]; left: string[] }
   | { type: 'kicked'; reason: string | null }
   | { type: 'room_closed' }
+  /** The room could not be re-joined (e.g. `not_found`); the helper already dropped it. */
+  | { type: 'room_lost'; code: string }
   | { type: 'connection'; state: 'online' | 'reconnecting' }
   | { type: 'error'; code: string; message?: string }
 

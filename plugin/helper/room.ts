@@ -66,6 +66,8 @@ export class RoomSession {
   /** Live events held back until the backlog has been emitted. */
   private pending: HelperEvent[] | null = null
   private rejoining: Promise<JoinInfo> | null = null
+  /** The last error code a heartbeat reported; the same code is not repeated until a heartbeat succeeds. */
+  private heartbeatError: string | null = null
 
   constructor(deps: Deps) {
     this.client = deps.client
@@ -98,9 +100,13 @@ export class RoomSession {
       const code = codeOf(e)
       if (code === 'not_in_room') await this.rejoin(info.room).catch((err) => this.onRejoinFailed(err))
       else if (code === 'room_closed' || code === 'banned') await this.onRejoinFailed(e)
-      else if (code !== 'network') this.emitError(e)
+      else if (code !== 'network' && code !== this.heartbeatError) {
+        this.heartbeatError = code
+        this.emitError(e)
+      }
       return
     }
+    this.heartbeatError = null
     if (gen !== this.roomGen || !this.info) return
     if (hb.topic !== this.info.topic) await this.attach(hb) // our row was moved (e.g. joined from elsewhere)
     else this.info = { ...this.info, here: hb.here }
@@ -169,7 +175,8 @@ export class RoomSession {
 
   /**
    * The room can no longer be (re)joined: `room_closed` → room_closed event + leave, `banned` → like kicked,
-   * `network` → keep the room (the next tick retries), anything else (e.g. `not_found`) → one error + leave.
+   * `network` → keep the room (the next tick retries), anything else (e.g. `not_found`) → one
+   * `room_lost {code}` + leave, so the mod ends the break.
    * Runs at most once per room: every branch except network clears `info` synchronously.
    */
   private async onRejoinFailed(e: unknown): Promise<void> {
@@ -177,8 +184,7 @@ export class RoomSession {
     const code = codeOf(e)
     if (code === 'network') return
     if (code === 'banned') return this.onKicked()
-    if (code === 'room_closed') this.emit({ type: 'room_closed' })
-    else this.emitError(e)
+    this.emit(code === 'room_closed' ? { type: 'room_closed' } : { type: 'room_lost', code })
     await this.leave()
   }
 

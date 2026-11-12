@@ -173,7 +173,7 @@ test('a re-join refused with room_closed emits room_closed and leaves, once', as
   expect(events.filter((e) => e.type === 'error')).toEqual([])
 })
 
-test('a re-join refused with not_found emits one error and leaves; banned is handled like kicked', async () => {
+test('a re-join refused with not_found emits one room_lost and leaves; banned is handled like kicked', async () => {
   const refuse = (code: string) => {
     let n = 0
     return () => (n++ === 0 ? { data: info } : { error: { message: code } })
@@ -184,7 +184,8 @@ test('a re-join refused with not_found emits one error and leaves; banned is han
     await room.join('r')
     await room.heartbeat()
     await room.heartbeat()
-    expect(events.filter((e) => e.type === 'error')).toEqual([{ type: 'error', code: 'not_found' }])
+    expect(events.filter((e) => e.type === 'room_lost')).toEqual([{ type: 'room_lost', code: 'not_found' }])
+    expect(events.filter((e) => e.type === 'error')).toEqual([])
     expect(calls).toContain('leave_room')
     expect(room.current()).toBeNull()
   }
@@ -213,4 +214,37 @@ test('a network failure of the re-join keeps the room for the next tick', async 
   await room.heartbeat()
   expect(room.current()).toEqual(info)
   expect(events.filter((e) => e.type === 'error' || e.type === 'room_closed')).toEqual([])
+})
+
+test('a DNS failure (postgrest transport shape) of heartbeat and re-join keeps the room and emits nothing', async () => {
+  const dns = { message: 'TypeError: getaddrinfo ENOTFOUND example.supabase.co', code: '' } as unknown as { message: string }
+  let n = 0
+  const { client, calls } = fakeClient([], {
+    heartbeat: () => ({ error: dns }),
+    join_room: () => (n++ === 0 ? { data: info } : { error: dns }),
+  })
+  const { room, events } = session(client)
+  await room.join('r')
+  const before = events.length
+  await room.heartbeat()
+  await room.heartbeat()
+  expect(events.slice(before)).toEqual([])
+  expect(room.current()).toEqual(info)
+  expect(calls).not.toContain('leave_room')
+})
+
+test('the same non-network heartbeat error is emitted once until a heartbeat succeeds', async () => {
+  let fail = true
+  const { client } = fakeClient([], { heartbeat: () => (fail ? { error: { message: 'weird' } } : { data: info }) })
+  const { room, events } = session(client)
+  await room.join('r')
+  await room.heartbeat()
+  await room.heartbeat()
+  await room.heartbeat()
+  expect(events.filter((e) => e.type === 'error')).toEqual([{ type: 'error', code: 'weird' }])
+  fail = false
+  await room.heartbeat()
+  fail = true
+  await room.heartbeat()
+  expect(events.filter((e) => e.type === 'error')).toHaveLength(2)
 })

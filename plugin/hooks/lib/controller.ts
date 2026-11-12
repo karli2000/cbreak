@@ -14,6 +14,8 @@ export type { Line, PaneView, Port, Timer } from './port.ts'
 
 const HELLO_TIMEOUT_MS = 10_000
 const PING_MS = 20_000
+/** A helper call that has not answered by then counts as `network` (a hung call must not wedge the teardown queue). */
+const CALL_TIMEOUT_MS = 15_000
 const MAX_LINES = 200
 
 type Phase = 'idle' | 'pending' | 'joining' | 'break' | 'grace' | 'left'
@@ -67,6 +69,8 @@ export class Controller {
   private draftKeptShown = false
   private closePending = false
   private setupHinted = false
+  /** A `reconnecting` line was shown and no `online` followed yet. */
+  private reconnecting = false
   /** Kicked or banned: no joins for the rest of the session. */
   private removed: string | null = null
   private ended = false
@@ -264,6 +268,7 @@ export class Controller {
     this.phase = 'joining'
     this.manual = manual
     this.lines = []
+    this.reconnecting = false
     this.join = null
     this.placed = false
     this.draftKeptShown = false
@@ -518,12 +523,19 @@ export class Controller {
     })
   }
 
+  /** Never throws; a failed or hung call (no answer within CALL_TIMEOUT_MS) is `network`. */
   private async call<P extends ApiPath>(h: Helper, path: P, body: Api[P]['req']): Promise<ApiResult<P>> {
     if (!h.socket) return { ok: false, code: 'network' }
+    const network: ApiResult<P> = { ok: false, code: 'network' }
+    let timer: Timer | null = null
+    const timeout = new Promise<ApiResult<P>>((resolve) => {
+      timer = this.port.after(CALL_TIMEOUT_MS, () => resolve(network))
+    })
+    const answer = this.port.call(h.socket, path, body).catch(() => network)
     try {
-      return await this.port.call(h.socket, path, body)
-    } catch {
-      return { ok: false, code: 'network' }
+      return await Promise.race([answer, timeout])
+    } finally {
+      ;(timer as Timer | null)?.cancel()
     }
   }
 
@@ -577,12 +589,24 @@ export class Controller {
         this.addLine(errorText('room_closed'))
         void this.end('idle', { leave: true, close: true })
         return
+      case 'room_lost':
+        // the helper already left: keep the pane with the reason, no auto re-join in this turn
+        if (!this.inRoom()) return
+        this.addErrorLine(this.err(e.code))
+        void this.end(this.busy ? 'left' : 'idle', { leave: false, close: false })
+        return
       case 'connection':
-        if (e.state === 'reconnecting') this.addLine(COPY.reconnecting)
+        if (e.state === 'reconnecting') {
+          this.reconnecting = true
+          this.addLine(COPY.reconnecting)
+        } else if (this.reconnecting) {
+          this.reconnecting = false
+          this.addLine(COPY.reconnected)
+        }
         break
       case 'error':
         if (this.setup.running()) return this.setup.onError(e.code)
-        this.addLine(this.err(e.code))
+        this.addErrorLine(this.err(e.code))
         break
     }
     this.port.redraw()
@@ -653,6 +677,13 @@ export class Controller {
 
   private addLine(text: string): void {
     this.pushLine({ kind: 'system', text })
+  }
+
+  /** Like addLine, but a helper error repeating the line just above is not added again. */
+  private addErrorLine(text: string): void {
+    const last = this.lines[this.lines.length - 1]
+    if (last?.kind === 'system' && last.text === text) return
+    this.addLine(text)
   }
 
   private pushLine(l: Line): void {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Controller, type Line, type PaneView } from '../../plugin/hooks/lib/controller.ts'
-import { COPY } from '../../plugin/hooks/lib/copy.ts'
+import { COPY, errorText } from '../../plugin/hooks/lib/copy.ts'
 import type { AuthState, ChatMessage } from '../../plugin/shared/protocol.ts'
 import { FakePort, tick } from './fake-port.ts'
 
@@ -344,7 +344,7 @@ describe('Controller break lifecycle', () => {
     await helperUp(port)
     expect(port.paths()).toEqual(['/join'])
     c.turnComplete(false)
-    port.advance(15_000)
+    port.advance(10_000) // below the 15 s call timeout
     await tick()
     expect(port.paths()).toEqual(['/join'])
     expect(port.stops).toBe(0)
@@ -590,5 +590,91 @@ describe('Controller chat', () => {
     await c.submit('/nope')
     expect(lastLine(c)).toBe('Unknown command /nope. Type /help.')
     expect(port.paths()).toEqual(['/join'])
+  })
+})
+
+describe('Controller final-review fixes', () => {
+  test('the same helper error twice in a row adds one line (I1)', async () => {
+    const { port, c } = await inBreak()
+    port.emit({ type: 'error', code: 'unknown' })
+    port.emit({ type: 'error', code: 'unknown' })
+    expect(texts(c).filter((t) => t === 'Something went wrong (unknown).')).toHaveLength(1)
+  })
+
+  test('connection online after reconnecting adds Reconnected. (M1)', async () => {
+    const { port, c } = await inBreak()
+    port.emit({ type: 'connection', state: 'online' })
+    expect(texts(c)).not.toContain(COPY.reconnected)
+    port.emit({ type: 'connection', state: 'reconnecting' })
+    port.emit({ type: 'connection', state: 'online' })
+    expect(lastLine(c)).toBe(COPY.reconnected)
+    port.emit({ type: 'connection', state: 'online' })
+    expect(texts(c).filter((t) => t === COPY.reconnected)).toHaveLength(1)
+  })
+
+  test('a hung /join times out after 15 s as network and the teardown is not wedged (M4)', async () => {
+    const port = new FakePort()
+    const { c } = await make(port)
+    port.hold('/join') // never released
+    c.turnStart()
+    port.advance(20_000)
+    await tick()
+    port.emit({ type: 'hello', protocol: 1, pid: 42, socket: '/tmp/cb.sock' })
+    port.emit({ type: 'auth', ...READY })
+    await tick()
+    expect(port.count('/join')).toBe(1)
+    port.advance(14_999)
+    await tick()
+    expect(port.stops).toBe(0)
+    port.advance(1)
+    await tick()
+    await tick()
+    expect(port.toasts).toContain(errorText('network'))
+    expect(port.stops).toBe(1)
+  })
+
+  test('a hung /join does not block the teardown queue after the turn ends (M4)', async () => {
+    const port = new FakePort()
+    const { c } = await make(port)
+    port.hold('/join')
+    c.turnStart()
+    port.advance(20_000)
+    await tick()
+    port.emit({ type: 'hello', protocol: 1, pid: 42, socket: '/tmp/cb.sock' })
+    port.emit({ type: 'auth', ...READY })
+    await tick()
+    c.turnComplete(false) // teardown waits for the join
+    await tick()
+    expect(port.stops).toBe(0)
+    port.advance(15_000)
+    await tick()
+    await tick()
+    expect(port.stops).toBe(1)
+    // a new break can start (it waits for the teardown queue)
+    port.answer('/join', { ok: true, data: { room: 'lobby', instance: 1, topic: 'room:lobby:1', here: 2 } })
+    c.turnStart()
+    port.advance(20_000)
+    await helperUp(port)
+    expect(port.spawns).toBe(2)
+  })
+
+  test('room_lost ends the break with its error line, the pane stays open (M6)', async () => {
+    const { port, c } = await inBreak()
+    port.emit({ type: 'room_lost', code: 'not_found' })
+    await tick()
+    expect(lastLine(c)).toBe('Not found.')
+    expect(chat(c).inputEnabled).toBe(false)
+    expect(port.lastStatus).toBeUndefined()
+    expect(port.stops).toBe(1)
+    expect(port.count('/leave')).toBe(0) // the helper already left
+    expect(port.closes).toBe(0)
+    // no auto re-join in this turn
+    port.advance(60_000)
+    await tick()
+    expect(port.spawns).toBe(1)
+  })
+
+  test('not_in_room has its own text (M6)', () => {
+    expect(errorText('not_in_room')).toBe("You're not in the room anymore.")
   })
 })

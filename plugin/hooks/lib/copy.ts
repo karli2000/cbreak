@@ -21,6 +21,7 @@ export const COPY = {
   removed: (reason: string | null) => `You've been removed from coffee break: ${reason ?? 'no reason given'}`,
   full: 'The coffee room is full, try again in a minute.',
   reconnecting: 'Connection lost, reconnecting…',
+  reconnected: 'Reconnected.',
   helperGone: 'Coffee break stopped unexpectedly. It will try again on your next task.',
   setupHint: '☕ Run /coffee setup to chat with other people while Claude works.',
   signin: 'Sign in with GitHub to join coffee break. Press Enter to open GitHub.',
@@ -89,6 +90,7 @@ export function errorText(code: string, ctx?: { mutedUntil?: string | null }): s
     case 'nickname_reserved': return 'That name is reserved.'
     case 'nickname_taken': return 'That name is taken.'
     case 'nickname_change_too_soon': return 'You can change your name once every 30 days.'
+    case 'not_in_room': return "You're not in the room anymore."
     case 'not_signed_in': return 'Not signed in. Run /coffee setup.'
     case 'network': return "Can't reach coffee break, retrying…"
     case 'realtime_unavailable': return COPY.full
