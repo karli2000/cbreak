@@ -120,6 +120,13 @@ describe('admin rooms', () => {
     await waitFor(() => expect((callsOf(api, 'upsertRoom')[0]?.args[0] as { lang: unknown }).lang).toBeNull())
   })
 
+  test('an empty kind saves as public', async () => {
+    const api = setup()
+    fireEvent.change(await screen.findByLabelText('Kind of lobby'), { target: { value: '  ' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save lobby' }))
+    await waitFor(() => expect((callsOf(api, 'upsertRoom')[0]?.args[0] as { kind: unknown }).kind).toBe('public'))
+  })
+
   test('room slug is validated before saving', async () => {
     const api = setup()
     await screen.findByLabelText('Title of lobby')

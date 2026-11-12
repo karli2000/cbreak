@@ -206,7 +206,7 @@ function RoomRow({ room, api, onSaved }: { room: Room; api: Bound; onSaved(): Pr
       g.setError('Enter a title.')
       return
     }
-    const ok = await g.run(() => api.upsertRoom({ slug: room.slug, title: title.trim(), kind: kind.trim(), lang: lang.trim() || null, is_open: open }))
+    const ok = await g.run(() => api.upsertRoom({ slug: room.slug, title: title.trim(), kind: kind.trim() || 'public', lang: lang.trim() || null, is_open: open }))
     if (ok) await onSaved()
   }
   return (
