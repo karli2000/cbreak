@@ -52,7 +52,7 @@ type Deps = { client: SupabaseClient; emit: (e: HelperEvent) => void; userId: st
 export class RoomSession {
   private client: SupabaseClient
   private emit: (e: HelperEvent) => void
-  private userId: string
+  readonly userId: string
   private cache: NicknameCache
 
   private info: JoinInfo | null = null
@@ -96,11 +96,8 @@ export class RoomSession {
     } catch (e) {
       if (gen !== this.roomGen) return
       const code = codeOf(e)
-      if (code === 'not_in_room') await this.rejoin(info.room).catch((err) => this.emitError(err))
-      else if (code === 'room_closed') {
-        this.emit({ type: 'room_closed' })
-        await this.leave()
-      } else if (code === 'banned') await this.onKicked()
+      if (code === 'not_in_room') await this.rejoin(info.room).catch((err) => this.onRejoinFailed(err))
+      else if (code === 'room_closed' || code === 'banned') await this.onRejoinFailed(e)
       else if (code !== 'network') this.emitError(e)
       return
     }
@@ -111,9 +108,15 @@ export class RoomSession {
 
   /** Never throws: leave_room errors are ignored. */
   async leave(): Promise<void> {
+    this.drop()
+    await rpc(this.client, 'leave_room').catch(() => {})
+  }
+
+  /** Forgets the room locally (channel, retries, `current()`) without calling the backend. */
+  drop(): void {
     this.detach()
     this.info = null
-    await rpc(this.client, 'leave_room').catch(() => {})
+    this.failures = 0
   }
 
   async send(body: string): Promise<{ id: number }> {
@@ -122,7 +125,12 @@ export class RoomSession {
     } catch (e) {
       const room = this.info?.room
       if (codeOf(e) !== 'not_in_room' || !room) throw e
-      await this.rejoin(room)
+      try {
+        await this.rejoin(room)
+      } catch (err) {
+        await this.onRejoinFailed(err)
+        throw err
+      }
       return this.sendOnce(body)
     }
   }
@@ -159,6 +167,21 @@ export class RoomSession {
     return this.rejoining
   }
 
+  /**
+   * The room can no longer be (re)joined: `room_closed` → room_closed event + leave, `banned` → like kicked,
+   * `network` → keep the room (the next tick retries), anything else (e.g. `not_found`) → one error + leave.
+   * Runs at most once per room: every branch except network clears `info` synchronously.
+   */
+  private async onRejoinFailed(e: unknown): Promise<void> {
+    if (!this.info) return
+    const code = codeOf(e)
+    if (code === 'network') return
+    if (code === 'banned') return this.onKicked()
+    if (code === 'room_closed') this.emit({ type: 'room_closed' })
+    else this.emitError(e)
+    await this.leave()
+  }
+
   private emitError(e: unknown) {
     this.emit({ type: 'error', code: codeOf(e), ...(e instanceof Error && e.message !== codeOf(e) ? { message: e.message } : {}) })
   }
@@ -167,7 +190,7 @@ export class RoomSession {
   private async attach(info: JoinInfo): Promise<void> {
     this.detach()
     this.info = info
-    this.failures = 0
+    // `failures` survives a re-join, so the first successful subscribe of a streak still emits `online`
     const gen = this.roomGen
     this.pending = []
     // a failed first subscribe starts the reconnect loop; joined and backlog are emitted either way
@@ -297,6 +320,7 @@ export class RoomSession {
     if (!this.info) return
     this.detach()
     this.info = null
+    this.failures = 0
     let reason: string | null = null
     try {
       reason = (await rpc<{ ban_reason: string | null }>(this.client, 'my_profile')).ban_reason ?? null

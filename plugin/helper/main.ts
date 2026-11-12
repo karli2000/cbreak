@@ -60,6 +60,11 @@ async function refresh(): Promise<boolean> {
   try {
     const s = await ensureFreshSession(client, store, marginS)
     if (!s && ctx.signedIn) emit({ type: 'auth', state: 'signed_out' })
+    if (!s && ctx.room) {
+      // signed out under us: forget the room locally (no session left for leave_room)
+      ctx.room.drop()
+      ctx.room = null
+    }
     ctx.signedIn = !!s
     return ctx.signedIn
   } catch (e) {

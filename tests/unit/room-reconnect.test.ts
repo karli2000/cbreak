@@ -116,3 +116,101 @@ test('room_closed from the heartbeat emits room_closed and leaves', async () => 
   expect(calls).toContain('leave_room')
   expect(room.current()).toBeNull()
 })
+
+/** Answers the first `n` calls with `first`, later ones with the default. */
+const firstN = (n: number, first: { data?: unknown; error?: { message: string } }) => {
+  let calls = 0
+  return () => (calls++ < n ? first : { data: info })
+}
+
+test('a re-join inside the retry (heartbeat not_in_room) still ends the streak with connection online', async () => {
+  const { client, calls } = fakeClient(['CHANNEL_ERROR'], { heartbeat: firstN(1, { error: { message: 'not_in_room' } }) })
+  const { room, events } = session(client)
+  await room.join('r')
+  jest.advanceTimersByTime(1000)
+  await flush()
+  expect(calls.filter((c) => c === 'join_room')).toHaveLength(2)
+  // `online` comes with the re-join's SUBSCRIBED, before its joined/backlog
+  expect(events.map((e) => e.type)).toEqual(['connection', 'joined', 'backlog', 'connection', 'joined', 'backlog'])
+  expect(events.filter((e) => e.type === 'connection')).toEqual([
+    { type: 'connection', state: 'reconnecting' },
+    { type: 'connection', state: 'online' },
+  ])
+})
+
+test('a new topic from the heartbeat inside the retry ends the streak with connection online', async () => {
+  const moved = { ...info, instance: 2, topic: 'room:r:2' }
+  const { client } = fakeClient(['CHANNEL_ERROR'], { heartbeat: () => ({ data: moved }) })
+  const { room, events } = session(client)
+  await room.join('r')
+  jest.advanceTimersByTime(1000)
+  await flush()
+  expect(events.find((e) => e.type === 'joined' && e.topic === 'room:r:2')).toBeDefined()
+  expect(events.filter((e) => e.type === 'connection')).toEqual([
+    { type: 'connection', state: 'reconnecting' },
+    { type: 'connection', state: 'online' },
+  ])
+  expect(room.current()).toEqual(moved)
+})
+
+test('a re-join refused with room_closed emits room_closed and leaves, once', async () => {
+  const { client, calls } = fakeClient([], {
+    heartbeat: () => ({ error: { message: 'not_in_room' } }),
+    join_room: (() => {
+      let n = 0
+      return () => (n++ === 0 ? { data: info } : { error: { message: 'room_closed' } })
+    })(),
+  })
+  const { room, events } = session(client)
+  await room.join('r')
+  await room.heartbeat()
+  expect(events.at(-1)).toEqual({ type: 'room_closed' })
+  expect(calls).toContain('leave_room')
+  expect(room.current()).toBeNull()
+  const n = events.length
+  await room.heartbeat() // no room any more: nothing happens
+  expect(events.length).toBe(n)
+  expect(events.filter((e) => e.type === 'error')).toEqual([])
+})
+
+test('a re-join refused with not_found emits one error and leaves; banned is handled like kicked', async () => {
+  const refuse = (code: string) => {
+    let n = 0
+    return () => (n++ === 0 ? { data: info } : { error: { message: code } })
+  }
+  {
+    const { client, calls } = fakeClient([], { heartbeat: () => ({ error: { message: 'not_in_room' } }), join_room: refuse('not_found') })
+    const { room, events } = session(client)
+    await room.join('r')
+    await room.heartbeat()
+    await room.heartbeat()
+    expect(events.filter((e) => e.type === 'error')).toEqual([{ type: 'error', code: 'not_found' }])
+    expect(calls).toContain('leave_room')
+    expect(room.current()).toBeNull()
+  }
+  {
+    const { client } = fakeClient([], {
+      heartbeat: () => ({ error: { message: 'not_in_room' } }),
+      join_room: refuse('banned'),
+      my_profile: () => ({ data: { ban_reason: 'bye' } }),
+    })
+    const { room, events } = session(client)
+    await room.join('r')
+    await room.heartbeat()
+    expect(events.at(-1)).toEqual({ type: 'kicked', reason: 'bye' })
+    expect(room.current()).toBeNull()
+  }
+})
+
+test('a network failure of the re-join keeps the room for the next tick', async () => {
+  let n = 0
+  const { client } = fakeClient([], {
+    heartbeat: () => ({ error: { message: 'not_in_room' } }),
+    join_room: () => (n++ === 0 ? { data: info } : { error: { message: 'network' } }),
+  })
+  const { room, events } = session(client)
+  await room.join('r')
+  await room.heartbeat()
+  expect(room.current()).toEqual(info)
+  expect(events.filter((e) => e.type === 'error' || e.type === 'room_closed')).toEqual([])
+})

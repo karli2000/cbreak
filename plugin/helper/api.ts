@@ -50,9 +50,11 @@ async function leaveIfJoined(ctx: Ctx): Promise<void> {
 
 /** The room session for the signed-in user, created on first use. */
 async function roomOf(ctx: Ctx): Promise<RoomSession> {
-  if (ctx.room) return ctx.room
   const session = await peekSession(ctx.client)
   if (!session) throw new CoffeeError('not_signed_in')
+  if (ctx.room?.userId === session.user.id) return ctx.room
+  // another user signed in since this session was created: forget it locally (leave_room would hit the new user)
+  ctx.room?.drop()
   ctx.room = new RoomSession({
     client: ctx.client,
     emit: ctx.emit,

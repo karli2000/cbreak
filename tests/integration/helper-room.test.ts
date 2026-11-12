@@ -215,6 +215,23 @@ test("room_closed is reported", async () => {
   await h.stop();
 });
 
+test("a re-join refused because the room closed is reported as room_closed", async () => {
+  const { a, h } = await joinedA("ra13", { COFFEEBREAK_TICK_MS: "1000" });
+  try {
+    // purged row: heartbeat says not_in_room, then join_room says room_closed
+    await check(adminClient().from("occupancy").delete().eq("user_id", a.userId), "purge occupancy");
+    await check(adminClient().from("rooms").update({ is_open: false }).eq("slug", testRoom), "close room");
+    await h.waitFor("room_closed", undefined, 5000);
+    expect(await h.call("/status")).toMatchObject({ ok: true, data: { room: null } });
+    await Bun.sleep(2500); // two more ticks: no repeated events
+    expect(h.events.filter((e) => e.type === "room_closed")).toHaveLength(1);
+    expect(h.events.filter((e) => e.type === "error")).toEqual([]);
+  } finally {
+    await check(adminClient().from("rooms").update({ is_open: true }).eq("slug", testRoom), "reopen room");
+  }
+  await h.stop();
+});
+
 test("send maps errors", async () => {
   const { h } = await joinedA("ra9");
   expect(await h.call("/send", { body: "first" })).toMatchObject({ ok: true });
