@@ -266,3 +266,39 @@ test("transport failure maps to network", async () => {
   expect(await code(api.listRooms(c))).toBe("network");
   expect(await code(api.me(c))).toBe("network");
 });
+
+test("invites round-trip (admin)", async () => {
+  const admin = await userClient("invadm", "admin");
+  const before = await api.inviteOnly(admin);
+  const ghId = 900_000_000 + Math.floor(Math.random() * 90_000_000);
+  try {
+    await api.addInvite(admin, ghId, "Inv-Test", "a note");
+    let rows = await api.listInvites(admin);
+    expect(rows.find((r) => r.github_id === ghId)).toMatchObject({ github_login: "Inv-Test", note: "a note" });
+    await api.addInvite(admin, ghId, "inv-test", null);
+    rows = await api.listInvites(admin);
+    expect(rows.filter((r) => r.github_id === ghId).length).toBe(1);
+    expect(rows.find((r) => r.github_id === ghId)?.note).toBeNull();
+    const times = rows.map((r) => r.created_at);
+    expect(times).toEqual([...times].sort().reverse());
+
+    await api.setInviteOnly(admin, !before);
+    expect(await api.inviteOnly(admin)).toBe(!before);
+    await api.setInviteOnly(admin, before);
+    expect(await api.inviteOnly(admin)).toBe(before);
+
+    await api.removeInvite(admin, ghId);
+    expect((await api.listInvites(admin)).some((r) => r.github_id === ghId)).toBe(false);
+    expect(await code(api.removeInvite(admin, ghId))).toBe("not_found");
+    expect(await code(api.addInvite(admin, ghId, "   ", null))).toBe("invalid_login");
+  } finally {
+    await adminClient().from("beta_invites").delete().eq("github_id", ghId);
+    await adminClient().from("beta_settings").update({ invite_only: before }).eq("id", true);
+  }
+});
+
+test("invites are admin-only", async () => {
+  const mod = await userClient("invmod", "moderator");
+  expect(await code(api.addInvite(mod, 1, "x", null))).toBe("forbidden");
+  expect(await api.listInvites(mod)).toEqual([]);
+});

@@ -18,7 +18,7 @@ describe('security headers', () => {
     expect(existsSync(p)).toBe(true)
     const h = readFileSync(p, 'utf8')
     expect(h).toContain(
-      "connect-src 'self' https://meioekkvutvrspfvqgye.supabase.co wss://meioekkvutvrspfvqgye.supabase.co",
+      "connect-src 'self' https://meioekkvutvrspfvqgye.supabase.co wss://meioekkvutvrspfvqgye.supabase.co https://api.github.com",
     )
     expect(h).toContain("frame-ancestors 'none'")
     expect(h).toContain("script-src 'self'")

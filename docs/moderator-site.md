@@ -43,6 +43,8 @@ bun run site:deploy           # builds, then wrangler pages deploy site/dist --p
 
 `site:deploy` always passes `--branch main`, so the upload is the production deployment at `https://coffeebreak-mod.pages.dev` whatever git branch is checked out. Without it, wrangler uses the current git branch, and a branch other than the production branch becomes a preview at `<hash>.coffeebreak-mod.pages.dev`, which is not in the redirect allowlist. The wrangler version is pinned in the script and above; bump it in both places together.
 
+Admin → Invites (friends beta) looks GitHub usernames up in the browser through `https://api.github.com/users/<name>`, so the CSP `connect-src` in `site/public/_headers` also allows `https://api.github.com` (and nothing else new). The CSP only changes on the live site after a redeploy: run `bun run site:deploy` after pulling this change (and after the invite migration is pushed). GitHub's unauthenticated lookups are rate limited to 60 per hour per IP; the site then shows "GitHub is rate-limiting lookups".
+
 A custom domain is optional (Pages dashboard, Custom domains). A public imprint waits for a public launch.
 
 ## Owner steps, in order
