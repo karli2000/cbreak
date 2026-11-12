@@ -1,5 +1,5 @@
 // Parsers for `/coffee …` arguments and pane input. Pure (runs in the mod environment).
-import { isRoomSlug, validateSetting } from './settings.ts'
+import { validateSetting } from './settings.ts'
 import type { SettingKey } from './settings.ts'
 
 export type CoffeeCommand =
@@ -30,12 +30,11 @@ export function parseCoffeeArgs(args: string): CoffeeCommand {
     case 'logout': return { kind: 'logout' }
     case 'name':
       return a ? { kind: 'name', nick: nick(a) } : { kind: 'invalid', error: 'Usage: /coffee name <nickname>' }
-    case 'room': {
-      const slug = a?.toLowerCase()
-      return parts.length === 2 && isRoomSlug(slug)
-        ? { kind: 'room', slug }
+    case 'room':
+      // The slug itself is validated by the controller (its own message for a bad slug).
+      return parts.length === 2 && a
+        ? { kind: 'room', slug: a.toLowerCase() }
         : { kind: 'invalid', error: 'Usage: /coffee room <name> (a–z, 0–9 and -, 2–32 characters)' }
-    }
     case 'config': {
       if (!a) return { kind: 'config' }
       if (!SETTING_KEYS.includes(a) || b === undefined) {

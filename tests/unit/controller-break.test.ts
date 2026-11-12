@@ -257,6 +257,16 @@ describe('Controller break lifecycle', () => {
     expect(port.count('/join')).toBe(2)
   })
 
+  test('a repeated turn start after closing the pane does not re-join', async () => {
+    const { port, c } = await inBreak()
+    c.paneClosedByPerson()
+    await tick()
+    c.turnStart()
+    port.advance(60_000)
+    await tick()
+    expect(port.spawns).toBe(1)
+  })
+
   test('coffee after closing the pane re-joins while busy', async () => {
     const { port, c } = await inBreak()
     c.paneClosedByPerson()

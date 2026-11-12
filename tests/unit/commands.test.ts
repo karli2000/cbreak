@@ -29,6 +29,8 @@ describe('parseCoffeeArgs', () => {
     expect(parseCoffeeArgs('bogus').kind).toBe('invalid')
     expect(parseCoffeeArgs('name').kind).toBe('invalid')
     expect(parseCoffeeArgs('room Bad Slug').kind).toBe('invalid')
+    expect(parseCoffeeArgs('room').kind).toBe('invalid')
+    expect(parseCoffeeArgs('room x')).toEqual({ kind: 'room', slug: 'x' })
   })
 })
 

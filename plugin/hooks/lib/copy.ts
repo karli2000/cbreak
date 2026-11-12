@@ -1,6 +1,12 @@
 // User-facing strings. Pure (runs in the mod environment).
+import type { Role } from '../../shared/protocol.ts'
+import type { Settings } from './settings.ts'
+
 export const COPY = {
   idle: '☕ The coffee room is only open while Claude is working.',
+  opening: '☕ Opening the coffee room…',
+  off: 'Coffee break is off. /coffee on turns it back on.',
+  on: 'Coffee break is on.',
   title: (room: string, here: number) => `☕ ${room} · ${here} here`,
   status: (here: number) => `☕ ${here} on break`,
   statusHint: (here: number) => `☕ ${here} on break · /coffee to join`,
@@ -25,6 +31,32 @@ export const COPY = {
   ready: (nick: string, min: number) =>
     `All set, ${nick}. The coffee room opens by itself when Claude works for more than ${min} s. Open it any time with /coffee while Claude is busy.`,
   deleteWarn: 'This deletes your coffee break profile. Run /coffee delete-account yes to confirm.',
+  reported: (nick: string) => `Reported ${nick}.`,
+  muted: (nick: string, minutes: number) => `Muted ${nick} for ${minutes} min.`,
+  banned: (nick: string) => `Banned ${nick}.`,
+  // setup pane
+  setupTitle: '☕ coffee break setup',
+  setupOpening: '☕ Opening the coffee break setup…',
+  setupRunning: '☕ Finish the setup in the coffee break pane first.',
+  setupPlaceholder: { signin: 'press Enter to sign in', nick: 'nickname', rules: 'type yes to accept', done: 'press Enter to close' },
+  setupGone: 'Coffee break stopped unexpectedly. Run /coffee setup to try again.',
+  helperUnavailable: "Couldn't start coffee break. Try again in a moment.",
+  signedInAs: (nick: string) => `You're signed in as ${nick}.`,
+  // /coffee subcommands
+  statusSignedIn: (nick: string, role: Role) => `Signed in as ${nick} (${role})`,
+  statusUnfinished: 'Signed in, setup not finished. Run /coffee setup.',
+  notSignedIn: 'Not signed in',
+  settingsLine: (s: Settings) =>
+    `Room: ${s.room} · min wait ${s.minBusySec} s · grace ${s.graceSec} s · auto-open ${s.autoOpen ? 'on' : 'off'} · ${s.enabled ? 'enabled' : 'disabled'}`,
+  onBreak: (yes: boolean) => `On break: ${yes ? 'yes' : 'no'}`,
+  nameSet: (nick: string) => `Your nickname is now ${nick}.`,
+  roomInvalid: 'Room names are 2–32 characters: a–z, 0–9 and -.',
+  roomSet: (slug: string) => `Room set to ${slug}. It applies from your next break.`,
+  saved: 'Saved.',
+  saveFailed: "Couldn't save the setting.",
+  signedOut: 'Signed out.',
+  accountDeleted: 'Your coffee break profile was deleted.',
+  commands: 'Commands: /coffee [setup|status|name|room|config|on|off|logout|delete-account]',
   paneHelp: (mod: boolean) =>
     '/me <action> · /report <nick> <reason> · /leave' +
     (mod ? ' · /del <nick> [reason] · /mute <nick> <10|60|1440> <reason> · /ban <nick> <reason>' : ''),

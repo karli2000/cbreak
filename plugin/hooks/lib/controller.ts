@@ -1,21 +1,20 @@
-// The mod's brain: break lifecycle, chat and /coffee commands. Pure: every side effect goes
-// through `Port`, the only timers are `Port.after`. Runs in the mod environment (no Node, no DOM).
-// It never sees prompt text: turn hooks pass no arguments.
+// The mod's brain: break lifecycle, chat and the helper process. The setup flow and the /coffee
+// subcommands live in setup.ts (`Setup`), which reaches back through a narrow `SetupHost`.
+// Pure: every side effect goes through `Port`, the only timers are `Port.after`. Runs in the mod
+// environment (no Node, no DOM). It never sees prompt text: turn hooks pass no arguments.
 import type { Api, ApiPath, ApiResult, AuthState, ChatMessage, HelperEvent, JoinInfo } from '../../shared/protocol.ts'
 import { parseCoffeeArgs, parsePaneInput, type PaneCommand } from './commands.ts'
 import { COPY, errorText } from './copy.ts'
 import { isAction, nickColor, segments } from './format.ts'
 import type { Line, PaneView, Port, Timer } from './port.ts'
 import { DEFAULTS, type Settings } from './settings.ts'
+import { Setup, type Lease } from './setup.ts'
 
 export type { Line, PaneView, Port, Timer } from './port.ts'
 
 const HELLO_TIMEOUT_MS = 10_000
 const PING_MS = 20_000
 const MAX_LINES = 200
-const OPENING = '☕ Opening the coffee room…'
-const OFF = 'Coffee break is off. /coffee on turns it back on.'
-const NOT_YET = 'That command is not available yet.'
 
 type Phase = 'idle' | 'pending' | 'joining' | 'break' | 'grace' | 'left'
 
@@ -26,12 +25,19 @@ function deferred<T>(): Deferred<T> {
   return { promise, resolve }
 }
 
-/** One spawned coffeebreakd. `hello`/`auth` settle with null when it is stopped, exits or the wait is abandoned. */
+/**
+ * One spawned coffeebreakd (at most one at a time). `hello`/`auth` settle with null when it is stopped
+ * or exits. It is stopped once neither a break (`breakHeld`) nor a command lease (`holds`) uses it.
+ */
 type Helper = {
   socket: string | null
   alive: boolean
   hello: Deferred<string | null>
+  /** Settles with the first auth event; `state` keeps the latest. */
   auth: Deferred<AuthState | null>
+  state: AuthState | null
+  holds: number
+  breakHeld: boolean
   /** The /join call of this helper, if one was issued. Settled before any /leave (ruling R5). */
   join: Promise<unknown> | null
   ping: Timer | null
@@ -62,12 +68,24 @@ export class Controller {
   /** Kicked or banned: no joins for the rest of the session. */
   private removed: string | null = null
   private ended = false
+  private setup: Setup
 
   constructor(private port: Port) {
     this.settingsReady = port.loadSettings().then(
       (s) => void (this.settings = s),
       () => {},
     )
+    this.setup = new Setup({
+      port,
+      settings: () => this.settings,
+      saveSettings: (s) => this.saveSettings(s),
+      onBreak: () => this.inRoom(),
+      lease: () => this.lease(),
+      startBreak: () => this.manualBreak(),
+      endBreak: () => this.endBreak(),
+      closePane: () => this.closePane(),
+      block: (reason) => this.block(reason),
+    })
   }
 
   // ---- Claude Code events ----
@@ -76,8 +94,7 @@ export class Controller {
     this.busy = true
     if (!this.settings.enabled || this.removed !== null || this.ended) return
     switch (this.phase) {
-      case 'idle':
-      case 'left':
+      case 'idle': // not `left`: closing the pane holds off until a turn completes
         this.phase = 'pending'
         this.pendingTimer = this.port.after(this.settings.minBusySec * 1000, () => {
           this.pendingTimer = null
@@ -126,6 +143,7 @@ export class Controller {
 
   sessionEnd(): void {
     this.ended = true
+    this.setup.close()
     this.cancelPending()
     void this.end('idle', { leave: true, close: false })
   }
@@ -133,17 +151,20 @@ export class Controller {
   paneClosedByPerson(): void {
     this.placed = false
     this.closePending = false
+    this.setup.close()
     if (this.inRoom() || this.phase === 'joining') void this.end(this.busy ? 'left' : 'idle', { leave: true, close: false })
   }
 
   // ---- pane ----
 
   input(value: string): void {
+    if (this.setup.showing()) return this.setup.input(value)
     this.draft = value
     if (!value.trim()) this.checkGrace()
   }
 
   async submit(value: string): Promise<void> {
+    if (this.setup.showing()) return this.setup.submit(value)
     this.draft = value
     if (!value.trim()) return
     const cmd = parsePaneInput(value)
@@ -167,19 +188,15 @@ export class Controller {
     this.checkGrace()
   }
 
-  /** `/coffee <args>`. Task 6 handles the bare command; the others come with the setup flow. */
+  /** `/coffee <args>`: the bare command opens the room; `Setup` handles the others. */
   async command(args: string): Promise<string> {
     await this.settingsReady
     const cmd = parseCoffeeArgs(args)
-    switch (cmd.kind) {
-      case 'open':
-        return this.open()
-      default:
-        return NOT_YET
-    }
+    return cmd.kind === 'open' ? this.open() : this.setup.command(cmd)
   }
 
   view(): PaneView {
+    if (this.setup.showing()) return this.setup.view()
     const j = this.join
     return {
       mode: 'chat',
@@ -194,9 +211,13 @@ export class Controller {
   // ---- break lifecycle ----
 
   private open(): string {
+    if (!this.busy) return COPY.idle // exactly, even when removed (ruling R9)
     if (this.removed !== null) return this.removed
-    if (!this.busy) return COPY.idle
-    if (!this.settings.enabled) return OFF
+    if (!this.settings.enabled) return COPY.off
+    if (this.setup.running()) {
+      void this.setup.focus()
+      return COPY.setupRunning
+    }
     switch (this.phase) {
       case 'joining':
         this.manual = true
@@ -208,12 +229,26 @@ export class Controller {
       default:
         void this.startBreak(true)
     }
-    return OPENING
+    return COPY.opening
+  }
+
+  /** A break the setup asks for once it is ready, if Claude is still busy (or already joining). */
+  private async manualBreak(): Promise<void> {
+    if (!this.busy || !this.settings.enabled || this.removed !== null || this.ended || this.inRoom()) return
+    if (this.phase === 'joining') return void (this.manual = true)
+    await this.startBreak(true)
+  }
+
+  /** Ends a break or an attempt at one (/coffee off, logout, delete-account); resolves after the teardown. */
+  private endBreak(): Promise<void> {
+    if (this.phase === 'idle' || this.phase === 'left') return this.lifecycle
+    return this.end(this.busy ? 'left' : 'idle', { leave: true, close: this.inRoom() })
   }
 
   private async startBreak(manual: boolean): Promise<void> {
     if (this.phase === 'joining' || this.inRoom()) return
     this.cancelPending()
+    if (this.setup.running()) return void (this.phase = 'idle') // the setup starts the break once ready
     const gen = ++this.gen
     this.phase = 'joining'
     this.manual = manual
@@ -225,13 +260,15 @@ export class Controller {
     if (gen !== this.gen) return
     if (!this.settings.enabled) return void (this.phase = 'idle')
 
-    const h = this.spawn()
-    const socket = await h.hello.promise
+    const h = this.helper ?? this.spawn() // a command's helper is adopted, never a second one
+    h.breakHeld = true
+    await h.hello.promise
     if (gen !== this.gen) return
-    if (!socket) return this.fail(h, COPY.helperGone)
+    if (!h.socket) return this.fail(h, COPY.helperGone)
 
-    const auth = await h.auth.promise
+    await h.auth.promise
     if (gen !== this.gen) return
+    const auth = h.alive ? h.state : null
     if (!auth) return this.fail(h, COPY.helperGone)
     if (auth.state === 'banned') {
       const text = this.block(auth.ban_reason)
@@ -255,6 +292,7 @@ export class Controller {
     }
     this.join ??= res.data
     this.phase = 'break'
+    this.setup.dismiss()
     this.port.redraw()
     if (!this.manual && !this.settings.autoOpen) return this.port.status(COPY.statusHint(this.here()))
     await this.showPane(this.manual)
@@ -262,7 +300,8 @@ export class Controller {
 
   /** Gives up a break attempt before the room was joined. */
   private fail(h: Helper, line: string | null): void {
-    this.stopHelper(h)
+    h.breakHeld = false
+    this.maybeStop(h)
     this.phase = 'idle'
     this.port.status(undefined)
     if (line) this.addLine(line)
@@ -304,16 +343,14 @@ export class Controller {
     this.port.status(undefined)
     this.port.redraw()
     const h = this.helper
-    if (h) {
-      h.hello.resolve(null)
-      h.auth.resolve(null)
-    }
     this.lifecycle = this.lifecycle
       .then(async () => {
         if (h) {
           if (h.join) await h.join
           if (o.leave && h.join && h.alive) await this.call(h, '/leave', {})
-          this.stopHelper(h)
+          h.join = null
+          h.breakHeld = false
+          this.maybeStop(h) // a command still holding it stops it when done
         }
         if (o.close) await this.closePane()
       })
@@ -332,6 +369,16 @@ export class Controller {
       return
     }
     void this.end('idle', { leave: true, close: true })
+  }
+
+  private async saveSettings(s: Settings): Promise<boolean> {
+    this.settings = s // applies for this session even if storing fails
+    try {
+      await this.port.saveSettings(s)
+      return true
+    } catch {
+      return false
+    }
   }
 
   private async closePane(): Promise<void> {
@@ -357,8 +404,43 @@ export class Controller {
 
   // ---- helper process ----
 
+  /**
+   * A helper for a command: the running one (break or setup) if any, else a fresh one, which is
+   * stopped on release unless a break adopted it meanwhile. null when it did not start.
+   */
+  private async lease(): Promise<Lease | null> {
+    if (!this.helper) await this.lifecycle // a queued teardown stops its helper first
+    const h = this.helper ?? this.spawn()
+    h.holds++
+    let held = true
+    const release = () => {
+      if (!held) return
+      held = false
+      h.holds--
+      this.maybeStop(h)
+    }
+    await h.hello.promise
+    if (h.socket) await h.auth.promise
+    const first = h.state
+    if (!h.socket || !h.alive || !first) {
+      release()
+      return null
+    }
+    return { auth: () => h.state ?? first, call: (path, body) => this.call(h, path, body), release }
+  }
+
   private spawn(): Helper {
-    const h: Helper = { socket: null, alive: true, hello: deferred(), auth: deferred(), join: null, ping: null }
+    const h: Helper = {
+      socket: null,
+      alive: true,
+      hello: deferred(),
+      auth: deferred(),
+      state: null,
+      holds: 0,
+      breakHeld: false,
+      join: null,
+      ping: null,
+    }
     this.helper = h
     this.port.spawnHelper(
       (e) => {
@@ -369,6 +451,10 @@ export class Controller {
     const timeout = this.port.after(HELLO_TIMEOUT_MS, () => h.hello.resolve(null))
     void h.hello.promise.then(() => timeout.cancel())
     return h
+  }
+
+  private maybeStop(h: Helper): void {
+    if (h.holds === 0 && !h.breakHeld) this.stopHelper(h)
   }
 
   private stopHelper(h: Helper): void {
@@ -390,6 +476,7 @@ export class Controller {
     h.auth.resolve(null)
     if (this.helper !== h) return
     this.helper = null
+    if (h.holds > 0) this.setup.helperGone()
     if (this.phase !== 'joining' && !this.inRoom()) return
     this.addLine(COPY.helperGone)
     void this.end(this.phase === 'joining' || !this.busy ? 'idle' : 'left', { leave: false, close: false })
@@ -421,12 +508,16 @@ export class Controller {
         this.schedulePing(h)
         return
       case 'auth': {
-        const { type: _type, ...state } = e
-        this.auth = state as AuthState
-        h.auth.resolve(this.auth)
+        const { type: _type, ...rest } = e
+        const state = rest as AuthState
+        this.auth = state
+        h.state = state
+        h.auth.resolve(state)
+        this.setup.onAuth(state)
         return
       }
       case 'login':
+        this.setup.onLogin(e.url)
         return
       case 'joined': {
         const prev = this.join
@@ -462,6 +553,7 @@ export class Controller {
         if (e.state === 'reconnecting') this.addLine(COPY.reconnecting)
         break
       case 'error':
+        if (this.setup.running()) return this.setup.onError(e.code)
         this.addLine(this.err(e.code))
         break
     }
@@ -484,7 +576,7 @@ export class Controller {
         break
       case 'report':
         res = await this.call(h, '/report', { nickname: cmd.nickname, message_id: this.newestBy(cmd.nickname), reason: cmd.reason })
-        done = `Reported ${cmd.nickname}.`
+        done = COPY.reported(cmd.nickname)
         break
       case 'del': {
         const id = this.newestBy(cmd.nickname)
@@ -494,11 +586,11 @@ export class Controller {
       }
       case 'mute':
         res = await this.call(h, '/mod/mute', { nickname: cmd.nickname, minutes: cmd.minutes, reason: cmd.reason })
-        done = `Muted ${cmd.nickname} for ${cmd.minutes} min.`
+        done = COPY.muted(cmd.nickname, cmd.minutes)
         break
       case 'ban':
         res = await this.call(h, '/mod/ban', { nickname: cmd.nickname, reason: cmd.reason })
-        done = `Banned ${cmd.nickname}.`
+        done = COPY.banned(cmd.nickname)
         break
     }
     if (!res.ok) return this.addLine(this.err(res.code))
