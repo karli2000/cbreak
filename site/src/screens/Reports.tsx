@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError, type Bound, type Report, type Role } from '../api.ts'
 import { useOnAuthError } from '../auth.tsx'
 import { errorText } from '../copy.ts'
@@ -26,21 +26,27 @@ export function Reports({ api }: { api: Bound }) {
   const [nameMap, setNameMap] = useState<Names>(new Map())
   const [error, setError] = useState<string | null>(null)
 
+  const gen = useRef(0)
   const load = useCallback(async () => {
+    const mine = ++gen.current
     try {
       const rows = await api.listReports(status)
       const ids = rows.flatMap((r) => [r.reporter_id, r.target_id].filter((x): x is string => x !== null))
-      setNameMap(await api.names(ids))
+      const nm = await api.names(ids)
+      if (mine !== gen.current) return
+      setNameMap(nm)
       setItems(rows)
       setError(null)
     } catch (e) {
       onAuthError(e)
+      if (mine !== gen.current) return
       setError(errorText(e instanceof ApiError ? e.code : 'unknown'))
     }
   }, [api, status, onAuthError])
 
   useEffect(() => {
     setItems(null)
+    setError(null)
     void load()
   }, [load])
 
@@ -85,6 +91,7 @@ function ReportItem({ r, names, api, reload }: { r: Report; names: Names; api: B
     } catch (e) {
       onAuthError(e)
       setError(errorText(e instanceof ApiError ? e.code : 'unknown'))
+    } finally {
       setBusy(false)
     }
   }

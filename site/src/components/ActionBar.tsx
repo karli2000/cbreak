@@ -32,6 +32,8 @@ export function ActionBar({
   async function run(f: () => Promise<void>, notFound?: string) {
     if (running.current) return
     running.current = true
+    clearTimeout(timer.current)
+    setConfirming(false)
     setBusy(true)
     setError(null)
     try {

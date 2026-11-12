@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'bun:test'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { describe, expect, jest, test } from 'bun:test'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { AuthProvider } from '../auth.tsx'
 import { ApiError, type Report, type Role } from '../api.ts'
@@ -159,5 +159,66 @@ describe('reports', () => {
     expect(document.querySelector('img')).toBeNull()
     const el = screen.getByText(word)
     expect(el.className).toContain('snap-body')
+  })
+
+  test('a slow old load cannot overwrite a newer filter', async () => {
+    let releaseOpen: () => void = () => {}
+    const open = [report()]
+    const dismissed = [report({ id: 8, status: 'dismissed', reason: 'old one' })]
+    const api = setup({
+      listReports: (status) =>
+        status === 'open' ? new Promise((r) => (releaseOpen = () => r(open))) : Promise.resolve(dismissed),
+    })
+    await waitFor(() => expect(names(api)).toContain('listReports'))
+    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'dismissed' } })
+    expect(await screen.findByText('old one')).toBeTruthy()
+    releaseOpen()
+    await new Promise((r) => setTimeout(r, 20))
+    expect(screen.getByText('old one')).toBeTruthy()
+    expect(screen.queryByText('spam links')).toBeNull()
+    expect(api.calls.filter((c) => c.name === 'listReports').map((c) => c.args[0])).toEqual(['open', 'dismissed'])
+  })
+
+  test('buttons re-enable and the error shows when the reload fails', async () => {
+    let n = 0
+    setup({
+      listReports: async () => {
+        if (n++ === 0) return [report()]
+        throw new ApiError('network')
+      },
+      resolveReport: async () => {},
+    })
+    const btn = (await screen.findByRole('button', { name: 'Dismiss' })) as HTMLButtonElement
+    fireEvent.click(btn)
+    expect(await screen.findByText("Can't reach the server. Check your connection.")).toBeTruthy()
+    await waitFor(() => expect(btn.disabled).toBe(false))
+    expect((screen.getByRole('button', { name: 'Mark actioned' }) as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  test('a report with a deleted target has no ActionBar but resolves', async () => {
+    const api = setup({ resolveReport: async () => {} }, [report({ target_id: null, message_id: null })])
+    await screen.findByText('spam links')
+    expect(screen.queryByLabelText('Reason')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Mark actioned' }))
+    await waitFor(() => expect(names(api)).toContain('resolveReport'))
+  })
+
+  test('ban confirmation expires after 5 s', async () => {
+    jest.useFakeTimers()
+    try {
+      const api = setup({ ban: async () => {} })
+      await screen.findByText('spam links')
+      fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'scam' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Ban' }))
+      expect(screen.getByRole('button', { name: 'Confirm ban' })).toBeTruthy()
+      await act(async () => {
+        jest.advanceTimersByTime(5100)
+      })
+      expect(screen.queryByRole('button', { name: 'Confirm ban' })).toBeNull()
+      fireEvent.click(screen.getByRole('button', { name: 'Ban' }))
+      expect(names(api)).not.toContain('ban')
+    } finally {
+      jest.useRealTimers()
+    }
   })
 })
