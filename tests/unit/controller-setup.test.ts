@@ -169,6 +169,14 @@ describe('Controller setup flow', () => {
     expect(port.opens.at(-1)?.focus).toBe(true)
   })
 
+  test('setup while busy and signed in opens the chat pane before it answers', async () => {
+    const { port, c } = await make()
+    c.turnStart()
+    expect(await run(port, c, 'setup')).toBe("You're signed in as lena.")
+    expect(port.opens).toEqual([{ focus: true, title: '☕ lobby · 0 here' }])
+    expect(port.count('/join')).toBe(1)
+  })
+
   test('coffee during a setup focuses the setup', async () => {
     const { port, c } = await make()
     c.turnStart()

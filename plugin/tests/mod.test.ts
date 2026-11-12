@@ -2,7 +2,7 @@
 // The test's own hooks sit beneath the plugin and play the world: the helper process, its socket,
 // the panes, the store and the clock.
 import { expect, mock, test, type Engine } from 'claude-code/testing'
-import type { HttpInit, On, ProcessSpawnChunk, ProcessSpawnRequest } from 'claude-code'
+import type { HttpInit, On, PaneOpenArgs, ProcessSpawnChunk, ProcessSpawnRequest } from 'claude-code'
 
 const PLUGIN = 'coffeebreak'
 const SECRET = 'SECRET-PROMPT-1234'
@@ -51,6 +51,7 @@ function world(on: On) {
     spawns: [] as ProcessSpawnRequest[],
     fetches: [] as Fetch[],
     commands: [] as string[],
+    opens: [] as PaneOpenArgs[],
   }
   on('session.start', async (_$, e) => ({ cwd: e.cwd }))
   on('session.end', async () => ({ sessionId: 'test' }))
@@ -61,7 +62,10 @@ function world(on: On) {
     w.commands.push(e.name)
     return { value: { command: e.name } }
   })
-  on('ui.open', async () => ({ value: { isPlaced: true as const } }))
+  on('ui.open', async (_$, e) => {
+    w.opens.push(e)
+    return { value: { isPlaced: true as const } }
+  })
   on('ui.close', async () => ({ value: undefined }))
   on('ui.panes', async () => ({ value: [] }))
   on('ui.scroll', async () => ({}))
@@ -79,6 +83,9 @@ function world(on: On) {
   })
   return w
 }
+
+const runCoffee = ($: Engine, args = '') =>
+  $.command.run({ command: 'coffee', args, origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 100 } })
 
 const startSession = ($: Engine) => $.session.start({ cwd: '/work', surface: 'terminal', isInteractive: true })
 
@@ -98,13 +105,19 @@ test('registers /coffee', async ($, on) => {
 test('coffee while idle answers the idle rule', async ($, on) => {
   world(on)
   await startSession($)
-  const res = await $.command.run({
-    command: 'coffee',
-    args: '',
-    origin: { kind: 'composer' },
-    presentation: { isFullscreen: false, columns: 100 },
-  })
+  const res = await runCoffee($)
   expect(res.text).toBe(IDLE)
+})
+
+test('coffee while busy opens the pane focused before it answers', async ($, on) => {
+  const w = world(on)
+  await startSession($)
+  await $.turn.start({ text: 'long task', turnId: 't1' })
+  await w.clock.advance(5_000)
+  await runCoffee($)
+  // opened inside the command (an asked open, placed at any width), before the helper joined
+  expect(w.opens).toEqual([{ id: 'coffee', title: '☕ lobby · 0 here', focus: true }])
+  expect(w.fetches).toHaveLength(0)
 })
 
 test('subagent turns are ignored', async ($, on) => {

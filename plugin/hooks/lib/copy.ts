@@ -5,6 +5,8 @@ import type { Settings } from './settings.ts'
 export const COPY = {
   idle: '☕ The coffee room is only open while Claude is working.',
   opening: '☕ Opening the coffee room…',
+  joining: 'Joining the coffee room…',
+  notInRoom: "You're not in the coffee room right now. /leave closes this pane.",
   off: 'Coffee break is off. /coffee on turns it back on.',
   on: 'Coffee break is on.',
   title: (room: string, here: number) => `☕ ${room} · ${here} here`,

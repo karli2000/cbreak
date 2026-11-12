@@ -59,6 +59,8 @@ export class Controller {
   private draft = ''
   private manual = false
   private placed = false
+  /** The coffee pane is open (chat or setup), as far as this Controller asked for it. */
+  private paneOpen = false
   private pendingTimer: Timer | null = null
   private graceTimer: Timer | null = null
   private graceExpired = false
@@ -84,6 +86,7 @@ export class Controller {
       startBreak: () => this.manualBreak(),
       endBreak: () => this.endBreak(),
       closePane: () => this.closePane(),
+      openPane: (focus, title) => this.openPane(focus, title),
       block: (reason) => this.block(reason),
     })
   }
@@ -118,7 +121,7 @@ export class Controller {
         this.phase = 'idle'
         return
       case 'joining':
-        void this.end('idle', { leave: true, close: false })
+        void this.end('idle', { leave: true, close: this.paneOpen })
         return
       case 'break':
         this.phase = 'grace'
@@ -150,6 +153,7 @@ export class Controller {
 
   paneClosedByPerson(): void {
     this.placed = false
+    this.paneOpen = false
     this.closePending = false
     this.setup.close()
     if (this.inRoom() || this.phase === 'joining') void this.end(this.busy ? 'left' : 'idle', { leave: true, close: false })
@@ -192,7 +196,7 @@ export class Controller {
   async command(args: string): Promise<string> {
     await this.settingsReady
     const cmd = parseCoffeeArgs(args)
-    return cmd.kind === 'open' ? this.open() : this.setup.command(cmd)
+    return cmd.kind === 'open' ? await this.open() : this.setup.command(cmd)
   }
 
   view(): PaneView {
@@ -210,39 +214,46 @@ export class Controller {
 
   // ---- break lifecycle ----
 
-  private open(): string {
+  /**
+   * The bare `/coffee`. The pane is opened (focused) before this resolves, so the open answers the
+   * person's command and is placed at any width; an open made later counts as unasked (below 144
+   * columns it would wait undrawn).
+   */
+  private async open(): Promise<string> {
     if (!this.busy) return COPY.idle // exactly, even when removed (ruling R9)
     if (this.removed !== null) return this.removed
     if (!this.settings.enabled) return COPY.off
     if (this.setup.running()) {
-      void this.setup.focus()
+      await this.setup.focus()
       return COPY.setupRunning
     }
-    switch (this.phase) {
-      case 'joining':
-        this.manual = true
-        break
-      case 'break':
-      case 'grace':
-        void this.showPane(true)
-        break
-      default:
-        void this.startBreak(true)
-    }
+    if (this.inRoom()) await this.showPane(true)
+    else await this.manualStart()
     return COPY.opening
   }
 
   /** A break the setup asks for once it is ready, if Claude is still busy (or already joining). */
   private async manualBreak(): Promise<void> {
     if (!this.busy || !this.settings.enabled || this.removed !== null || this.ended || this.inRoom()) return
-    if (this.phase === 'joining') return void (this.manual = true)
-    await this.startBreak(true)
+    await this.manualStart()
+  }
+
+  /**
+   * Starts a focused break (or marks a running attempt as the person's) and opens the pane at once
+   * with a `joining` line; the join fills it later. Resolves once the pane is open.
+   */
+  private async manualStart(): Promise<void> {
+    if (this.phase === 'joining') this.manual = true
+    else void this.startBreak(true) // runs synchronously up to its first await: phase is `joining` now
+    if (this.phase !== 'joining') return // the setup starts it once ready, or breaks are off
+    if (!this.lines.some((l) => l.kind === 'system' && l.text === COPY.joining)) this.addLine(COPY.joining)
+    await this.openPane(true, this.title())
   }
 
   /** Ends a break or an attempt at one (/coffee off, logout, delete-account); resolves after the teardown. */
   private endBreak(): Promise<void> {
     if (this.phase === 'idle' || this.phase === 'left') return this.lifecycle
-    return this.end(this.busy ? 'left' : 'idle', { leave: true, close: this.inRoom() })
+    return this.end(this.busy ? 'left' : 'idle', { leave: true, close: this.inRoom() || this.paneOpen })
   }
 
   private async startBreak(manual: boolean): Promise<void> {
@@ -292,10 +303,11 @@ export class Controller {
     }
     this.join ??= res.data
     this.phase = 'break'
+    this.lines = this.lines.filter((l) => !(l.kind === 'system' && l.text === COPY.joining))
     this.setup.dismiss()
     this.port.redraw()
-    if (!this.manual && !this.settings.autoOpen) return this.port.status(COPY.statusHint(this.here()))
-    await this.showPane(this.manual)
+    if (!this.manual && !this.settings.autoOpen && !this.paneOpen) return this.port.status(COPY.statusHint(this.here()))
+    await this.showPane(this.manual, true)
   }
 
   /** Gives up a break attempt before the room was joined. */
@@ -306,6 +318,11 @@ export class Controller {
     this.port.status(undefined)
     if (line) this.addLine(line)
     this.port.redraw()
+    if (this.paneOpen && this.manual) {
+      // the pane /coffee opened early closes again; the other failures already toast
+      if (line === COPY.helperGone) this.port.toast(line)
+      void this.closePane()
+    }
   }
 
   private block(reason: string | null): string {
@@ -313,16 +330,14 @@ export class Controller {
     return this.removed
   }
 
-  private async showPane(focus: boolean): Promise<void> {
+  /** Opens or refocuses the pane; with `reuse`, a pane already placed is left as it is (the Port retitles it). */
+  private async showPane(focus: boolean, reuse = false): Promise<void> {
     const gen = this.gen
-    let placed = false
-    try {
-      placed = (await this.port.openPane(focus, this.title())).placed
-    } catch {}
-    if (gen !== this.gen) return
-    this.closePending = false
-    this.placed = placed
-    if (placed) {
+    if (!(reuse && this.paneOpen && this.placed)) {
+      await this.openPane(focus, this.title())
+      if (gen !== this.gen) return
+    }
+    if (this.placed) {
       this.port.status(COPY.status(this.here()))
       this.port.scrollToEnd()
     } else {
@@ -381,6 +396,18 @@ export class Controller {
     }
   }
 
+  /** Every pane open goes through here (chat and setup), so `paneOpen`/`placed` stay true. */
+  private async openPane(focus: boolean, title: string): Promise<boolean> {
+    let placed = false
+    try {
+      placed = (await this.port.openPane(focus, title)).placed
+    } catch {}
+    this.paneOpen = true
+    this.closePending = false
+    this.placed = placed
+    return placed
+  }
+
   private async closePane(): Promise<void> {
     let ok = false
     try {
@@ -388,6 +415,7 @@ export class Controller {
     } catch {}
     this.closePending = !ok
     this.placed = false
+    if (ok) this.paneOpen = false
   }
 
   private cancelPending(): void {
@@ -564,7 +592,7 @@ export class Controller {
 
   private async roomCommand(cmd: Exclude<PaneCommand, { kind: 'invalid' | 'help' | 'leave' }>, value: string): Promise<void> {
     const h = this.helper
-    if (!h?.socket || !this.inRoom()) return
+    if (!h?.socket || !this.inRoom()) return this.addLine(COPY.notInRoom)
     if ((cmd.kind === 'del' || cmd.kind === 'mute' || cmd.kind === 'ban') && !this.isStaff()) return this.addLine(errorText('forbidden'))
     let res: ApiResult<ApiPath>
     let done: string | null = null

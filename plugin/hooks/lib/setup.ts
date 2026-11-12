@@ -32,6 +32,8 @@ export interface SetupHost {
   /** Leaves a break or an attempt at one; resolves after the teardown. */
   endBreak(): Promise<void>
   closePane(): Promise<void>
+  /** Opens or refocuses the shared pane; resolves with whether it is placed. */
+  openPane(focus: boolean, title: string): Promise<boolean>
   /** Kicked or banned for the session; returns the `removed` text. */
   block(reason: string | null): string
 }
@@ -124,11 +126,10 @@ export class Setup {
     }
   }
 
-  async focus(): Promise<void> {
+  /** Awaited inside the `/coffee` command hook, so the open answers the person and is placed. */
+  async focus(): Promise<boolean> {
     this.shown = true
-    try {
-      await this.host.port.openPane(true, COPY.setupTitle)
-    } catch {}
+    return this.host.openPane(true, COPY.setupTitle)
   }
 
   input(value: string): void {

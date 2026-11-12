@@ -24,6 +24,8 @@ const TOAST_MS = 8000
 let controller: Controller | null = null
 /** The Port over the newest `$` an event hook received (validation forbids keeping `$` itself). */
 let current: Port | null = null
+/** While `/coffee` runs, its own `$`: an open made through it answers the person's command. */
+let pinned: Port | null = null
 let child: Child | null = null
 /** The pane is open (placed or waiting) under this title; null when closed. */
 let paneTitle: string | null = null
@@ -36,8 +38,9 @@ function ctl($: Engine): Controller {
 }
 
 function now(): Port {
-  if (!current) throw new Error('coffeebreak: no engine yet')
-  return current
+  const p = pinned ?? current
+  if (!p) throw new Error('coffeebreak: no engine yet')
+  return p
 }
 
 /** The Controller's one Port: every call goes to the Port over the newest `$`. */
@@ -87,11 +90,16 @@ function spawnHelper($: Engine, onEvent: (e: HelperEvent) => void, onExit: (info
   }
   const c: Child = { stream, stopping: false }
   child = c
-  void pump(c, onEvent, onExit)
+  void pump(c, onEvent, onExit, (text) => $.ui.log(text, { to: 'debug' }))
 }
 
 /** Reads the helper's NDJSON stdout until it ends. Leaving the loop (or `return()`) kills the child. */
-async function pump(c: Child, onEvent: (e: HelperEvent) => void, onExit: (info: ExitInfo) => void): Promise<void> {
+async function pump(
+  c: Child,
+  onEvent: (e: HelperEvent) => void,
+  onExit: (info: ExitInfo) => void,
+  log: (text: string) => void,
+): Promise<void> {
   let rest = ''
   let stderr = ''
   let result: ProcessSpawnResult = { code: null, signal: null }
@@ -106,7 +114,12 @@ async function pump(c: Child, onEvent: (e: HelperEvent) => void, onExit: (info: 
       rest = split.rest
       for (const line of split.lines) {
         const e = parseEvent(line)
-        if (e) onEvent(e)
+        if (!e) continue
+        try {
+          onEvent(e) // a Controller fault must not end the loop, which would kill the helper
+        } catch (err) {
+          log(`coffeebreak: ${e.type} event failed: ${err instanceof Error ? err.message : String(err)}`)
+        }
       }
     }
     if (!c.stopping) result = await c.stream.result
@@ -236,12 +249,27 @@ export const register: Register = (on) => {
     return next(e)
   })
 
-  on('command.run', { command: 'coffee' }, async ($, e) => ({ text: await ctl($).command(e.args) }))
+  // The Controller opens the pane before `command()` resolves; pinning this hook's `$` makes that
+  // open answer the person's command, so it is placed at any width (unasked needs 144 columns).
+  on('command.run', { command: 'coffee' }, async ($, e) => {
+    const c = ctl($)
+    const p = portOver($)
+    pinned = p
+    try {
+      return { text: await c.command(e.args) }
+    } finally {
+      if (pinned === p) pinned = null
+    }
+  })
 
+  // Our own closes (origin `plugin`) are settled by closePane, which checks the pane is really gone
+  // (after Esc a close is refused); here only the person's close is handled.
   on('ui.close', { id: PANE }, async ($, e, next) => {
     const res = await next(e)
-    paneTitle = null
-    if (e.origin.kind === 'person') ctl($).paneClosedByPerson()
+    if (e.origin.kind === 'person') {
+      paneTitle = null
+      ctl($).paneClosedByPerson()
+    }
     return res
   }).catch(async (_$, e, next) => next(e))
 

@@ -27,16 +27,15 @@ export function renderPane(view: PaneView, els: PaneElements, on: PaneHandlers):
     children: [
       Text({ dimColor: true, children: view.header }),
       ...view.lines.map((l) => lineElement(l, Text)),
-      view.inputEnabled
-        ? Input({
-            key: 'say',
-            placeholder: 'say something',
-            submitLabel: 'send',
-            value: view.draft,
-            onInput: on.input,
-            onSubmit: on.submit,
-          })
-        : null,
+      // Always drawn: /leave and /help work outside a room too (room commands answer with a line).
+      Input({
+        key: 'say',
+        placeholder: 'say something',
+        submitLabel: 'send',
+        value: view.draft,
+        onInput: on.input,
+        onSubmit: on.submit,
+      }),
     ],
   })
 }

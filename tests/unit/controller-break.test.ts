@@ -208,7 +208,8 @@ describe('Controller break lifecycle', () => {
     await tick()
     expect(port.spawns).toBe(1)
     await helperUp(port)
-    expect(port.opens).toEqual([{ focus: true, title: '☕ lobby · 3 here' }])
+    // opened inside the command (an asked open); the Port retitles it once `here` is known
+    expect(port.opens).toEqual([{ focus: true, title: '☕ lobby · 0 here' }])
     port.advance(30_000)
     await tick()
     expect(port.spawns).toBe(1)
@@ -236,7 +237,56 @@ describe('Controller break lifecycle', () => {
     await helperUp(port)
     expect(port.spawns).toBe(1)
     expect(port.count('/join')).toBe(1)
-    expect(port.opens).toEqual([{ focus: true, title: '☕ lobby · 3 here' }])
+    // each /coffee asks for the pane (focused) before it answers; the join opens nothing more
+    expect(port.opens).toEqual([
+      { focus: true, title: '☕ lobby · 0 here' },
+      { focus: true, title: '☕ lobby · 0 here' },
+    ])
+  })
+
+  test('coffee opens the pane focused before it answers', async () => {
+    const { port, c } = await make()
+    c.turnStart()
+    port.advance(5_000)
+    expect(await c.command('')).toBe(COPY.opening)
+    // the open happened inside the command, before the helper said hello or joined
+    expect(port.opens).toEqual([{ focus: true, title: '☕ lobby · 0 here' }])
+    expect(port.count('/join')).toBe(0)
+    expect(texts(c)).toEqual([COPY.joining])
+    await helperUp(port, READY, 3, [msg(1, 'lena')])
+    expect(port.opens).toHaveLength(1)
+    expect(texts(c)).toEqual(['lena: hi'])
+    expect(chat(c).header).toBe('☕ lobby · 3 here')
+    expect(port.lastStatus).toBe('☕ 3 on break')
+    expect(port.scrolls).toBe(1)
+  })
+
+  test('coffee without setup closes the early pane again', async () => {
+    const { port, c } = await make()
+    c.turnStart()
+    await c.command('')
+    await helperUp(port, { state: 'signed_out' })
+    expect(port.toasts).toEqual([COPY.setupHint])
+    expect(port.closes).toBe(1)
+  })
+
+  test('turn ending while the early pane waits for the join closes it', async () => {
+    const { port, c } = await make()
+    c.turnStart()
+    await c.command('')
+    c.turnComplete(false)
+    await helperUp(port)
+    expect(port.count('/join')).toBe(0)
+    expect(port.closes).toBe(1)
+  })
+
+  test('room commands outside a room answer with a line', async () => {
+    const { port, c } = await inBreak()
+    port.exit()
+    await tick()
+    await c.submit('hi')
+    expect(port.count('/send')).toBe(0)
+    expect(lastLine(c)).toBe(COPY.notInRoom)
   })
 
   test('closing the pane leaves until the next turn', async () => {

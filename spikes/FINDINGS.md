@@ -103,6 +103,7 @@ Consequences for Plan 2:
 2. A long task (e.g. "count to 60 slowly using sleep 1 in bash, one number per call"): after 20 s, a toast or the status line shows `☕ N on break · /coffee to join` (at 100 columns).
    - Result:
 3. `/coffee` opens the pane focused. The backlog shows, typing and sending works, and the input line stays in view as messages arrive.
+   - Check explicitly: does the **first** `/coffee` of a break place the pane at 100 columns right away (it opens with `Joining the coffee room…`, then fills)? The mod opens it inside the command hook so it counts as asked; if it does not appear, note what the toast/status line says.
    - Result:
 4. A second account (or a friend) sees the messages, with the same nickname colors.
    - Result:
