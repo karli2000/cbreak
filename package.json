@@ -6,7 +6,8 @@
     "db:start": "bunx supabase start",
     "db:reset": "bunx supabase db reset",
     "db:test": "bunx supabase db reset && bunx supabase test db",
-    "test:int": "bun test tests/integration"
+    "test:int": "bun test tests/integration",
+    "test:unit": "bun test tests/unit"
   },
   "devDependencies": {
     "@types/bun": "latest",

@@ -12,6 +12,7 @@ A Claude Code plugin that drops users into a shared group chat room while Claude
 bun run db:start   # start local Supabase stack (Docker); API 54321, DB 54322, Studio 54323
 bun run db:reset   # re-apply all migrations
 bun run db:test    # db reset + pgTAP tests (supabase/tests/*.test.sql)
+bun run test:unit  # bun test tests/unit (plugin helper units, no stack)
 bun run test:int   # bun test tests/integration (realtime/edge-function tests, needs running stack)
 bunx supabase functions serve   # serve Edge Functions locally (Docker); needed for tests/integration/github-age.test.ts
 ```
@@ -131,6 +132,14 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 - `kicked` → act only if `payload.user_id` is yours, then read the reason via `my_profile()` (`ban_reason`).
 - Break end: `leave_room()`.
 - Presence is advisory. Names come from `public_profiles`, "N here" from `room_counts()`.
+
+## Plugin (Plan 2, in progress)
+
+- Layout: `plugin/shared/` (`protocol.ts` = wire types + `PROTOCOL_VERSION`, imports nothing because the Claude Code mod imports it; `backend.ts` = hosted URL and public anon key), `plugin/helper/` (`coffeebreakd`: `rpc.ts` `CoffeeError`/`codeOf`/`rpc`, `emit.ts` NDJSON emitter, `auth.ts` `AuthStore`/`ensureFreshSession`/`authState`/`createHelperClient`). The mod and its generated types (`plugin/.claude-plugin/types/`, git-ignored) come in later tasks.
+- Data dir: `$COFFEEBREAK_DATA_DIR`, else `${XDG_CONFIG_HOME:-$HOME/.config}/coffeebreak` (mode 700). `auth.json` = `{version:1, session}` (mode 600, tmp+rename), lock = directory `auth.lock` (retry 100 ms up to 10 s, stale after 30 s).
+- Env overrides: `COFFEEBREAK_SUPABASE_URL`, `COFFEEBREAK_SUPABASE_ANON_KEY`, `COFFEEBREAK_DATA_DIR`, `COFFEEBREAK_TICK_MS`, `COFFEEBREAK_IDLE_EXIT_MS`, `COFFEEBREAK_REFRESH_MARGIN_S`, `COFFEEBREAK_NO_BROWSER=1`.
+- `ensureFreshSession` adopts the file's session instead of refreshing when it is fresh by the margin, or when its refresh token differs from the client's and it expires no earlier (another process already rotated it). Refresh tokens rotate, so a second refresh would break the first process.
+- Unit tests: `bun run test:unit` (`tests/unit/`, no stack needed). `tests/integration/_env.ts` gains `bareUser()` (signed in, no profile).
 
 ## Next up / owner actions
 

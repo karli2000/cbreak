@@ -98,6 +98,25 @@ export async function userClient(
   return client;
 }
 
+/**
+ * Email user signed in without a profile (no claim_nickname), tracked for cleanup.
+ * Its `nickname` is unset until claimed.
+ */
+export async function bareUser(): Promise<TestUser> {
+  const email = `bare_${runId}_${crypto.randomUUID().slice(0, 8)}@test.local`;
+  const password = `pw-${crypto.randomUUID()}`;
+  const { data: made } = check(
+    await adminClient().auth.admin.createUser({ email, password, email_confirm: true }),
+    "create bare user",
+  );
+  const client = createClient(env().url, env().anonKey, clientOptions) as TestUser;
+  client.userId = made.user!.id;
+  client.nickname = "";
+  created.push(client);
+  check(await client.auth.signInWithPassword({ email, password }), "sign in");
+  return client;
+}
+
 /** Removes all channels and deletes every user created since the last cleanup. */
 export async function cleanup(): Promise<void> {
   const users = created.splice(0);
