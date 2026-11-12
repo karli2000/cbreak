@@ -137,8 +137,28 @@ test("listActions filters by action and pages with before", async () => {
   const all = await api.listActions(mod, { targetId: b.userId, actorId: mod.userId });
   expect(all.map((a) => a.reason)).toEqual(["three", "two", "one"]);
   const older = await api.listActions(mod, { targetId: b.userId }, 50);
-  const page = await api.listActions(mod, { targetId: b.userId, before: older[0]!.created_at });
+  const page = await api.listActions(mod, { targetId: b.userId, before: { created_at: older[0]!.created_at, id: older[0]!.id } });
   expect(page.map((a) => a.reason)).toEqual(["two", "one"]);
+});
+
+test("listActions cursor does not skip actions sharing a created_at", async () => {
+  const mod = await userClient("lc_mod", "moderator");
+  const b = await userClient("lc_b");
+  await api.mute(mod, b.userId, 10, "a");
+  await api.mute(mod, b.userId, 10, "b");
+  await api.mute(mod, b.userId, 10, "c");
+  const rows = await api.listActions(mod, { targetId: b.userId });
+  expect(rows.map((a) => a.reason)).toEqual(["c", "b", "a"]);
+  // Give all three the same timestamp (service role), then page one at a time.
+  const ts = "2026-01-01T00:00:00.000Z";
+  const { error } = await adminClient().from("mod_actions").update({ created_at: ts }).in("id", rows.map((r) => r.id));
+  expect(error).toBeNull();
+  const p1 = await api.listActions(mod, { targetId: b.userId }, 1);
+  const p2 = await api.listActions(mod, { targetId: b.userId, before: { created_at: p1[0]!.created_at, id: p1[0]!.id } }, 1);
+  const p3 = await api.listActions(mod, { targetId: b.userId, before: { created_at: p2[0]!.created_at, id: p2[0]!.id } }, 1);
+  const p4 = await api.listActions(mod, { targetId: b.userId, before: { created_at: p3[0]!.created_at, id: p3[0]!.id } }, 1);
+  expect([p1, p2, p3].map((p) => p[0]!.reason)).toEqual(["c", "b", "a"]);
+  expect(p4).toEqual([]);
 });
 
 test("names resolves ids in one call", async () => {

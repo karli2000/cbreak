@@ -140,14 +140,18 @@ export async function unbanGithubId(c: SupabaseClient, githubId: number, reason:
 
 export async function listActions(
   c: SupabaseClient,
-  f: { action?: string; actorId?: string; targetId?: string; before?: string },
+  f: { action?: string; actorId?: string; targetId?: string; before?: { created_at: string; id: number } },
   limit = 50,
 ): Promise<ModAction[]> {
   let q = c.from('mod_actions').select('*')
   if (f.action) q = q.eq('action', f.action)
   if (f.actorId) q = q.eq('actor_id', f.actorId)
   if (f.targetId) q = q.eq('target_id', f.targetId)
-  if (f.before) q = q.lt('created_at', f.before)
+  if (f.before) {
+    // Keyset cursor: rows strictly older, or same timestamp with a smaller id.
+    const ts = `"${f.before.created_at.replace(/["\\]/g, '')}"`
+    q = q.or(`created_at.lt.${ts},and(created_at.eq.${ts},id.lt.${Number(f.before.id)})`)
+  }
   return run<ModAction[]>(q.order('created_at', { ascending: false }).order('id', { ascending: false }).limit(limit))
 }
 

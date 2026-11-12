@@ -4,6 +4,8 @@ import { ApiError, type Bound, type Me, type Role } from './api.ts'
 import { AuthProvider, useAuth, useOnAuthError } from './auth.tsx'
 import { COPY, errorText } from './copy.ts'
 import { Live } from './screens/Live.tsx'
+import { Admin } from './screens/Admin.tsx'
+import { Audit } from './screens/Audit.tsx'
 import { Bans } from './screens/Bans.tsx'
 import { Reports } from './screens/Reports.tsx'
 import { Users } from './screens/Users.tsx'
@@ -143,8 +145,8 @@ function Screen({ tab, api, role }: { tab: Tab; api: Bound; role: Role }) {
     case 'bans':
       return <Bans api={api} role={role} />
     case 'audit':
-      return <section aria-label="Audit">Audit</section>
+      return <Audit api={api} />
     case 'admin':
-      return <section aria-label="Admin">Admin</section>
+      return <Admin api={api} />
   }
 }
