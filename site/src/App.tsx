@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { ApiError, type Bound, type Me } from './api.ts'
 import { AuthProvider, useAuth, useOnAuthError } from './auth.tsx'
 import { COPY, errorText } from './copy.ts'
+import { Live } from './screens/Live.tsx'
 import { Reports } from './screens/Reports.tsx'
 import { TABS, tabFromHash, type Tab } from './nav.ts'
 
@@ -134,7 +135,7 @@ function Screen({ tab, api }: { tab: Tab; api: Bound }) {
     case 'reports':
       return <Reports api={api} />
     case 'live':
-      return <section aria-label="Live">Live</section>
+      return <Live api={api} />
     case 'users':
       return <section aria-label="Users">Users</section>
     case 'bans':
