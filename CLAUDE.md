@@ -101,9 +101,15 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 - Banned staff lose all powers: `require_rank_over` raises `banned`, and `is_staff()`/`is_admin()` are false (so RLS reads of reports/mod_actions/word_filter return nothing). `mod_resolve_report` requires rank over the report's target (reports against moderators need an admin, reports against admins can't be resolved via this RPC).
 - Retention (Task 9): `private.purge_expired()` returns `{messages, occupancy, reports, mod_actions}` counts. Reports are purged only when `status <> 'open'` and `handled_at` is older than 90 days, so open reports are kept. `delete_my_account()` works for banned users too. If the profile is banned and has a `github_id`, it stores `encode(sha256(convert_to(github_id::text,'UTF8')),'hex')` in `banned_github_ids` before deleting the `auth.users` row. A first `claim_nickname` raises `banned` if the GitHub id hash is on file. `admin_unban` also removes the hash. The cron migration unschedules a job of the same name first, so it can be re-run.
 
+## Hosted project
+
+- `coffeebreak`, ref `meioekkvutvrspfvqgye`, `eu-central-1`, free tier. The repo is linked (`bunx supabase link`). Deploy with `bunx supabase db push --remote` (needs the owner's OK: it changes production) and `bunx supabase functions deploy github-age`. Full notes: `docs/deploy.md`.
+- **Never run `bunx supabase config push`**: auth (GitHub provider, Site URL, redirect URLs) is configured in the dashboard and would be overwritten.
+- Owner account: `karli2000` (admin).
+
 ## Next up / owner actions
 
-- Plan 1 remaining tasks:
-- Spike S1: **done** (verdict: mods are viable; see `spikes/FINDINGS.md`). The owner uses a 100-column terminal, so the pane never auto-opens (needs 144); the toast/status hint plus `/coffee` is the main path. Owner requirements for Plan 2: the pane keeps the input line in view (auto-scroll), and each nickname gets a stable color from a hash of the name. The room can **only be opened while Claude is busy**: `/coffee` refuses when Claude is idle. Both are in the spike; the owner re-checks them.
-- Task 11: deploy to a new free-tier Supabase project `coffeebreak`. The owner approves creating it and sets up the GitHub OAuth app.
-- Spike S3: GitHub login against the hosted project.
+- **Plan 1 is complete** (backend, deploy, spikes S1 and S3; see `spikes/FINDINGS.md`).
+- Spike S1 outcome: mods are viable. The owner's terminal is 100 columns, so the pane never auto-opens (needs 144); the toast/status hint plus `/coffee` is the main path. Owner UI rules for Plan 2: the pane keeps the input line in view (auto-scroll); each nickname gets a stable color from a hash of the name; the room can **only be opened while Claude is busy**.
+- Spike S3 outcome: GitHub login with PKCE and a random-port `127.0.0.1` callback works; pitfalls are in `spikes/FINDINGS.md`.
+- Next: write Plan 2 (helper `coffeebreakd` + Claude Code mod) from the spec and the spike findings.
