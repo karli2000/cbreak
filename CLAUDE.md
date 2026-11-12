@@ -13,6 +13,7 @@ bun run db:start   # start local Supabase stack (Docker); API 54321, DB 54322, S
 bun run db:reset   # re-apply all migrations
 bun run db:test    # db reset + pgTAP tests (supabase/tests/*.test.sql)
 bun run test:int   # bun test tests/integration (realtime/edge-function tests, needs running stack)
+bunx supabase functions serve   # serve Edge Functions locally (Docker); needed for tests/integration/github-age.test.ts
 ```
 
 The Supabase CLI is a dev dependency: always `bunx supabase …`, never a global `supabase`.
@@ -54,6 +55,10 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 | `20261111000700_realtime_policies.sql` | RLS on `realtime.messages`: `room_members_read` (SELECT) and `room_members_presence` (INSERT, `extension = 'presence'` only). Both require a `room:%` topic, a non-banned caller, and the caller's occupancy topic = `realtime.topic()` or `is_staff()` |
 | `20261111000800_retention.sql` | `banned_github_ids` (RLS on, no grants), `private.purge_expired()` plus pg_cron job `coffeebreak-purge` (every minute), `delete_my_account()`, `claim_nickname` and `admin_unban` redefined, indexes on `reports(reporter_id)`, `reports(target_id)`, `occupancy(room, instance, last_seen)`, sequences revoked from anon/authenticated |
 | `20261111000750_realtime_policies_liveness.sql` | Drops and recreates both `realtime.messages` policies: the occupancy row must also be live (`last_seen > now() - 90 s`). Otherwise as 000700 |
+
+## Edge Functions
+
+- `supabase/functions/github-age/index.ts`: `POST /functions/v1/github-age` (verify_jwt default true, no config.toml entry). Resolves the caller via `auth.getUser(token)`, then with a service-role client reads `profiles.github_id` and sets `github_created_at` from `https://api.github.com/user/<id>`; returns `{github_created_at}`. Idempotent (an already-set value is returned without calling GitHub). Errors: 401 `unauthorized`, 400 `no_profile` / `no_github_id` / `github_user_not_found`, 502 `github_unavailable`. Sends `User-Agent: coffeebreak`; optional `GITHUB_TOKEN` secret raises the rate limit (60 req/h per IP unauthenticated). Plan 2's helper calls it once after `claim_nickname`.
 
 ## Tests
 
@@ -99,7 +104,6 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 ## Next up / owner actions
 
 - Plan 1 remaining tasks:
-  - Task 10: `github-age` edge function
 - Spike S1: the owner runs the mod-pane spike in their WSL terminal.
 - Task 11: deploy to a new free-tier Supabase project `coffeebreak`. The owner approves creating it and sets up the GitHub OAuth app.
 - Spike S3: GitHub login against the hosted project.
