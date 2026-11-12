@@ -39,3 +39,7 @@
 ## Recommended, not done
 
 - Free projects pause after about a week without activity. Unpause from the dashboard if that happens during the beta.
+
+## Moderator site
+
+Build, deploy and owner steps for the static moderator site: see [moderator-site.md](moderator-site.md). Its redirect URLs go into the same dashboard page as above.

@@ -12,7 +12,8 @@
     "dev": "claude --plugin-dir plugin",
     "test:site": "cd site && bun test",
     "site:dev": "cd site && bunx vite",
-    "site:build": "cd site && bunx vite build"
+    "site:build": "cd site && bunx vite build",
+    "site:deploy": "bun run site:build && bunx wrangler pages deploy site/dist --project-name coffeebreak-mod"
   },
   "devDependencies": {
     "@types/bun": "latest",
