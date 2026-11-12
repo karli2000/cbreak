@@ -1,6 +1,6 @@
 begin;
 \ir _helpers.psql
-select plan(24);
+select plan(37);
 
 select tests.create_user('adm', 'admin') as adm \gset
 select tests.create_user('modx', 'moderator') as modx \gset
@@ -64,17 +64,45 @@ select throws_ok($$select public.admin_remove_invite(999999)$$, 'P0001', 'not_fo
 -- audit rows and admin reads
 select public.admin_add_invite(8, 'eight', 'note');
 select public.admin_add_invite(8, 'eight', 'note2');
-select is((select count(*)::int from public.mod_actions where action = 'admin_add_invite'), 3, 'add logs one row per call (5001, 8, 8)');
-select is((select count(*)::int from public.mod_actions where action = 'admin_remove_invite'), 1, 'remove logs exactly one row');
-select is((select count(*)::int from public.mod_actions where action = 'admin_set_invite_only'), 2, 'set_invite_only logs one row per call');
+-- only rows from this transaction (now() = transaction start), so leftovers from other runs don't count
+select is((select count(*)::int from public.mod_actions where action = 'admin_add_invite' and created_at >= now()), 3, 'add logs one row per call (5001, 8, 8)');
+select is((select count(*)::int from public.mod_actions where action = 'admin_remove_invite' and created_at >= now()), 1, 'remove logs exactly one row');
+select is((select count(*)::int from public.mod_actions where action = 'admin_set_invite_only' and created_at >= now()), 2, 'set_invite_only logs one row per call');
 select is((select count(*)::int from public.beta_invites where github_id = 8), 1, 'add is idempotent (upsert)');
 
 select throws_ok($$select public.admin_add_invite(null, 'x', null)$$, 'P0001', 'invalid_login', 'null github_id invalid');
+select throws_ok($$select public.admin_add_invite(0, 'zero', null)$$, 'P0001', 'invalid_login', 'github_id 0 invalid');
+select throws_ok($$select public.admin_add_invite(-5, 'neg', null)$$, 'P0001', 'invalid_login', 'negative github_id invalid');
+select throws_ok($$select public.admin_add_invite(9, 'has space', null)$$, 'P0001', 'invalid_login', 'space in login invalid');
+select throws_ok($$select public.admin_add_invite(9, 'under_score', null)$$, 'P0001', 'invalid_login', 'underscore in login invalid');
+select throws_ok($$select public.admin_add_invite(9, 'ünï', null)$$, 'P0001', 'invalid_login', 'non-ASCII login invalid');
+select lives_ok($$select public.admin_add_invite(9, 'Some-User-42', null)$$, 'GitHub charset login accepted');
+select is((select github_login from public.beta_invites where github_id = 9), 'Some-User-42', 'login stored as given');
 
 -- non-admins cannot read the tables
 select tests.login_as(:'modx');
 select is((select count(*)::int from public.beta_invites), 0, 'moderator sees no invites');
 select is((select count(*)::int from public.beta_settings), 0, 'moderator sees no settings');
+
+-- privileges: authenticated may only SELECT (RLS-filtered), anon has nothing (no TRUNCATE etc.)
+select tests.logout();
+select table_privs_are('public', 'beta_settings', 'authenticated', array['SELECT'], 'authenticated: SELECT only on beta_settings');
+select table_privs_are('public', 'beta_invites', 'authenticated', array['SELECT'], 'authenticated: SELECT only on beta_invites');
+select table_privs_are('public', 'beta_settings', 'anon', array[]::text[], 'anon: no privileges on beta_settings');
+select table_privs_are('public', 'beta_invites', 'anon', array[]::text[], 'anon: no privileges on beta_invites');
+
+-- delete_my_account removes the caller's invite (with a profile, and without one)
+select tests.create_auth_user(6001) as d1 \gset
+select tests.login_as(:'d1');
+select public.claim_nickname('leaver');
+select public.delete_my_account();
+select tests.logout();
+select is((select count(*)::int from public.beta_invites where github_id = 6001), 0, 'delete_my_account removes the invite (profile)');
+select tests.create_auth_user(6002) as d2 \gset
+select tests.login_as(:'d2');
+select public.delete_my_account();
+select tests.logout();
+select is((select count(*)::int from public.beta_invites where github_id = 6002), 0, 'delete_my_account removes the invite (no profile yet)');
 
 -- gate fails closed when the settings row is missing
 select tests.logout();

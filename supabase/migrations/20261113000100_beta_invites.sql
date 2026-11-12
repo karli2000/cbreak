@@ -20,6 +20,9 @@ create policy beta_settings_select on public.beta_settings for select to authent
   using ((select public.is_admin()));
 create policy beta_invites_select on public.beta_invites for select to authenticated
   using ((select public.is_admin()));
+-- drop Supabase's default grants (ALL incl. TRUNCATE, which ignores RLS): anon gets nothing,
+-- authenticated SELECT only (RLS-filtered), as for every other table
+revoke all on public.beta_settings, public.beta_invites from anon, authenticated;
 grant select on public.beta_settings, public.beta_invites to authenticated;
 -- service_role bypasses RLS but still needs table privileges (integration tests toggle invite_only)
 grant select, insert, update, delete on public.beta_invites to service_role;
@@ -30,7 +33,10 @@ language plpgsql security definer set search_path = '' as $$
 declare lg text := private.clean_text(github_login); nt text := nullif(private.clean_text(note), '');
 begin
   perform private.require_rank_over(null, 'admin');
-  if github_id is null or lg is null or char_length(lg) < 1 or char_length(lg) > 39 then raise exception 'invalid_login'; end if;
+  -- GitHub logins: ASCII letters, digits and hyphens, 1-39 chars; ids are positive
+  if github_id is null or github_id <= 0 or lg is null or lg !~ '^[A-Za-z0-9-]{1,39}$' then
+    raise exception 'invalid_login';
+  end if;
   insert into public.beta_invites as b (github_id, github_login, note, invited_by)
   values (admin_add_invite.github_id, lg, nt, auth.uid())
   on conflict on constraint beta_invites_pkey do update set github_login = excluded.github_login, note = excluded.note;
@@ -127,3 +133,25 @@ begin
   end;
   return p;
 end $$;
+
+-- delete_my_account (body from 20261111000800_retention.sql) also removes the caller's invite,
+-- found via the profile's github_id or, without a profile, the GitHub identity.
+create or replace function public.delete_my_account() returns void
+language plpgsql security definer set search_path = '' as $$
+declare uid uuid := auth.uid(); p public.profiles;
+begin
+  if uid is null then raise exception 'not_authenticated'; end if;
+  select * into p from public.profiles where id = uid for update;
+  if found and p.banned_at is not null and p.github_id is not null then
+    insert into public.banned_github_ids (github_id_hash, banned_at, reason)
+    values (encode(sha256(convert_to(p.github_id::text, 'UTF8')), 'hex'), p.banned_at, p.ban_reason)
+    on conflict do nothing;
+  end if;
+  delete from public.beta_invites v
+  where v.github_id = p.github_id
+     or v.github_id in (select i.provider_id::bigint from auth.identities i
+                        where i.user_id = uid and i.provider = 'github');
+  delete from auth.users where id = uid;
+end $$;
+revoke execute on function public.delete_my_account() from public, anon;
+grant execute on function public.delete_my_account() to authenticated;
