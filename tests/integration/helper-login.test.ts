@@ -35,3 +35,24 @@ test("callback error is escaped and reported", async () => {
   const next = await h.call("/login");
   expect(next.ok && next.data.url).not.toBe(res.data.url);
 });
+
+test("concurrent /login calls share one flow", async () => {
+  const h = await startHelper();
+  const [a, b] = await Promise.all([h.call("/login"), h.call("/login")]);
+  expect(a.ok && b.ok).toBe(true);
+  if (a.ok && b.ok) expect(a.data.url).toBe(b.data.url);
+  expect(h.events.filter((e) => e.type === "login").length).toBe(1);
+});
+
+test("a stray /callback request does not end a pending login", async () => {
+  const h = await startHelper();
+  const res = await h.call("/login");
+  if (!res.ok) throw new Error(JSON.stringify(res));
+  const redirect = new URL(res.data.url).searchParams.get("redirect_to")!;
+  expect((await fetch(redirect)).status).toBe(400);
+  expect((await fetch(`${redirect}?code=bogus`)).status).toBe(400);
+  await Bun.sleep(300);
+  expect(h.events.some((e) => e.type === "error")).toBe(false);
+  const again = await h.call("/login");
+  expect(again.ok && again.data.url).toBe(res.data.url);
+});

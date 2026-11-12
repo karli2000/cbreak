@@ -105,7 +105,7 @@ async function failRefresh(store: AuthStore, error: AuthErr): Promise<null> {
 }
 
 const nowS = () => Math.floor(Date.now() / 1000)
-const fresh = (s: Session | null | undefined, marginS: number): s is Session =>
+const fresh = (s: Session | null | undefined, marginS: number): boolean =>
   !!s && (s.expires_at ?? 0) > nowS() + marginS
 
 /**
@@ -119,7 +119,7 @@ export async function ensureFreshSession(
   marginS: number,
 ): Promise<Session | null> {
   const current = await peekSession(client)
-  if (fresh(current, marginS)) return current
+  if (current && fresh(current, marginS)) return current
 
   return store.withLock(async () => {
     const onDisk = await store.read()

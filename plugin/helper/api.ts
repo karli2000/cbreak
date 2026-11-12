@@ -19,7 +19,7 @@ export type Ctx = {
   /** Whether a session was present at the last check; route handlers that sign out reset it. */
   signedIn: boolean
   /** The login in flight, if any; a second /login returns its URL. */
-  login?: { url: string } | null
+  login?: Promise<{ url: string }> | null
 }
 
 type Handler<P extends ApiPath> = (ctx: Ctx, req: Api[P]['req']) => Promise<Api[P]['res']>
@@ -47,26 +47,32 @@ const LOGIN_TIMEOUT_MS = 5 * 60_000
 const LOGIN_KEEPALIVE_MS = 10_000
 
 /** Starts a login (or returns the pending one). The helper stays alive until it settles. */
-async function beginLogin(ctx: Ctx): Promise<{ url: string }> {
+function beginLogin(ctx: Ctx): Promise<{ url: string }> {
+  // the promise is stored before any await, so concurrent /login calls share one flow
   if (ctx.login) return ctx.login
-  const { url, done } = await startLogin(ctx.client, { open: openBrowser, timeoutMs: LOGIN_TIMEOUT_MS })
-  const pending = { url }
+  const pending: Promise<{ url: string }> = (async () => {
+    const { url, done } = await startLogin(ctx.client, { open: openBrowser, timeoutMs: LOGIN_TIMEOUT_MS })
+    const keepAlive = setInterval(() => ctx.touch(), LOGIN_KEEPALIVE_MS)
+    ctx.emit({ type: 'login', url })
+    done
+      .then(async (session) => {
+        await ctx.store.write(session)
+        ctx.signedIn = true
+        await emitAuth(ctx)
+        await fetchGithubAgeIfNeeded(ctx.client)
+      })
+      .catch((e) => ctx.emit({ type: 'error', code: 'login_failed', message: e instanceof Error ? e.message : String(e) }))
+      .finally(() => {
+        clearInterval(keepAlive)
+        ctx.touch()
+        if (ctx.login === pending) ctx.login = null
+      })
+    return { url }
+  })()
   ctx.login = pending
-  const keepAlive = setInterval(() => ctx.touch(), LOGIN_KEEPALIVE_MS)
-  ctx.emit({ type: 'login', url })
-  done
-    .then(async (session) => {
-      await ctx.store.write(session)
-      ctx.signedIn = true
-      await emitAuth(ctx)
-      await fetchGithubAgeIfNeeded(ctx.client)
-    })
-    .catch((e) => ctx.emit({ type: 'error', code: 'login_failed', message: e instanceof Error ? e.message : String(e) }))
-    .finally(() => {
-      clearInterval(keepAlive)
-      ctx.touch()
-      if (ctx.login === pending) ctx.login = null
-    })
+  pending.catch(() => {
+    if (ctx.login === pending) ctx.login = null
+  })
   return pending
 }
 

@@ -59,17 +59,14 @@ export async function startLogin(
       if (settled) return page('Login failed: this login is no longer active.', 410)
       const code = u.searchParams.get('code')
       const err = u.searchParams.get('error_description') ?? u.searchParams.get('error')
-      if (!code) {
-        const text = err ?? 'no code'
-        finish({ ok: false, error: new Error(text) })
-        return page(`Login failed: ${escapeHtml(text)}`)
+      if (err && !code) {
+        finish({ ok: false, error: new Error(err) })
+        return page(`Login failed: ${escapeHtml(err)}`)
       }
+      // a stray request (no code, no error) or a code that does not exchange must not end a pending login
+      if (!code) return page('Login failed: no code in this request.', 400)
       const { data, error } = await client.auth.exchangeCodeForSession(code)
-      if (error || !data.session) {
-        const text = error?.message ?? 'no session'
-        finish({ ok: false, error: new Error(text) })
-        return page(`Login failed: ${escapeHtml(text)}`)
-      }
+      if (error || !data.session) return page(`Login failed: ${escapeHtml(error?.message ?? 'no session')}`, 400)
       finish({ ok: true, session: data.session })
       return page('☕ Signed in to Coffee Break. You can close this tab.')
     },
