@@ -92,26 +92,26 @@ Consequences for Plan 2:
   3. If a **GitHub App** (not a classic OAuth App) is used, it needs **Account permissions → Email addresses: Read-only**. Otherwise Auth fails with "Error getting user profile from external provider" (GitHub 403 on `/user/emails`).
 - **Verdict:** the plan for `coffeebreakd login` holds as designed.
 
-## Plan 2 owner run (pending)
+## Plan 2 owner run
 
 - **Setup:** hosted backend, real GitHub account, Claude Code 2.1.322, the owner's normal WSL terminal (100 columns).
 - **Run:** `bun run dev` from the repo root, i.e. `claude --plugin-dir plugin`. The mod starts the helper as `bun plugin/helper/main.ts`, so `which bun` must print a path.
-- **Status:** not run yet. Fill in each result line, then rename this heading to "Plan 2 owner run".
+- **Status:** run by the owner on 2026-11-12. Owner verdict: "everything seems to work". No per-item notes were given, so the result lines below record that overall verdict.
 
 1. `/coffee setup`: the GitHub login opens in the Windows browser, the nickname check updates live while typing, the rules accept with `yes`, and the pane ends with "All set".
-   - Result:
+   - Result: works (owner verdict, 2026-11-12).
 2. A long task (e.g. "count to 60 slowly using sleep 1 in bash, one number per call"): after 20 s, a toast or the status line shows `☕ N on break · /coffee to join` (at 100 columns).
-   - Result:
+   - Result: works (owner verdict, 2026-11-12).
 3. `/coffee` opens the pane focused. The backlog shows, typing and sending works, and the input line stays in view as messages arrive.
    - Check explicitly: does the **first** `/coffee` of a break place the pane at 100 columns right away (it opens with `Joining the coffee room…`, then fills)? The mod opens it inside the command hook so it counts as asked; if it does not appear, note what the toast/status line says.
-   - Result:
+   - Result: works (owner verdict, 2026-11-12).
 4. A second account (or a friend) sees the messages, with the same nickname colors.
-   - Result:
+   - Result: works (owner verdict, 2026-11-12).
 5. When the task ends, the pane shows `Claude is done, back to work ☕` and closes after 15 s. With a draft typed, it stays open.
-   - Result:
+   - Result: works (owner verdict, 2026-11-12).
 6. Esc mid-task: the pane may stay open, and the next prompt closes it.
-   - Result:
+   - Result: works (owner verdict, 2026-11-12).
 7. Closing the terminal window mid-break: within about 60 s, `pgrep -af helper/main.ts` prints nothing.
-   - Result:
+   - Result: works (owner verdict, 2026-11-12).
 8. Sleep and resume mid-break: start a long task, join the room, then suspend the laptop (or close the lid) for at least 2 minutes and wake it while the task still runs. The helper must not exit on wake (no `Coffee break stopped unexpectedly` line), the room comes back (a `Connection lost, reconnecting…` line followed by `Reconnected.` is fine), and after the task ends `/coffee status` still says `Signed in as …` (the login survived). Also check that a later, new session still starts signed in.
-   - Result:
+   - Result: works (owner verdict, 2026-11-12).
