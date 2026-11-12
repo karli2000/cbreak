@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Api, ApiPath, HelperEvent } from '../shared/protocol'
 import { AuthStore, authState, ensureFreshSession, peekSession } from './auth'
+import { NicknameCache, RoomSession } from './room'
 import { CoffeeError, codeOf, rpc } from './rpc'
 
 export type Emit = (e: HelperEvent) => void
@@ -9,7 +10,8 @@ export type Ctx = {
   client: SupabaseClient
   store: AuthStore
   emit: Emit
-  room: { leave(): Promise<void> } | null
+  /** Created by the first room route; dropped on logout/delete-account. */
+  room: RoomSession | null
   touch(): void
   /** Refresh margin in seconds for ensureFreshSession. */
   marginS: number
@@ -39,13 +41,30 @@ export async function emitAuth(ctx: Pick<Ctx, 'client' | 'emit'>): Promise<void>
   }
 }
 
+/** Best effort: a failing leave must never block logout or account deletion. */
 async function leaveIfJoined(ctx: Ctx): Promise<void> {
-  if (ctx.room) await ctx.room.leave()
+  const room = ctx.room
+  ctx.room = null
+  if (room) await room.leave().catch(() => {})
+}
+
+/** The room session for the signed-in user, created on first use. */
+async function roomOf(ctx: Ctx): Promise<RoomSession> {
+  if (ctx.room) return ctx.room
+  const session = await peekSession(ctx.client)
+  if (!session) throw new CoffeeError('not_signed_in')
+  ctx.room = new RoomSession({
+    client: ctx.client,
+    emit: ctx.emit,
+    userId: session.user.id,
+    cache: new NicknameCache(ctx.client),
+  })
+  return ctx.room
 }
 
 export const routes: Routes = {
   '/ping': async () => ({}),
-  '/status': async (ctx) => ({ auth: await authState(ctx.client), room: null }),
+  '/status': async (ctx) => ({ auth: await authState(ctx.client), room: ctx.room?.current() ?? null }),
   '/nickname/check': async (ctx, { nick }) => ({
     available: await rpc<boolean>(ctx.client, 'nickname_available', { nick }),
   }),
@@ -75,6 +94,26 @@ export const routes: Routes = {
     await ctx.store.clear()
     ctx.signedIn = false
     ctx.emit({ type: 'auth', state: 'signed_out' })
+    return {}
+  },
+  '/join': async (ctx, { room }) => (await roomOf(ctx)).join(room),
+  '/leave': async (ctx) => {
+    if (ctx.room) await ctx.room.leave()
+    else await rpc(ctx.client, 'leave_room').catch(() => {})
+    return {}
+  },
+  '/send': async (ctx, { body }) => (await roomOf(ctx)).send(body),
+  '/report': async (ctx, { nickname, message_id, reason }) => (await roomOf(ctx)).report(nickname, message_id, reason),
+  '/mod/delete': async (ctx, { message_id, reason }) => {
+    await (await roomOf(ctx)).modDelete(message_id, reason)
+    return {}
+  },
+  '/mod/mute': async (ctx, { nickname, minutes, reason }) => {
+    await (await roomOf(ctx)).modMute(nickname, minutes, reason)
+    return {}
+  },
+  '/mod/ban': async (ctx, { nickname, reason }) => {
+    await (await roomOf(ctx)).modBan(nickname, reason)
     return {}
   },
 }

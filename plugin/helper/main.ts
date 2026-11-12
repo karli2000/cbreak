@@ -85,7 +85,11 @@ async function start() {
 }
 
 const tick = setInterval(() => {
-  refresh().catch((e) => emit({ type: 'error', code: 'unknown', message: String(e) }))
+  refresh()
+    .then(async (has) => {
+      if (has) await ctx.room?.heartbeat()
+    })
+    .catch((e) => emit({ type: 'error', code: 'unknown', message: String(e) }))
 }, tickMs)
 
 const idle = setInterval(() => {
@@ -105,7 +109,9 @@ shutdown = async (_reason: string) => {
   clearInterval(orphan)
   try {
     if (await peekSession(client)) {
-      await Promise.race([rpc(client, 'leave_room').catch(() => {}), Bun.sleep(3000)])
+      // RoomSession.leave = leave_room + remove the channel; never throws
+      const leaving = ctx.room ? ctx.room.leave() : rpc(client, 'leave_room').catch(() => {})
+      await Promise.race([leaving, Bun.sleep(3000)])
     }
   } catch {}
   try {

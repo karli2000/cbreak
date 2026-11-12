@@ -82,8 +82,9 @@ test("exits and leaves after idle timeout", async () => {
   const h = await startHelper({ session: await sessionOf(u), env: { COFFEEBREAK_IDLE_EXIT_MS: "1500" } });
   await h.waitFor("auth");
   const a = adminClient();
-  const { error } = await a.from("occupancy").insert({ user_id: u.userId, room: testRoom, instance: 1 });
-  expect(error).toBeNull();
+  expect(await h.call("/join", { room: testRoom })).toMatchObject({ ok: true, data: { room: testRoom } });
+  const { data: joined } = await a.from("occupancy").select("user_id").eq("user_id", u.userId);
+  expect(joined).toHaveLength(1);
   const code = await Promise.race([h.proc.exited, Bun.sleep(5000).then(() => "timeout")]);
   expect(code).toBe(0);
   const { data } = await a.from("occupancy").select("user_id").eq("user_id", u.userId);
