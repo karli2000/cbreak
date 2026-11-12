@@ -77,7 +77,7 @@ export class AuthStore {
 const storages = new WeakMap<object, Map<string, string>>()
 
 /** The client's current session exactly as stored, never triggering a refresh. */
-async function peekSession(client: SupabaseClient): Promise<Session | null> {
+export async function peekSession(client: SupabaseClient): Promise<Session | null> {
   const mem = storages.get(client)
   if (!mem) return (await client.auth.getSession()).data.session
   for (const [k, v] of mem) {
