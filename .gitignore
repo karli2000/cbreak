@@ -4,3 +4,5 @@ node_modules/
 supabase/.temp/
 supabase/.branches/
 plugin/.claude-plugin/types/
+site/node_modules
+site/dist

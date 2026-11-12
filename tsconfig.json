@@ -28,5 +28,5 @@
     "noPropertyAccessFromIndexSignature": false
   },
   // The mod-environment files are checked by plugin/tsconfig.json (types written by Claude Code).
-  "exclude": ["node_modules", "plugin/hooks/register.ts", "plugin/hooks/pane.ts", "plugin/tests"]
+  "exclude": ["node_modules", "plugin/hooks/register.ts", "plugin/hooks/pane.ts", "plugin/tests", "site"]
 }

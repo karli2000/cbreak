@@ -9,7 +9,10 @@
     "test:int": "bun test tests/integration",
     "test:unit": "bun test tests/unit",
     "test:mod": "claude plugin validate plugin && claude plugin test plugin",
-    "dev": "claude --plugin-dir plugin"
+    "dev": "claude --plugin-dir plugin",
+    "test:site": "cd site && bun test",
+    "site:dev": "cd site && bunx vite",
+    "site:build": "cd site && bunx vite build"
   },
   "devDependencies": {
     "@types/bun": "latest",

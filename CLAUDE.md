@@ -187,6 +187,14 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
   - Smoke run (Task 8): `claude --plugin-dir plugin -p "/coffee status"` with `COFFEEBREAK_SUPABASE_URL`/`_ANON_KEY` pointing at the local stack and a temp `COFFEEBREAK_DATA_DIR` spawned the real helper and answered over its socket (`Not signed in`, the settings line, `On break: no`); no helper was left afterwards. The helper inherits the session's environment, so these overrides work for local runs.
   - Owner run: the 8-point checklist in `spikes/FINDINGS.md` ("Plan 2 owner run") was run by the owner on 2026-11-12: "everything seems to work".
 
+## Moderator site (Plan 3)
+
+- `site/` is its own package (React 19 + Vite 8, supabase-js, exact pins; `cd site && bun install`). Static only: no server code, no service-role key. Plan: `docs/superpowers/plans/2026-11-12-coffeebreak-03-moderator-site.md`.
+- Commands: `bun run test:site` (`cd site && bun test`, no stack needed), `bun run site:dev`, `bun run site:build`, `cd site && bunx tsc -p .` (type-check). The root `tsconfig.json` excludes `site`. `tests/integration/site-api.test.ts` covers the data layer against the local stack (`bun test tests/integration/site-api.test.ts`).
+- Layout: `site/src/config.ts` (`config.url`/`anonKey`: `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` override `plugin/shared/backend.ts`), `supabase.ts` (`createSiteClient`: PKCE, detectSessionInUrl, persistSession, autoRefreshToken), `copy.ts` (`COPY`, `errorText(code)`), `api.ts` (data layer, no React).
+- Data layer: every function takes the client first and throws `ApiError {code}`. Mapping: PostgREST message `^[a-z_]+$` is the code; HTTP 401 or "JWT expired" is `not_authenticated`; a fetch/transport failure is `network`; else `unknown`. `me()` returns null on `no_profile`. Reads go to tables (`reports`, `mod_actions`, `word_filter`, `rooms`, `messages`, `public_profiles`) and `room_counts()`; writes are the moderation RPCs plus `mod_list_banned`, `admin_list_staff`, `admin_unban_github_id`. `watchRoom` subscribes to `room:<room>:<instance>` (private, never tracks presence) and forwards `message`/`deleted`.
+- `site-api.test.ts` stubs `fetch` for the network case, since `127.0.0.1:9` is dropped instead of refused under WSL and would hang.
+
 ## Next up / owner actions
 
 - **Plan 1 is complete** (backend, deploy, spikes S1 and S3; see `spikes/FINDINGS.md`).
