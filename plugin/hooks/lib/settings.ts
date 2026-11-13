@@ -1,7 +1,7 @@
 // Mod settings: types, defaults, validation. Pure (runs in the mod environment).
 export type Settings = { room: string; minBusySec: number; graceSec: number; autoOpen: boolean; emoji: boolean; enabled: boolean }
 
-export const DEFAULTS: Settings = { room: 'lobby', minBusySec: 20, graceSec: 15, autoOpen: true, emoji: true, enabled: true }
+export const DEFAULTS: Settings = { room: 'lobby', minBusySec: 15, graceSec: 15, autoOpen: true, emoji: true, enabled: true }
 
 export type SettingKey = 'min-wait' | 'grace' | 'auto-open' | 'emoji'
 

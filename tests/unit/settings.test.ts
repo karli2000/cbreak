@@ -36,6 +36,8 @@ describe('mergeStored', () => {
   })
   test('emoji defaults to on', () => {
     expect(DEFAULTS.emoji).toBe(true)
+    expect(DEFAULTS.minBusySec).toBe(15)
+    expect(DEFAULTS.graceSec).toBe(15)
     expect(mergeStored({}).emoji).toBe(true)
     expect(mergeStored({ emoji: false }).emoji).toBe(false)
     expect(mergeStored({ emoji: 'no' }).emoji).toBe(true)

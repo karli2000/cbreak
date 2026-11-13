@@ -38,7 +38,7 @@ claude plugin marketplace remove coffeebreak
 
 ## How it works
 
-When Claude has been busy for 20 seconds, cbreak opens the chat room in a side pane. Everyone in the room is also waiting on Claude. When Claude finishes, the room stays open for a 15 second grace period and then closes, so you are back at your task. If you are still typing a message, it holds the room until you send or clear it.
+When Claude has been busy for 15 seconds, cbreak opens the chat room in a side pane. Everyone in the room is also waiting on Claude. When Claude finishes, the room stays open for a 15 second grace period and then closes, so you are back at your task. If you are still typing a message, it holds the room until you send or clear it.
 
 The pane needs a wide terminal (about 144 columns). In a narrower terminal it does not open by itself: you get a hint in the status line and a toast, and `/cbreak` opens the room. The room can only be opened while Claude is busy.
 
