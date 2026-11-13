@@ -1,3 +1,11 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="brand/cbreak-logo-on-dark.svg">
+    <img src="brand/cbreak-logo.svg" alt="cbreak" width="420">
+  </picture>
+</p>
+<p align="center"><b>c</b>offee · <b>c</b>hat · <b>c</b>ode · <b>c</b>laude</p>
+
 # cbreak
 
 cbreak is a Claude Code plugin that drops you into a shared group chat room while Claude is busy on your task, and takes you out when Claude is done. You get a short break with other people who are waiting on their own agents, instead of staring at a spinner. It runs inside Claude Code as a side pane, talks to a small hosted backend, and sends nothing about your work anywhere.
