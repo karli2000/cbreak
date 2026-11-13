@@ -1,11 +1,11 @@
-// Which command starts coffeebreakd. Pure (runs in the mod environment); register.ts finds the facts
-// (`bun --version` on PATH, ~/.bun/bin/bun, COFFEEBREAK_HELPER_SRC) through the mods API.
+// Which command starts cbreakd. Pure (runs in the mod environment); register.ts finds the facts
+// (`bun --version` on PATH, ~/.bun/bin/bun, CBREAK_HELPER_SRC) through the mods API.
 
 /** The oldest Bun the helper supports. */
 const MIN_BUN: readonly [number, number] = [1, 2]
 
 /**
- * The helper's argv: the source with `COFFEEBREAK_HELPER_SRC=1` (dev), else the committed bundle run by
+ * The helper's argv: the source with `CBREAK_HELPER_SRC=1` (dev), else the committed bundle run by
  * the `bun` on PATH, else by ~/.bun/bin/bun. null when there is no Bun.
  */
 export function helperArgv(
@@ -13,7 +13,7 @@ export function helperArgv(
   opts: { pathBun: boolean; homeBun: string | null; fromSource: boolean },
 ): string[] | null {
   if (opts.fromSource) return ['bun', `${root}/helper/main.ts`]
-  const bundle = `${root}/dist/coffeebreakd.js`
+  const bundle = `${root}/dist/cbreakd.js`
   if (opts.pathBun) return ['bun', bundle]
   if (opts.homeBun) return [opts.homeBun, bundle]
   return null

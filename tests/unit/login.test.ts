@@ -39,7 +39,7 @@ test('startLogin resolves with the exchanged session', async () => {
   expect(opened).toEqual([url])
   const redirect = new URL(url).searchParams.get('redirect_to')!
   const page = await (await fetch(`${redirect}?code=abc`)).text()
-  expect(page).toContain('Signed in to Coffee Break')
+  expect(page).toContain('Signed in to cbreak')
   expect(await done).toBe(session as never)
 })
 

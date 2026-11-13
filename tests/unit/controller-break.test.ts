@@ -133,8 +133,8 @@ describe('Controller break lifecycle', () => {
     const port = new FakePort()
     port.placed = false
     await inBreak(port)
-    expect(port.toasts).toEqual(['☕ 3 on break · /coffee to join'])
-    expect(port.lastStatus).toBe('☕ 3 on break · /coffee to join')
+    expect(port.toasts).toEqual(['☕ 3 on break · /cbreak to join'])
+    expect(port.lastStatus).toBe('☕ 3 on break · /cbreak to join')
     expect(port.scrolls).toBe(0)
   })
 
@@ -143,7 +143,7 @@ describe('Controller break lifecycle', () => {
     port.settings.autoOpen = false
     await inBreak(port)
     expect(port.opens).toEqual([])
-    expect(port.lastStatus).toBe('☕ 3 on break · /coffee to join')
+    expect(port.lastStatus).toBe('☕ 3 on break · /cbreak to join')
   })
 
   test('not set up shows the setup hint once', async () => {
@@ -254,13 +254,13 @@ describe('Controller break lifecycle', () => {
     expect(port.closes).toBe(2)
   })
 
-  test('coffee while idle refuses', async () => {
+  test('cbreak while idle refuses', async () => {
     const { port, c } = await make()
-    expect(await c.command('')).toBe('☕ The coffee room is only open while Claude is working.')
+    expect(await c.command('')).toBe('☕ The cbreak room is only open while Claude is working.')
     expect(port.spawns).toBe(0)
   })
 
-  test('coffee while pending joins at once with focus', async () => {
+  test('cbreak while pending joins at once with focus', async () => {
     const { port, c } = await make()
     c.turnStart()
     port.advance(5_000)
@@ -275,7 +275,7 @@ describe('Controller break lifecycle', () => {
     expect(port.spawns).toBe(1)
   })
 
-  test('coffee during a break opens the pane focused', async () => {
+  test('cbreak during a break opens the pane focused', async () => {
     const port = new FakePort()
     port.placed = false
     const { c } = await inBreak(port)
@@ -287,7 +287,7 @@ describe('Controller break lifecycle', () => {
     expect(port.scrolls).toBe(1)
   })
 
-  test('coffee while joining does not start a second break', async () => {
+  test('cbreak while joining does not start a second break', async () => {
     const { port, c } = await make()
     c.turnStart()
     port.advance(20_000)
@@ -297,14 +297,14 @@ describe('Controller break lifecycle', () => {
     await helperUp(port)
     expect(port.spawns).toBe(1)
     expect(port.count('/join')).toBe(1)
-    // each /coffee asks for the pane (focused) before it answers; the join opens nothing more
+    // each /cbreak asks for the pane (focused) before it answers; the join opens nothing more
     expect(port.opens).toEqual([
       { focus: true, title: '☕ lobby · 0 here' },
       { focus: true, title: '☕ lobby · 0 here' },
     ])
   })
 
-  test('coffee opens the pane focused before it answers', async () => {
+  test('cbreak opens the pane focused before it answers', async () => {
     const { port, c } = await make()
     c.turnStart()
     port.advance(5_000)
@@ -321,7 +321,7 @@ describe('Controller break lifecycle', () => {
     expect(port.scrolls).toBe(1)
   })
 
-  test('coffee without setup closes the early pane again', async () => {
+  test('cbreak without setup closes the early pane again', async () => {
     const { port, c } = await make()
     c.turnStart()
     await c.command('')
@@ -377,7 +377,7 @@ describe('Controller break lifecycle', () => {
     expect(port.spawns).toBe(1)
   })
 
-  test('coffee after closing the pane re-joins while busy', async () => {
+  test('cbreak after closing the pane re-joins while busy', async () => {
     const { port, c } = await inBreak()
     c.paneClosedByPerson()
     await tick()
@@ -444,7 +444,7 @@ describe('Controller break lifecycle', () => {
     const { port, c } = await inBreak()
     port.emit({ type: 'kicked', reason: 'spam' })
     await tick()
-    expect(lastLine(c)).toBe("You've been removed from coffee break: spam")
+    expect(lastLine(c)).toBe("You've been removed from cbreak: spam")
     expect(port.stops).toBe(1)
     c.turnComplete(false)
     c.turnStart()
@@ -760,7 +760,7 @@ describe('Controller final-review fixes', () => {
   })
 })
 
-const BUN_LINE = 'Coffee Break needs Bun. Install it with: curl -fsSL https://bun.sh/install | bash — then restart Claude Code.'
+const BUN_LINE = 'cbreak needs Bun. Install it with: curl -fsSL https://bun.sh/install | bash — then restart Claude Code.'
 
 describe('Controller without Bun (ruling R2)', () => {
   test('needsBun copy is exact and errorText maps no_bun to it', () => {
@@ -781,7 +781,7 @@ describe('Controller without Bun (ruling R2)', () => {
     expect(texts(c)).not.toContain(COPY.helperGone)
     expect(port.opens).toEqual([])
 
-    // the same turn: /coffee answers the Bun line without another spawn, nothing more appears
+    // the same turn: /cbreak answers the Bun line without another spawn, nothing more appears
     expect(await c.command('')).toBe(BUN_LINE)
     port.advance(60_000)
     await tick()
@@ -803,12 +803,12 @@ describe('Controller without Bun (ruling R2)', () => {
     expect(port.spawns).toBe(3)
     expect(port.toasts).toEqual([BUN_LINE])
 
-    // a bare /coffee still answers the Bun line every time
+    // a bare /cbreak still answers the Bun line every time
     expect(await c.command('')).toBe(BUN_LINE)
     expect(await c.command('')).toBe(BUN_LINE)
   })
 
-  test('/coffee while pending without Bun closes the early pane and shows the Bun line', async () => {
+  test('/cbreak while pending without Bun closes the early pane and shows the Bun line', async () => {
     const port = new FakePort()
     port.noBun = true
     const { c } = await make(port)
@@ -822,7 +822,7 @@ describe('Controller without Bun (ruling R2)', () => {
     expect(port.spawns).toBe(1)
   })
 
-  test('once no Bun is known, /coffee in a later turn answers the Bun line without opening the pane', async () => {
+  test('once no Bun is known, /cbreak in a later turn answers the Bun line without opening the pane', async () => {
     const port = new FakePort()
     port.noBun = true
     const { c } = await make(port)

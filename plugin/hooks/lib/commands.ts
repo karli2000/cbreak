@@ -1,4 +1,4 @@
-// Parsers for `/coffee …` arguments and pane input. Pure (runs in the mod environment).
+// Parsers for `/cbreak …` arguments and pane input. Pure (runs in the mod environment).
 import { validateSetting } from './settings.ts'
 import type { SettingKey } from './settings.ts'
 
@@ -29,16 +29,16 @@ export function parseCoffeeArgs(args: string): CoffeeCommand {
     case 'off': return { kind: 'off' }
     case 'logout': return { kind: 'logout' }
     case 'name':
-      return a ? { kind: 'name', nick: nick(a) } : { kind: 'invalid', error: 'Usage: /coffee name <nickname>' }
+      return a ? { kind: 'name', nick: nick(a) } : { kind: 'invalid', error: 'Usage: /cbreak name <nickname>' }
     case 'room':
       // The slug itself is validated by the controller (its own message for a bad slug).
       return parts.length === 2 && a
         ? { kind: 'room', slug: a.toLowerCase() }
-        : { kind: 'invalid', error: 'Usage: /coffee room <name> (a–z, 0–9 and -, 2–32 characters)' }
+        : { kind: 'invalid', error: 'Usage: /cbreak room <name> (a–z, 0–9 and -, 2–32 characters)' }
     case 'config': {
       if (!a) return { kind: 'config' }
       if (!SETTING_KEYS.includes(a) || b === undefined) {
-        return { kind: 'invalid', error: 'Usage: /coffee config [min-wait <s> | grace <s> | auto-open on|off | emoji on|off]' }
+        return { kind: 'invalid', error: 'Usage: /cbreak config [min-wait <s> | grace <s> | auto-open on|off | emoji on|off]' }
       }
       const r = validateSetting(a as SettingKey, b)
       return r.ok ? { kind: 'config_set', key: a as SettingKey, value: r.value } : { kind: 'invalid', error: r.error }
@@ -46,7 +46,7 @@ export function parseCoffeeArgs(args: string): CoffeeCommand {
     case 'delete-account':
       return { kind: 'delete_account', confirmed: a === 'yes' }
     default:
-      return { kind: 'invalid', error: `Unknown command "${cmd}". Try /coffee, /coffee setup, /coffee status.` }
+      return { kind: 'invalid', error: `Unknown command "${cmd}". Try /cbreak, /cbreak setup, /cbreak status.` }
   }
 }
 

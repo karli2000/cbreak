@@ -59,7 +59,7 @@ A custom domain is optional (Pages dashboard, Custom domains). A public imprint 
 - The report queue shows a test report.
 - The live view shows a test message.
 - The audit log lists the actions just taken.
-- Signing out of the site does not sign out the Claude Code plugin (`/coffee status` still shows you signed in).
+- Signing out of the site does not sign out the Claude Code plugin (`/cbreak status` still shows you signed in).
 
 ## Known limits
 

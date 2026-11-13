@@ -1,4 +1,4 @@
-// coffeebreakd: the helper process the Claude Code mod talks to over a unix socket.
+// cbreakd: the helper process the Claude Code mod talks to over a unix socket.
 // stdout = NDJSON events, stdin is unused. Run: bun plugin/helper/main.ts
 import { chmodSync, mkdirSync, rmSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
@@ -7,6 +7,7 @@ import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../shared/backend'
 import { PROTOCOL_VERSION } from '../shared/protocol'
 import { emitAuth, fetchGithubAgeIfNeeded, startServer, type Ctx } from './api'
 import { AuthStore, createHelperClient, ensureFreshSession, peekSession, persistRefreshes, usableWithoutRefresh } from './auth'
+import { dataDirFor } from './data-dir'
 import { createEmitter } from './emit'
 import { IdleWatch } from './idle'
 import { CoffeeError, codeOf, rpc } from './rpc'
@@ -16,13 +17,12 @@ const num = (name: string, dflt: number) => {
   return Number.isFinite(v) && v > 0 ? v : dflt
 }
 
-const tickMs = num('COFFEEBREAK_TICK_MS', 30_000)
-const idleExitMs = num('COFFEEBREAK_IDLE_EXIT_MS', 60_000)
-const marginS = num('COFFEEBREAK_REFRESH_MARGIN_S', 120)
-const dataDir =
-  process.env.COFFEEBREAK_DATA_DIR ?? join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'coffeebreak')
+const tickMs = num('CBREAK_TICK_MS', 30_000)
+const idleExitMs = num('CBREAK_IDLE_EXIT_MS', 60_000)
+const marginS = num('CBREAK_REFRESH_MARGIN_S', 120)
+const dataDir = dataDirFor(process.env, homedir())
 
-const sockDir = join(process.env.XDG_RUNTIME_DIR ?? tmpdir(), `coffeebreak-${process.getuid?.() ?? 0}`)
+const sockDir = join(process.env.XDG_RUNTIME_DIR ?? tmpdir(), `cbreak-${process.getuid?.() ?? 0}`)
 mkdirSync(sockDir, { recursive: true, mode: 0o700 })
 chmodSync(sockDir, 0o700)
 const socketPath = join(sockDir, `${process.pid}.sock`)
@@ -37,8 +37,8 @@ const emit = createEmitter(
 // a closed stdout surfaces asynchronously as an 'error' event on the stream
 process.stdout.on('error', () => void shutdown('stdout_closed'))
 
-const backendUrl = process.env.COFFEEBREAK_SUPABASE_URL ?? SUPABASE_URL
-const client = createHelperClient(backendUrl, process.env.COFFEEBREAK_SUPABASE_ANON_KEY ?? SUPABASE_ANON_KEY)
+const backendUrl = process.env.CBREAK_SUPABASE_URL ?? SUPABASE_URL
+const client = createHelperClient(backendUrl, process.env.CBREAK_SUPABASE_ANON_KEY ?? SUPABASE_ANON_KEY)
 // the login file is per backend (auth.json for the hosted project), so a dev run never touches the real login
 const store = new AuthStore(dataDir, backendUrl)
 // any refresh supabase-js does on its own (e.g. Realtime asking for a token) still reaches the file

@@ -85,13 +85,13 @@ describe('copy', () => {
       already_reported: 'You already reported them recently.', cannot_report_self: "You can't report yourself.",
       nickname_invalid: '3–20 characters: a–z, 0–9, _ and -.', nickname_reserved: 'That name is reserved.',
       nickname_taken: 'That name is taken.', nickname_change_too_soon: 'You can change your name once every 30 days.',
-      not_signed_in: 'Not signed in. Run /coffee setup.', network: "Can't reach coffee break, retrying…",
-      login_failed: 'GitHub sign-in failed. Run /coffee setup to try again.',
+      not_signed_in: 'Not signed in. Run /cbreak setup.', network: "Can't reach cbreak, retrying…",
+      login_failed: 'GitHub sign-in failed. Run /cbreak setup to try again.',
     }
     for (const [c, t] of Object.entries(table)) expect(errorText(c)).toBe(t)
   })
   test('placeholders', () => {
     expect(COPY.title('lobby', 3)).toBe('☕ lobby · 3 here')
-    expect(COPY.removed(null)).toBe("You've been removed from coffee break: no reason given")
+    expect(COPY.removed(null)).toBe("You've been removed from cbreak: no reason given")
   })
 })

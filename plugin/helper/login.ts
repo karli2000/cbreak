@@ -18,9 +18,9 @@ function detectWsl(): boolean {
   }
 }
 
-/** Opens the system browser; a no-op with COFFEEBREAK_NO_BROWSER=1. Failures are ignored (the URL is also emitted). */
+/** Opens the system browser; a no-op with CBREAK_NO_BROWSER=1. Failures are ignored (the URL is also emitted). */
 export function openBrowser(url: string): void {
-  if (process.env.COFFEEBREAK_NO_BROWSER === '1') return
+  if (process.env.CBREAK_NO_BROWSER === '1') return
   try {
     const [cmd, args] = browserCommand(url, process.platform, detectWsl())
     const child = spawn(cmd, args, { stdio: 'ignore', detached: true })
@@ -33,7 +33,7 @@ const escapeHtml = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
 
 const page = (body: string, status = 200) =>
-  new Response(`<!doctype html><meta charset="utf-8"><title>Coffee Break</title><h2>${body}</h2>`, {
+  new Response(`<!doctype html><meta charset="utf-8"><title>cbreak</title><h2>${body}</h2>`, {
     status,
     headers: { 'content-type': 'text/html; charset=utf-8' },
   })
@@ -73,7 +73,7 @@ export async function startLogin(
         return page(`Login failed: ${escapeHtml(error?.message ?? 'no session')}`, 400)
       }
       finish({ ok: true, session: data.session })
-      return page('☕ Signed in to Coffee Break. You can close this tab.')
+      return page('☕ Signed in to cbreak. You can close this tab.')
     },
   })
 

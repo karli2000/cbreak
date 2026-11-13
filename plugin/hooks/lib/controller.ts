@@ -1,4 +1,4 @@
-// The mod's brain: break lifecycle, chat and the helper process. The setup flow and the /coffee
+// The mod's brain: break lifecycle, chat and the helper process. The setup flow and the /cbreak
 // subcommands live in setup.ts (`Setup`), which reaches back through a narrow `SetupHost`.
 // Pure: every side effect goes through `Port`, the only timers are `Port.after`. Runs in the mod
 // environment (no Node, no DOM). It never sees prompt text: turn hooks pass no arguments.
@@ -29,7 +29,7 @@ function deferred<T>(): Deferred<T> {
 }
 
 /**
- * One spawned coffeebreakd (at most one at a time). `hello`/`auth` settle with null when it is stopped
+ * One spawned cbreakd (at most one at a time). `hello`/`auth` settle with null when it is stopped
  * or exits. It is stopped once neither a break (`breakHeld`) nor a command lease (`holds`) uses it.
  */
 type Helper = {
@@ -66,7 +66,7 @@ export class Controller {
   private draft = ''
   private manual = false
   private placed = false
-  /** The coffee pane is open (chat or setup), as far as this Controller asked for it. */
+  /** The cbreak pane is open (chat or setup), as far as this Controller asked for it. */
   private paneOpen = false
   private pendingTimer: Timer | null = null
   private graceTimer: Timer | null = null
@@ -214,7 +214,7 @@ export class Controller {
     this.checkGrace()
   }
 
-  /** `/coffee <args>`: the bare command opens the room; `Setup` handles the others. */
+  /** `/cbreak <args>`: the bare command opens the room; `Setup` handles the others. */
   async command(args: string): Promise<string> {
     await this.settingsReady
     const cmd = parseCoffeeArgs(args)
@@ -238,7 +238,7 @@ export class Controller {
   // ---- break lifecycle ----
 
   /**
-   * The bare `/coffee`. The pane is opened (focused) before this resolves, so the open answers the
+   * The bare `/cbreak`. The pane is opened (focused) before this resolves, so the open answers the
    * person's command and is placed at any width; an open made later counts as unasked (below 144
    * columns it would wait undrawn).
    */
@@ -280,7 +280,7 @@ export class Controller {
     await this.openPane(true, this.title())
   }
 
-  /** Ends a break or an attempt at one (/coffee off, logout, delete-account); resolves after the teardown. */
+  /** Ends a break or an attempt at one (/cbreak off, logout, delete-account); resolves after the teardown. */
   private endBreak(): Promise<void> {
     if (this.phase === 'idle' || this.phase === 'left') return this.lifecycle
     return this.end(this.busy ? 'left' : 'idle', { leave: true, close: this.inRoom() || this.paneOpen })
@@ -361,7 +361,7 @@ export class Controller {
     if (line) this.addLine(line)
     this.port.redraw()
     if (this.paneOpen && this.manual) {
-      // the pane /coffee opened early closes again; the other failures already toast
+      // the pane /cbreak opened early closes again; the other failures already toast
       if (line === COPY.helperGone) this.port.toast(line)
       void this.closePane()
     }

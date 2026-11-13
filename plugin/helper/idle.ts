@@ -1,4 +1,4 @@
-// Idle exit for coffeebreakd, aware of laptop sleep: after a suspend the wall clock jumps, and the
+// Idle exit for cbreakd, aware of laptop sleep: after a suspend the wall clock jumps, and the
 // first check would otherwise fire before the mod's overdue /ping arrives.
 
 /** A gap between checks this many intervals long is a suspend (or a frozen process), not idle time. */
