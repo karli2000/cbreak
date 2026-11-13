@@ -81,6 +81,9 @@ function ReportItem({ r, names, api, reload }: { r: Report; names: Names; api: B
   const [error, setError] = useState<string | null>(null)
   const who = (id: string | null) => (id ? (names.get(id)?.nickname ?? 'deleted user') : 'deleted user')
   const target = r.target_id ? { userId: r.target_id, nickname: who(r.target_id) } : null
+  // after a rename the snapshot still shows the old name; say so, since both belong to one person
+  const stored = r.snapshot.message?.nickname
+  const was = stored && r.target_id && names.get(r.target_id) && stored !== who(r.target_id) ? stored : null
 
   async function resolve(status: 'dismissed' | 'actioned') {
     if (busy) return
@@ -99,7 +102,7 @@ function ReportItem({ r, names, api, reload }: { r: Report; names: Names; api: B
 
   return (
     <li className="report">
-      <h2>{`${who(r.reporter_id)} → ${who(r.target_id)}`}</h2>
+      <h2>{`${who(r.reporter_id)} → ${who(r.target_id)}${was ? ` (was ${was})` : ''}`}</h2>
       <p className="muted">
         {r.room !== null ? `${r.room} · ${r.instance}` : 'no room'} · <time dateTime={r.created_at}>{age(r.created_at)}</time>
       </p>

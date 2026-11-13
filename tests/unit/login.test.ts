@@ -38,9 +38,34 @@ test('startLogin resolves with the exchanged session', async () => {
   })
   expect(opened).toEqual([url])
   const redirect = new URL(url).searchParams.get('redirect_to')!
-  const page = await (await fetch(`${redirect}?code=abc`)).text()
+  expect(redirect).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/callback\?n=[0-9a-f]{32}$/)
+  const page = await (await fetch(`${redirect}&code=abc`)).text()
   expect(page).toContain('Signed in to cbreak')
   expect(await done).toBe(session as never)
+})
+
+test('a callback without the nonce is a 404 and changes nothing, even with an error', async () => {
+  const { url, done } = await startLogin(fake(async () => ({ data: {}, error: null })), { open: () => {}, timeoutMs: 5000 })
+  const redirect = new URL(url).searchParams.get('redirect_to')!
+  const bare = redirect.replace(/\?n=.*$/, '')
+  expect((await fetch(`${bare}?error=access_denied`)).status).toBe(404)
+  expect((await fetch(`${bare}?n=0000&code=abc`)).status).toBe(404)
+  expect((await fetch(`${bare}?code=abc`)).status).toBe(404)
+  let settled = false
+  done.then(() => (settled = true), () => (settled = true))
+  await Bun.sleep(20)
+  expect(settled).toBe(false)
+  // the real error (with the nonce) still ends it
+  expect((await fetch(`${redirect}&error=access_denied`)).status).toBe(200)
+  await expect(done).rejects.toThrow('access_denied')
+})
+
+test('after three failed exchanges the login gives up', async () => {
+  const { url, done } = await startLogin(fake(async () => ({ data: {}, error: new Error('bad') })), { open: () => {}, timeoutMs: 5000 })
+  const redirect = new URL(url).searchParams.get('redirect_to')!
+  for (let i = 0; i < 3; i++) expect((await fetch(`${redirect}&code=junk${i}`)).status).toBe(400)
+  expect((await fetch(`${redirect}&code=junk3`)).status).toBe(429)
+  await expect(done).rejects.toThrow('too many callback attempts')
 })
 
 test('startLogin rejects on timeout', async () => {
@@ -64,7 +89,7 @@ test('a bad code does not consume the PKCE verifier; the real callback still sig
   }) as never
   const { url, done } = await startLogin(client, { open: () => {}, timeoutMs: 5000 })
   const redirect = new URL(url).searchParams.get('redirect_to')!
-  expect((await fetch(`${redirect}?code=bogus`)).status).toBe(400)
-  expect((await fetch(`${redirect}?code=good`)).status).toBe(200)
+  expect((await fetch(`${redirect}&code=bogus`)).status).toBe(400)
+  expect((await fetch(`${redirect}&code=good`)).status).toBe(200)
   expect(await done).toBe(session as never)
 })

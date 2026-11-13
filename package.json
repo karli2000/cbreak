@@ -15,16 +15,17 @@
     "test:site": "cd site && bun test",
     "site:dev": "cd site && bunx vite",
     "site:build": "cd site && bunx vite build",
-    "site:deploy": "bun run site:build && bunx wrangler@4.161.0 pages deploy site/dist --project-name coffeebreak-mod --branch main",
+    "site:deploy": "bun run site:build && wrangler pages deploy site/dist --project-name coffeebreak-mod --branch main",
     "emoji:gen": "bun scripts/gen-emoji.ts",
     "brand:png": "bun scripts/render-brand.ts",
-    "web:deploy": "bunx wrangler@4.161.0 pages deploy public --cwd web --project-name cbreak-web --branch main"
+    "web:deploy": "wrangler pages deploy public --cwd web --project-name cbreak-web --branch main"
   },
   "devDependencies": {
     "@resvg/resvg-js": "2.6.2",
     "@types/bun": "latest",
     "gemoji": "8.1.0",
-    "supabase": "^3.1.0"
+    "supabase": "^3.1.0",
+    "wrangler": "4.161.0"
   },
   "peerDependencies": {
     "typescript": "^7"

@@ -16,7 +16,10 @@ const TEXTS: Record<string, string> = {
   not_found: 'Not found.',
   banned: COPY.banned,
   invalid_duration: 'Mute for 10, 60 or 1440 minutes.',
-  invalid_pattern: 'That is not a valid pattern.',
+  invalid_pattern: 'That is not a valid pattern (at most 200 characters, no backreferences).',
+  limit_reached: 'The word filter holds at most 100 patterns.',
+  too_long: 'Too long (reasons up to 500 characters, titles up to 80).',
+  empty: 'A title is required.',
   not_authenticated: 'Your session ended. Please sign in again.',
   network: "Can't reach the server. Check your connection.",
 }

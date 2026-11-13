@@ -5,6 +5,8 @@ import { COPY, errorText } from '../copy.ts'
 
 type Action = 'delete' | 'mute' | 'ban' | 'unmute' | 'unban'
 const CONFIRM_MS = 5000
+/** Clicks this soon after arming are ignored: a double-click on Ban must not count as Confirm ban. */
+export const ARM_MS = 500
 
 export function ActionBar({
   target,
@@ -27,6 +29,7 @@ export function ActionBar({
   const [confirming, setConfirming] = useState(false)
   const running = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const armedAt = useRef(0)
   useEffect(() => () => clearTimeout(timer.current), [])
 
   async function run(f: () => Promise<void>, notFound?: string) {
@@ -67,10 +70,12 @@ export function ActionBar({
     if (!needReason()) return
     if (!confirming) {
       setConfirming(true)
+      armedAt.current = Date.now()
       clearTimeout(timer.current)
       timer.current = setTimeout(() => setConfirming(false), CONFIRM_MS)
       return
     }
+    if (Date.now() - armedAt.current < ARM_MS) return // the same button in the same place
     clearTimeout(timer.current)
     setConfirming(false)
     void run(() => api.ban(target.userId, trimmed))

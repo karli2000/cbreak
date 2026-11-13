@@ -15,7 +15,10 @@ select tests.create_user('modtarget', 'moderator') as mt \gset
 select tests.create_user('admtarget', 'admin') as at \gset
 select tests.create_auth_user() as np \gset
 
-insert into public.occupancy (user_id, room, instance) values (:'v', 'lobby', 1);
+-- reporters report from the room: everyone involved is live in lobby instance 1
+insert into public.occupancy (user_id, room, instance) values
+  (:'v', 'lobby', 1), (:'r1', 'lobby', 1), (:'r2', 'lobby', 1), (:'r3', 'lobby', 1),
+  (:'mt', 'lobby', 1), (:'at', 'lobby', 1);
 insert into public.messages (room, instance, user_id, nickname, body, created_at) values
   ('lobby', 1, :'o', 'other', 'ctx before', now() - interval '2 minutes'),
   ('lobby', 1, :'v', 'villain', 'the bad line', now() - interval '1 minute'),
@@ -65,11 +68,10 @@ select is((select snapshot->'message' from public.reports where reporter_id = :'
 select is((select jsonb_array_length(snapshot->'context') from public.reports where reporter_id = :'r2'), 5, 'instance-1 lines (no instance 2)');
 select is((select muted_until from public.profiles where id = :'v'), null, '2 reporters: not muted');
 
--- target without occupancy: empty context
+-- target without occupancy and no message: nothing to report (migration 20261117000100)
 select tests.login_as(:'r2');
-select public.report_user('noroom', null, 'rude');
+select throws_ok($$select public.report_user('noroom', null, 'rude')$$, 'P0001', 'not_in_room', 'target outside any room: not_in_room');
 select tests.logout();
-select is((select snapshot->'context' from public.reports where target_id = :'nr'), '[]'::jsonb, 'no occupancy: empty context');
 
 -- third distinct reporter mutes
 select tests.login_as(:'r3');

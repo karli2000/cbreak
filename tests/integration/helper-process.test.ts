@@ -2,7 +2,7 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import { statSync } from "node:fs";
 import { join } from "node:path";
 import { authFileName } from "../../plugin/helper/auth";
-import { adminClient, bareUser, env, runId, setup, teardown, testRoom, userClient } from "./_env";
+import { adminClient, bareUser, env, hasDb, runId, setup, teardown, testRoom, userClient } from "./_env";
 import { cleanupHelpers, makeDataDir, startHelper } from "./_helper";
 
 beforeAll(setup, 60_000);
@@ -45,8 +45,9 @@ test("unknown path is 404 and bad json is 400", async () => {
   await h.stop();
 });
 
-test("claims a nickname and accepts rules", async () => {
-  const u = await bareUser();
+// a first claim needs a GitHub identity, which only a database connection can give a test user
+test.skipIf(!hasDb())("claims a nickname and accepts rules", async () => {
+  const u = await bareUser(true);
   const h = await startHelper({ session: await sessionOf(u) });
   expect(await h.waitFor("auth")).toMatchObject({ state: "needs_nickname" });
   const nick = `hp_${runId}`;
@@ -63,6 +64,8 @@ test("maps RPC errors to codes", async () => {
   const h = await startHelper({ session: await sessionOf(u) });
   await h.waitFor("auth");
   expect(await h.call("/nickname/claim", { nick: "admin" })).toMatchObject({ ok: false, code: "nickname_reserved" });
+  // an auth user without a GitHub identity gets no profile (migration 20261117000100)
+  expect(await h.call("/nickname/claim", { nick: `hpx_${runId}` })).toMatchObject({ ok: false, code: "github_required" });
   await h.stop();
 });
 

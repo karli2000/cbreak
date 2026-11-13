@@ -21,15 +21,19 @@ export const ACTIONS = [
 type Filters = { action?: string; actorId?: string; targetId?: string }
 type Who = Map<string, { nickname: string; role: Role }>
 
-function detailsText(d: Record<string, unknown>): string {
+/** Details of old invite actions name GitHub accounts; only admins see those keys. */
+const ADMIN_ONLY_KEYS = new Set(['github_id', 'github_login'])
+
+function detailsText(d: Record<string, unknown>, role: Role): string {
   return Object.entries(d ?? {})
+    .filter(([k]) => role === 'admin' || !ADMIN_ONLY_KEYS.has(k))
     .map(([k, v]) => `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`)
     .join(', ')
 }
 
 const clean = (s: string) => s.trim().toLowerCase().replace(/^@/, '')
 
-export function Audit({ api, pageSize = 50 }: { api: Bound; pageSize?: number }) {
+export function Audit({ api, role, pageSize = 50 }: { api: Bound; role: Role; pageSize?: number }) {
   const onAuthError = useOnAuthError()
   const [action, setAction] = useState('')
   const [actor, setActor] = useState('')
@@ -168,7 +172,7 @@ export function Audit({ api, pageSize = 50 }: { api: Bound; pageSize?: number })
               <td>{a.action}</td>
               <td>{a.target_id === null ? '—' : (who.get(a.target_id)?.nickname ?? (unresolved.has(a.target_id) ? 'unknown' : 'deleted user'))}</td>
               <td className="snap-body">{a.reason ?? ''}</td>
-              <td className="snap-body">{detailsText(a.details)}</td>
+              <td className="snap-body">{detailsText(a.details, role)}</td>
             </tr>
           ))}
         </tbody>

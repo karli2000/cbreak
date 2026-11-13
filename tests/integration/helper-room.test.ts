@@ -160,17 +160,25 @@ test("joining a populated room does not announce the members already there", asy
   await Bun.sleep(500);
   const { h } = await joinedA("ra14");
   await Bun.sleep(1000);
-  // the initial presence state (it may come before the backlog): the count, no names
-  const first = h.events.find((e) => e.type === "presence") as Extract<HelperEvent, { type: "presence" }> | undefined;
-  expect(first).toMatchObject({ joined: [], left: [] });
-  expect(first!.here).toBeGreaterThanOrEqual(2);
+  // presence comes from the server's join/leave broadcasts: nothing for people already there, and
+  // the joiner's own join is not a line (the join answer carries the count)
+  expect(h.events.filter((e) => e.type === "presence")).toEqual([]);
+  const joined = h.events.find((e) => e.type === "joined") as Extract<HelperEvent, { type: "joined" }>;
+  expect(joined.here).toBeGreaterThanOrEqual(3);
   const d = await agedUser("rd14");
   await memberB(d, true);
-  await h.waitFor("presence", (e) => e.joined.includes(d.nickname));
+  const p = await h.waitFor("presence", (e) => e.joined.includes(d.nickname));
+  expect(p.here).toBeGreaterThanOrEqual(4);
   await Bun.sleep(500);
   const presences = h.events.filter((e) => e.type === "presence") as Extract<HelperEvent, { type: "presence" }>[];
   expect(presences.filter((e) => e.joined.includes(b.nickname) || e.joined.includes(c.nickname))).toEqual([]);
   expect(presences.filter((e) => e.joined.includes(d.nickname))).toHaveLength(1);
+  expect(await h.call("/status")).toMatchObject({ ok: true, data: { room: { here: p.here } } });
+  // a member leaving is announced with the nickname from profiles, and a client cannot fake it:
+  // the realtime policy only lets clients insert presence, which the helper no longer reads
+  await check(d.rpc("leave_room"), "d leave_room");
+  const left = await h.waitFor("presence", (e) => e.left.includes(d.nickname));
+  expect(left.here).toBeGreaterThanOrEqual(3);
   await h.stop();
 });
 
@@ -257,9 +265,10 @@ test("a re-join refused because the room closed is reported as room_closed", asy
 
 test("send maps errors", async () => {
   const { h } = await joinedA("ra9");
+  // the rate limit is checked before the body (migration 20261117000100), so too_long goes first
+  expect(await h.call("/send", { body: "x".repeat(281) })).toMatchObject({ ok: false, code: "too_long" });
   expect(await h.call("/send", { body: "first" })).toMatchObject({ ok: true });
   expect(await h.call("/send", { body: "second" })).toMatchObject({ ok: false, code: "rate_limited" });
-  expect(await h.call("/send", { body: "x".repeat(281) })).toMatchObject({ ok: false, code: "too_long" });
   await h.stop();
 });
 

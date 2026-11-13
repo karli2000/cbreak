@@ -92,7 +92,7 @@ Messages are rate limited (at least 2 seconds apart, at most 5 per 10 seconds), 
 
 ## Moderation
 
-Anyone in a room can report a person with `/report <nick> <reason>`. Three different people reporting the same person within 10 minutes mutes them for 24 hours automatically. Moderators review reports, delete messages and mute (10 minutes, 1 hour or 24 hours) or ban people. Admins also manage moderators, rooms, the word filter and invites. Staff can only act on people with a lower role.
+Anyone in a room can report a person with `/report <nick> <reason>`. Three different people in the same room (with GitHub accounts older than 30 days) reporting the same person within 10 minutes mutes them for 24 hours automatically. Moderators review reports, delete messages and mute (10 minutes, 1 hour or 24 hours) or ban people. Admins also manage moderators, rooms and the word filter. Staff can only act on people with a lower role.
 
 Moderators use the moderator site: https://mod.cbreak.dev (sign in with GitHub).
 

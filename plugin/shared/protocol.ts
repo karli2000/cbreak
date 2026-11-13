@@ -30,6 +30,7 @@ export type HelperEvent =
   | { type: 'backlog'; messages: ChatMessage[] }
   | ({ type: 'message' } & ChatMessage)
   | { type: 'deleted'; id: number }
+  /** From the server's `presence` broadcasts (nickname from profiles, live count); never from client presence. */
   | { type: 'presence'; here: number; joined: string[]; left: string[] }
   | { type: 'kicked'; reason: string | null }
   | { type: 'room_closed' }

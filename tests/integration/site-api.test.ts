@@ -25,6 +25,11 @@ async function aged(nick: string, role: "user" | "moderator" | "admin" = "user")
   return u;
 }
 
+/** Reports are filed from inside the room (migration 20261117000100). */
+async function inRoom(u: TestUser): Promise<void> {
+  await check(u.rpc("join_room", { room_slug: testRoom }), "join_room");
+}
+
 /** B joins the test room and sends `body`; returns the message id. */
 async function say(u: TestUser, body: string): Promise<number> {
   await check(u.rpc("join_room", { room_slug: testRoom }), "join_room");
@@ -68,6 +73,7 @@ test("listReports returns an open report with its snapshot", async () => {
   const a = await userClient("lr_a");
   const b = await aged("lr_b");
   const id = await say(b, "snapshot body 1");
+  await inRoom(a);
   const { data: rid } = await check(
     a.rpc("report_user", { target_nickname: b.nickname, message_id: id, reason: "spam" }),
     "report",
@@ -84,6 +90,8 @@ test("resolveReport moves it to dismissed", async () => {
   const mod = await userClient("rr_mod", "moderator");
   const a = await userClient("rr_a");
   const b = await userClient("rr_b");
+  await inRoom(a);
+  await inRoom(b);
   const { data: rid } = await check(
     a.rpc("report_user", { target_nickname: b.nickname, message_id: null, reason: "meh" }),
     "report",
@@ -182,6 +190,8 @@ test("lookupUser returns profile, reports and actions", async () => {
   const mod = await userClient("lu_mod", "moderator");
   const a = await userClient("lu_a");
   const b = await userClient("lu_b");
+  await inRoom(a);
+  await inRoom(b);
   await check(a.rpc("report_user", { target_nickname: b.nickname, message_id: null, reason: "r" }), "report");
   await api.mute(mod, b.userId, 10, "why");
   const u = await api.lookupUser(mod, b.nickname);
