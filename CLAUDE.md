@@ -242,10 +242,10 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 
 ## Packaging (Plan 4, Task 4)
 
-- Marketplace: `.claude-plugin/marketplace.json` (name `coffeebreak`, one plugin, `source: ./plugin`). Install: `claude plugin marketplace add karli2000/coffeebreak` then `claude plugin install coffeebreak@coffeebreak`; local test: `marketplace add ./`. Manifest: `plugin/.claude-plugin/plugin.json` (`displayName` Coffee Break, version 0.2.3, MIT, no icon).
-- Skill: `plugin/skills/coffee/SKILL.md` (help: commands, Bun, privacy, issues). The README's `## Privacy` reuses the skill's `## Privacy` paragraph verbatim (the rules copy links to `#privacy`, keep the heading).
+- Marketplace: `.claude-plugin/marketplace.json` (name `coffeebreak`, one plugin, `source: ./plugin`). Install: `claude plugin marketplace add karli2000/coffeebreak` then `claude plugin install coffeebreak@coffeebreak`; local test: `marketplace add ./`. Manifest: `plugin/.claude-plugin/plugin.json` (`displayName` Coffee Break, version 0.2.4, MIT, no icon).
+- Skill: `plugin/skills/coffee-help/SKILL.md` (name `coffee-help`; help: commands, Bun, privacy, issues). Never name a skill `coffee`: a skill named like the mod's command takes the name over, so `/coffee setup` opened the help skill instead of the command (0.2.0-0.2.3, fixed in 0.2.4; `tests/unit/skill-names.test.ts`). The README's `## Privacy` reuses the skill's `## Privacy` paragraph verbatim (the rules copy links to `#privacy`, keep the heading).
 - `bun run validate:all` validates marketplace and plugin. The only accepted warning is ICON_MISSING (no icon by plan decision); README_TRIVIAL is gone since the README rewrite.
-- Release: bump `version` in `plugin/.claude-plugin/plugin.json` (currently 0.2.3), run `bun run helper:bundle` when the helper changed, commit on a branch and merge it through a pull request (`main` is PR-only).
+- Release: bump `version` in `plugin/.claude-plugin/plugin.json` (currently 0.2.4), run `bun run helper:bundle` when the helper changed, commit on a branch and merge it through a pull request (`main` is PR-only).
 
 ## Publication (Plan 4, Task 5)
 
