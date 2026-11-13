@@ -17,6 +17,7 @@ bun run test:int   # bun test tests/integration (realtime/edge-function tests, n
 bun run test:mod   # claude plugin validate plugin + claude plugin test plugin (mod tests, plugin/tests/*.test.ts)
 bun run dev        # claude --plugin-dir plugin (the mod in a real session; hosted backend by default)
 bun run helper:bundle   # rebuild the committed helper bundle plugin/dist/cbreakd.js (run after ANY change in plugin/helper/ or plugin/shared/)
+bun run brand:png       # re-render plugin/.claude-plugin/icon.png (512) and brand/cbreak-icon-1024.png from brand/cbreak-icon.svg (run after changing the icon SVG; tests/unit/brand.test.ts fails on a stale icon)
 bun run emoji:gen       # regenerate plugin/hooks/lib/emoji-data.ts from the pinned gemoji package (run after a gemoji bump; tests/unit/emoji.test.ts fails on a stale table)
 bunx tsc --noEmit -p plugin   # type-check the mod files against the types Claude Code writes
 bunx tsc --noEmit             # type-check helper, shared code and tests (excludes the mod files, site/ and the Deno code in supabase/functions)
@@ -246,10 +247,10 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 
 ## Packaging (Plan 4, Task 4)
 
-- Marketplace: `.claude-plugin/marketplace.json` (name `cbreak`, one plugin, `source: ./plugin`). Install: `claude plugin marketplace add karli2000/cbreak` then `claude plugin install cbreak@cbreak`; local test: `marketplace add ./`. Manifest: `plugin/.claude-plugin/plugin.json` (`displayName` cbreak, version 0.3.0, MIT, no icon).
+- Marketplace: `.claude-plugin/marketplace.json` (name `cbreak`, one plugin, `source: ./plugin`). Install: `claude plugin marketplace add karli2000/cbreak` then `claude plugin install cbreak@cbreak`; local test: `marketplace add ./`. Manifest: `plugin/.claude-plugin/plugin.json` (`displayName` cbreak, version 0.3.1, MIT, icon `plugin/.claude-plugin/icon.png`).
 - Skill: `plugin/skills/cbreak-help/SKILL.md` (name `cbreak-help`; help: commands, Bun, privacy, issues). Never name a skill like the command (`cbreak`): a skill named like the mod's command takes the name over (the help skill was named `coffee` in 0.2.0-0.2.3, so `/coffee setup` opened it instead of the command; fixed in 0.2.4; `tests/unit/skill-names.test.ts`). The README's `## Privacy` reuses the skill's `## Privacy` paragraph verbatim (the rules copy links to `#privacy`, keep the heading).
-- `bun run validate:all` validates marketplace and plugin. The only accepted warning is ICON_MISSING (no icon by plan decision); README_TRIVIAL is gone since the README rewrite.
-- Release: bump `version` in `plugin/.claude-plugin/plugin.json` (currently 0.3.0), run `bun run helper:bundle` when the helper changed, commit on a branch and merge it through a pull request (`main` is PR-only).
+- `bun run validate:all` validates marketplace and plugin. No plugin-directory warnings since 0.3.1 (ICON_MISSING is gone with `plugin/.claude-plugin/icon.png`); the remaining "with warnings" are the TS5097 import-path notes the validator prints for every mod file.
+- Release: bump `version` in `plugin/.claude-plugin/plugin.json` (currently 0.3.1), run `bun run helper:bundle` when the helper changed, commit on a branch and merge it through a pull request (`main` is PR-only).
 
 ## Publication (Plan 4, Task 5)
 
@@ -263,6 +264,12 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 - Login carries over: `plugin/helper/data-dir.ts` `dataDirFor(env, home)` moves an old `<config>/coffeebreak` to `<config>/cbreak` once, when the new one does not exist and `CBREAK_DATA_DIR` is unset (test `tests/unit/data-dir.test.ts`). Mod settings (`$.store`) belong to the plugin name, so they start from the defaults after the reinstall.
 - `cbreak` is a reserved nickname (migration 20261115000100: `claim_nickname` body from 20261114000100 with `cbreak` added; pgTAP `150_reserve_cbreak`).
 - Installed copies do not follow the rename: people uninstall `coffeebreak@coffeebreak`, remove the marketplace `coffeebreak`, then add `karli2000/cbreak` and install `cbreak@cbreak` (README "Coming from Coffee Break?", `docs/beta.md` message).
+
+## Brand (0.3.1)
+
+- Logo and style guide in `brand/` (`brand/README.md` = the style guide: concept, files, colors, type, geometry, don'ts; `brand/styleguide.html` = the same as a static page with every design). The mark: an open lowercase c (arc r 34, 80° opening to the right, stroke 16) with three rising dots, read as coffee (cup rim + steam), chat (typing dots), code (monospace wordmark + cursor) and claude (an unfinished circle = a spinner). Colors: espresso `#2A1C15`, cream `#F6EFE6`, caramel `#B8612A` (accent on light), crema `#E59A5C` (accent on dark). No Anthropic or Claude marks, ever.
+- Uses: plugin icon `plugin/.claude-plugin/icon.png` (512 px PNG rendered from `brand/cbreak-icon.svg` by `scripts/render-brand.ts` with the dev dependency `@resvg/resvg-js` (exact pin 2.6.2); Claude Code accepts no SVG), site favicon `site/public/favicon.svg` (a copy of `brand/cbreak-icon.svg`, linked in `site/index.html`; reaches production with `bun run site:deploy`), README header (`brand/cbreak-logo.svg` with a `<picture>` dark variant `cbreak-logo-on-dark.svg`; the wordmark text falls back to the system monospace where web fonts don't load). Test: `tests/unit/brand.test.ts` (icon PNG 512×512 and equal to a fresh render, favicon equals the brand icon and is linked, README header, style-guide files).
+- The design canvas the brand came from is a private claude.ai artifact of the owner; `brand/` is the copy in the repo.
 
 ## Owner actions before and after going public (in order)
 
