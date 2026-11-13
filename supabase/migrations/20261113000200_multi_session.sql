@@ -31,6 +31,8 @@ begin
   if not found then raise exception 'not_found'; end if;
   if not r.is_open then raise exception 'room_closed'; end if;
 
+  -- lock order everywhere: per-user lock first, then the per-room lock
+  perform pg_advisory_xact_lock(hashtext('occ:' || uid::text));
   perform pg_advisory_xact_lock(hashtext('room:' || room_slug));
 
   -- a caller who is already live in this room keeps their instance
@@ -99,6 +101,9 @@ begin
   if not found then raise exception 'no_profile'; end if;
   if p.banned_at is not null then raise exception 'banned'; end if;
 
+  -- serialize with join_room / leave_room of the same user (before the room lock below)
+  perform pg_advisory_xact_lock(hashtext('occ:' || uid::text));
+
   select * into o from public.occupancy where user_id = uid;
   if not found then raise exception 'not_in_room'; end if;
   if not exists (select 1 from public.rooms r where r.slug = o.room and r.is_open) then
@@ -137,6 +142,8 @@ begin
   if session_id is null then
     delete from public.occupancy where user_id = uid;
   else
+    -- serialize with join_room / heartbeat of the same user
+    perform pg_advisory_xact_lock(hashtext('occ:' || uid::text));
     delete from public.occupancy_sessions s
     where s.user_id = uid and s.session_id = leave_room.session_id;
     if not exists (select 1 from public.occupancy_sessions s

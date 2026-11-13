@@ -1,6 +1,6 @@
 begin;
 \ir _helpers.psql
-select plan(20);
+select plan(26);
 
 insert into public.rooms (slug, title) values ('ms-room', 'Multi session');
 select tests.create_user('ann') as a \gset
@@ -63,8 +63,8 @@ select tests.logout();
 -- null session: old behaviour
 delete from public.occupancy;
 select tests.login_as(:'a');
-select public.join_room('ms-room');
-select public.heartbeat();
+select lives_ok($$select public.join_room('ms-room')$$, 'null-session join works');
+select lives_ok($$select public.heartbeat()$$, 'null-session heartbeat works');
 select tests.logout();
 select is((select count(*)::int from public.occupancy_sessions where user_id = :'a'), 0, 'null session creates no session rows');
 select tests.login_as(:'a');
@@ -97,6 +97,13 @@ select is((select array_agg(session_id) from public.occupancy_sessions where use
 -- privileges
 select table_privs_are('public', 'occupancy_sessions', 'authenticated', array[]::text[], 'authenticated: no privileges');
 select table_privs_are('public', 'occupancy_sessions', 'anon', array[]::text[], 'anon: no privileges');
+
+select hasnt_function('public', 'join_room', array['text'], 'old join_room(text) is gone');
+select hasnt_function('public', 'heartbeat', array[]::text[], 'old heartbeat() is gone');
+select hasnt_function('public', 'leave_room', array[]::text[], 'old leave_room() is gone');
+select is(has_function_privilege('anon', 'public.join_room(text, uuid)', 'execute')
+  or has_function_privilege('anon', 'public.heartbeat(uuid)', 'execute')
+  or has_function_privilege('anon', 'public.leave_room(uuid)', 'execute'), false, 'anon cannot execute');
 
 select * from finish();
 rollback;

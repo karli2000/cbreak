@@ -93,6 +93,7 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 
 ## Decisions made during the build (beyond the spec)
 
+- Multi-session (Plan 5): `join_room`, `heartbeat` and the session branch of `leave_room` take the per-user advisory lock `hashtext('occ:' || uid)` (lock order everywhere: user lock, then room lock), so two sessions leaving at once, or a leave racing a join, see each other's sessions. Rollout caveat: a session-less holder (an old helper calling without `session_id`) is invisible to the liveness check, so a new helper's `leave_room(session)` can remove a row an old helper still uses, and an old helper's `leave_room()` removes it for a new one. Check by hand: two psql connections, A leaves in an open transaction, B leaves, A commits: no occupancy row remains.
 - Test helpers are in `_helpers.psql` (see Tests).
 - A first nickname claim doesn't count as a change.
 - `heartbeat` on a stale row is refused (`not_in_room`) if its instance has refilled to 50, so the client re-joins. Banned users get `banned` from `heartbeat`.
