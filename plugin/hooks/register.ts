@@ -11,7 +11,7 @@ import { splitLines } from './lib/format.ts'
 import { bunVersionOk, helperArgv, homeBunPath } from './lib/helper-argv.ts'
 import type { Port, Timer } from './lib/port.ts'
 import { mergeStored, type Settings } from './lib/settings.ts'
-import { renderPane } from './pane.ts'
+import { isTabFromInput, renderPane, SAY_KEY } from './pane.ts'
 
 type Engine = EngineInterface
 type ExitInfo = { code: number | null; signal: string | null; stderr: string }
@@ -36,6 +36,8 @@ let starting: { cancelled: boolean } | null = null
 let argvLookup: Promise<string[] | null> | null = null
 /** The pane is open (placed or waiting) under this title; null when closed. */
 let paneTitle: string | null = null
+/** The key of our element holding the pane's focus ring (from `ui.focus`); undefined for an engine stop. */
+let focused: string | undefined
 
 /** Every event hook goes through here: it moves the Port to this `$` and builds the Controller once. */
 function ctl($: Engine): Controller {
@@ -359,6 +361,7 @@ export const register: Register = (on) => {
   // (after Esc a close is refused); here only the person's close is handled.
   on('ui.close', { id: PANE }, async ($, e, next) => {
     const res = await next(e)
+    focused = undefined
     if (e.origin.kind === 'person') {
       paneTitle = null
       ctl($).paneClosedByPerson()
@@ -366,8 +369,17 @@ export const register: Register = (on) => {
     return res
   }).catch(async (_$, e, next) => next(e))
 
+  // The emoji box (spike S4): Tab in the chat input moves the ring to an engine stop (the pane's
+  // close mark); while the box shows, that Tab takes the best row instead and the ring stays put.
+  on('ui.focus', { requestId: PANE }, async ($, e, next) => {
+    if (isTabFromInput(focused, e) && ctl($).acceptSuggestion()) return {}
+    const res = await next(e)
+    if (!res.deny) focused = e.element
+    return res
+  }).catch(async (_$, e, next) => next(e))
+
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
-    const { Box, Text, Input } = $.ui.resolve(e)
+    const { Box, Text, Input, Button } = $.ui.resolve(e)
     const c = controller
     if (!c) return Text({ dimColor: true, children: '☕' })
     // Docked beside the transcript the frame has a fixed height: fill it, so the input is always
@@ -375,8 +387,16 @@ export const register: Register = (on) => {
     const fillRows = e.props.placement === 'dock' ? e.props.scroll.bodyRows : 0
     return renderPane(
       c.view(),
-      { Box, Text, Input },
-      { input: (v) => c.input(v), submit: (v) => void c.submit(v) },
+      { Box, Text, Input, Button },
+      {
+        input: (v) => c.input(v),
+        submit: (v) => void c.submit(v),
+        // a picked emoji row hands the focus back to the input (spike S4: from the press, this `$`)
+        pick: (name) => {
+          c.pickSuggestion(name)
+          $.ui.focus({ requestId: PANE, key: SAY_KEY }).catch(() => {})
+        },
+      },
       fillRows,
     )
   })

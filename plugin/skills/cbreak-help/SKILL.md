@@ -19,7 +19,7 @@ cbreak drops you into a shared group chat room while Claude is busy on your task
 - `/cbreak logout`: sign out.
 - `/cbreak delete-account yes`: delete your account and data.
 
-In the chat pane: type to send, `/me <action>`, `/report <nick> <reason>`, `/leave`, `/help`. Emoticons such as `:)` and `<3` and shortcodes such as `:heart:` or `:tada:` turn into emoji when sent (not inside backticks; `/cbreak config emoji off` turns it off).
+In the chat pane: type to send, `/me <action>`, `/report <nick> <reason>`, `/leave`, `/help`. Emoticons such as `:)` and `<3` and shortcodes such as `:heart:` or `:tada:` turn into emoji when sent (not inside backticks; `/cbreak config emoji off` turns it off). Typing `:` and two or more letters lists matching emoji above the input: Tab takes the first, Up and Enter pick another.
 
 ## Requirements
 

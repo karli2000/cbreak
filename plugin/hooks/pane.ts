@@ -1,15 +1,30 @@
 // Draws the cbreak pane from the Controller's PaneView. Pure: no `$`, no writes (a render hook may
 // not write while drawing). The element constructors come from `$.ui.resolve(e)` in register.ts.
-import type { BoxProps, ElementConstructor, InputProps, RenderElement, TextProps } from 'claude-code'
+import type { BoxProps, ButtonProps, ElementConstructor, InputProps, RenderElement, TextProps } from 'claude-code'
+import type { EmojiSuggestion } from './lib/emoji.ts'
 import type { Line, PaneView } from './lib/port.ts'
 
 export type PaneElements = {
   Box: ElementConstructor<BoxProps>
   Text: ElementConstructor<TextProps>
   Input: ElementConstructor<InputProps>
+  Button: ElementConstructor<ButtonProps>
 }
 
-export type PaneHandlers = { input(v: string): void; submit(v: string): void }
+/** `pick`: an emoji row was pressed (Enter on it, or a click), by its name. */
+export type PaneHandlers = { input(v: string): void; submit(v: string): void; pick(name: string): void }
+
+/** The address of an emoji row: `ui.focus` names it, so register.ts can tell the rows from the input. */
+export const SAY_KEY = 'say'
+export const emojiKey = (name: string) => `emoji:${name}`
+
+/**
+ * Whether a focus move is the person's Tab out of the chat input: from `say` to one of the engine's
+ * stops (the pane's close mark; `element` absent). Up lands on our own last row instead.
+ */
+export function isTabFromInput(focused: string | undefined, e: { element?: string; origin: { kind: string } }): boolean {
+  return focused === SAY_KEY && e.element === undefined && e.origin.kind === 'person'
+}
 
 /**
  * `fillRows`: the rows the tree should fill, so the input is always the pane's last row; the lines'
@@ -38,6 +53,7 @@ export function renderPane(view: PaneView, els: PaneElements, on: PaneHandlers, 
     children: [
       Text({ dimColor: true, children: view.header }),
       linesBox(view.lines.map((l) => lineElement(l, els))),
+      ...emojiBox(view.suggestions, els, on),
       // Always drawn: /leave and /help work outside a room too (room commands answer with a line).
       // autoFocus: whenever the pane takes the keyboard, the cursor lands in the field.
       // The grace countdown sits at its right, so it stays in view however long the chat is.
@@ -48,7 +64,7 @@ export function renderPane(view: PaneView, els: PaneElements, on: PaneHandlers, 
             flexGrow: 1,
             children: [
               Input({
-                key: 'say',
+                key: SAY_KEY,
                 placeholder: 'say something',
                 submitLabel: 'send',
                 value: view.draft,
@@ -63,6 +79,20 @@ export function renderPane(view: PaneView, els: PaneElements, on: PaneHandlers, 
       }),
     ],
   })
+}
+
+/**
+ * The emoji box (spike S4): one plain, dim row per match (`😄  :smile:`) right above the input, best
+ * match at the bottom, so Up from the input reaches it first (the focus ring follows the draw order;
+ * Left/Right belong to the engine, so the rows stack). Tab in the input takes the best one (register.ts).
+ */
+function emojiBox(rows: EmojiSuggestion[], els: PaneElements, on: PaneHandlers): RenderElement[] {
+  if (rows.length === 0) return []
+  const { Box, Button } = els
+  const buttons = rows
+    .map((r) => Button({ key: emojiKey(r.name), label: `${r.emoji}  :${r.name}:`, plain: true, dimColor: true, onPress: () => on.pick(r.name) }))
+    .reverse()
+  return [Box({ flexDirection: 'column', children: buttons })]
 }
 
 /**

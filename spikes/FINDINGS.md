@@ -115,3 +115,17 @@ Consequences for Plan 2:
    - Result: works (owner verdict, 2026-11-12).
 8. Sleep and resume mid-break: start a long task, join the room, then suspend the laptop (or close the lid) for at least 2 minutes and wake it while the task still runs. The helper must not exit on wake (no `Coffee break stopped unexpectedly` line), the room comes back (a `Connection lost, reconnecting…` line followed by `Reconnected.` is fine), and after the task ends `/coffee status` still says `Signed in as …` (the login survived). Also check that a later, new session still starts signed in.
    - Result: works (owner verdict, 2026-11-12).
+
+## S4: emoji picker in the pane (2026-11-13, Claude Code 2.1.323)
+
+Question: can the pane's chat input get the `:shortcode` emoji box the main prompt shows (`:smi` lists five rows `😄   :smile:`, best first)? Spike mod (`--plugin-dir`, scratch only, not kept) driven in tmux at 160×50, pane docked.
+
+- The main prompt's box is the engine's typeahead; `prompt.autocomplete` feeds only the main prompt box. `InputProps` has no suggestions, no key handler and no cursor position (only `value`, `onInput`, `onSubmit`). So the pane draws its own list.
+- `onInput` fires for every edit with the whole text (a burst of typed keys can arrive as one change).
+- Digits typed into a focused Input are typed; a Button `hotkey: '1'` in the same pane did not fire. Hotkeys are not needed anyway.
+- The focus ring is linear in draw order: Up from the Input lands on the element drawn right before it, Up again the one before that; Down walks back to the Input. Left/Right on a Button are not the ring's: they fall through to the engine (Left opened the background-agents view). Tab from the Input goes to an engine stop first (the pane's ✕), then the pane's first element.
+- Enter on a focused Button raises its `onPress`. In it, updating the draft, `$.ui.invalidate('ui.render')` and `$.ui.focus({ requestId, key: 'say' })` (answers `{}`) put the focus back in the Input, and the cursor stands at the end of the new value (typing `x` gave `hi 😀 x`).
+- A `ui.focus` hook can turn Tab into "take the best match": when the ring moves from the Input (`say`) to an engine stop (`e.element` undefined, origin `person`) while the draft ends in a `:token`, apply the top match and return `{}` without `next`: the focus stays in the Input and typing goes on after the emoji. Up does not hit this branch (it targets one of our Buttons).
+- Layout that works: the matches as a column of `Button({ plain: true, dimColor: true })` rows (`😄  :smile:`) drawn right above the Input, best match at the bottom, so Up reaches the best one first; the focused row is drawn inverted.
+
+Outcome: feasible. Tab takes the best match, Up/Down + Enter pick another, a click works too; nothing typed is lost.

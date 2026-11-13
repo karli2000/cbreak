@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { EMOTICONS, emojify } from '../../plugin/hooks/lib/emoji.ts'
+import { EMOTICONS, SUGGEST_LIMIT, applySuggestion, emojiSuggest, emojify } from '../../plugin/hooks/lib/emoji.ts'
 import { SHORTCODES } from '../../plugin/hooks/lib/emoji-data.ts'
 import { renderEmojiData } from '../../scripts/gen-emoji.ts'
 
@@ -67,5 +67,41 @@ describe('emoji table', () => {
     const names = new Set(SHORTCODES.map(([n]) => n))
     for (const n of ['heart', '+1', '-1', '100', 'tada', 'coffee', 'de']) expect(names.has(n)).toBe(true)
     expect(names.size).toBeGreaterThan(1500)
+  })
+})
+
+describe('emojiSuggest', () => {
+  const names = (d: string) => emojiSuggest(d).map((s) => s.name)
+
+  test('names that start with the token, shortest first, like the prompt box', () => {
+    expect(names(':smi')).toEqual(['smile', 'smirk', 'smiley', 'smile_cat', 'smirk_cat'])
+    expect(emojiSuggest('hi :smi')[0]).toEqual({ name: 'smile', emoji: '😄' })
+    expect(names(':SMI')).toEqual(names(':smi'))
+  })
+
+  test('then names that contain it, one row per emoji, at most the limit', () => {
+    const rows = emojiSuggest(':heart', 50)
+    expect(rows[0]!.name).toBe('heart')
+    expect(rows.some((r) => !r.name.startsWith('heart') && r.name.includes('heart'))).toBe(true)
+    expect(new Set(rows.map((r) => r.emoji)).size).toBe(rows.length)
+    expect(emojiSuggest(':a').length).toBe(0)
+    expect(emojiSuggest(':sm').length).toBe(SUGGEST_LIMIT)
+    expect(emojiSuggest(':sm', 2).length).toBe(2)
+  })
+
+  test('only for a :token at the end of the draft', () => {
+    for (const d of ['', 'smi', ':s', ':smi ', ':smile:', 'user:smi', 'en:de', 'x :zzzzqq', '`code :smi', '``:smi` x'])
+      expect(emojiSuggest(d)).toEqual([])
+    expect(names('`a` :smi')[0]).toBe('smile')
+    expect(names('(:smi')[0]).toBe('smile')
+    expect(names(':+1')).toContain('+1')
+  })
+})
+
+describe('applySuggestion', () => {
+  test('replaces the trailing :token with the emoji and a space', () => {
+    expect(applySuggestion('hi :smi', { name: 'smile', emoji: '😄' })).toBe('hi 😄 ')
+    expect(applySuggestion(':ta', { name: 'tada', emoji: '🎉' })).toBe('🎉 ')
+    expect(applySuggestion('hi :smi ', { name: 'smile', emoji: '😄' })).toBeNull()
   })
 })
