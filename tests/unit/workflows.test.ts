@@ -78,8 +78,8 @@ test('functions: github-age is deployed to the hosted project', () => {
   expect(runs(w, 'deploy')).toContain('bunx supabase functions deploy github-age --use-api --remote="$PROJECT_REF" --yes')
 })
 
-test('moderator site: the paths cover every file outside site/ that the site imports', () => {
-  const w = load('deploy-mod-site.yml')
+/** Files outside `home` that the TypeScript under `dir` imports (relative imports), sorted. */
+function importsOutside(dir: string, home: string): string[] {
   const outside = new Set<string>()
   const walk = (d: string) => {
     for (const e of readdirSync(d, { withFileTypes: true })) {
@@ -88,14 +88,19 @@ test('moderator site: the paths cover every file outside site/ that the site imp
       else if (/\.tsx?$/.test(e.name))
         for (const m of readFileSync(p, 'utf8').matchAll(/from '(\.[^']+)'/g)) {
           const target = relative(root, resolve(dirname(p), m[1]!))
-          if (!target.startsWith('site/')) outside.add(target)
+          if (!target.startsWith(home)) outside.add(target)
         }
     }
   }
-  walk(join(root, 'site/src'))
-  expect(outside.size).toBeGreaterThan(0)
-  expect(w.on.push.paths).toEqual(['site/**', ...[...outside].sort()])
+  walk(join(root, dir))
   for (const p of outside) expect(existsSync(join(root, p))).toBe(true)
+  return [...outside].sort()
+}
+
+test('moderator site: the paths cover every file outside site/ that the site imports', () => {
+  const outside = importsOutside('site/src', 'site/')
+  expect(outside.length).toBeGreaterThan(0)
+  expect(load('deploy-mod-site.yml').on.push.paths).toEqual(['site/**', ...outside])
 })
 
 test('moderator site: tested, then deployed with the package script (one wrangler pin)', () => {
@@ -104,10 +109,15 @@ test('moderator site: tested, then deployed with the package script (one wrangle
   expect(runs(w, 'deploy')).toContain('bun run site:deploy')
 })
 
+test('homepage: the paths cover web/ and every file outside it that its function imports', () => {
+  const outside = importsOutside('web/functions', 'web/')
+  expect(outside).toEqual(['plugin/shared/backend.ts'])
+  expect(load('deploy-homepage.yml').on.push.paths).toEqual(['web/**', ...outside])
+})
+
 test('homepage: tested, then deployed with the package script', () => {
   const w = load('deploy-homepage.yml')
-  expect(w.on.push.paths).toEqual(['web/**'])
-  expect(runs(w, 'deploy')).toContain('bun test tests/unit/web.test.ts')
+  expect(runs(w, 'deploy')).toContain('bun test tests/unit/web.test.ts tests/unit/web-stats.test.ts')
   expect(runs(w, 'deploy')).toContain('bun run web:deploy')
 })
 

@@ -6,3 +6,4 @@ supabase/.branches/
 plugin/.claude-plugin/types/
 site/node_modules
 site/dist
+.wrangler/
