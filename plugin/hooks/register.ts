@@ -353,9 +353,14 @@ export const register: Register = (on) => {
     const { Box, Text, Input } = $.ui.resolve(e)
     const c = controller
     if (!c) return Text({ dimColor: true, children: '☕' })
-    return renderPane(c.view(), { Box, Text, Input }, {
-      input: (v) => c.input(v),
-      submit: (v) => void c.submit(v),
-    })
+    // Docked beside the transcript the frame has a fixed height: fill it, so the input is always
+    // its bottom row. Inline the frame fits the tree, so the input is the bottom row anyway.
+    const fillRows = e.props.placement === 'dock' ? e.props.scroll.bodyRows : 0
+    return renderPane(
+      c.view(),
+      { Box, Text, Input },
+      { input: (v) => c.input(v), submit: (v) => void c.submit(v) },
+      fillRows,
+    )
   })
 }
