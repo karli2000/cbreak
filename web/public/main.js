@@ -1,4 +1,5 @@
-// cbreak.dev: plays the break illustration once, and the copy buttons. No network, no storage.
+// cbreak.dev: the numbers from /api/stats (same origin, refreshed every minute while the tab shows),
+// the break illustration played once, and the copy buttons. No storage, no other site.
 (() => {
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -15,6 +16,30 @@
       }
       setTimeout(() => (btn.textContent = 'Copy'), 2000)
     })
+  }
+
+  // ---- the numbers ----
+  const pulse = document.querySelector('[data-stats]')
+  if (pulse) {
+    const fmt = new Intl.NumberFormat('en')
+    const load = async () => {
+      try {
+        const res = await fetch('/api/stats', { headers: { accept: 'application/json' } })
+        if (!res.ok) return
+        const s = await res.json()
+        for (const el of pulse.querySelectorAll('[data-stat]')) {
+          const v = s[el.dataset.stat]
+          if (typeof v === 'number') el.textContent = fmt.format(v)
+        }
+        pulse.hidden = false
+      } catch {
+        // offline or unavailable: the section stays as it was (hidden until the first answer)
+      }
+    }
+    load()
+    setInterval(() => {
+      if (!document.hidden) load()
+    }, 60_000)
   }
 
   // ---- the break, played once ----

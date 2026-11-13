@@ -33,7 +33,7 @@ Merging a pull request into `main` deploys what it changed. Each workflow in `.g
 | `deploy-database.yml` | `supabase/migrations/**` | Starts a local stack, runs `bun run db:test` (pgTAP), and only if that passes: `supabase db push --remote=meioekkvutvrspfvqgye --skip-vault` (dry run first, so the log lists the migrations). |
 | `deploy-functions.yml` | `supabase/functions/**` | `supabase functions deploy github-age --use-api` (bundled server-side, no Docker). Its `GITHUB_TOKEN` secret stays in the dashboard. |
 | `deploy-mod-site.yml` | `site/**` and the two files the site imports from outside it (`plugin/hooks/lib/format.ts`, `plugin/shared/backend.ts`) | The site's headers test, then `bun run site:deploy` (Pages project `coffeebreak-mod`, mod.cbreak.dev). |
-| `deploy-homepage.yml` | `web/**` | `tests/unit/web.test.ts`, then `bun run web:deploy` (Pages project `cbreak-web`, cbreak.dev). |
+| `deploy-homepage.yml` | `web/**` and `plugin/shared/backend.ts` (imported by the `/api/stats` function) | `tests/unit/web.test.ts` and `web-stats.test.ts`, then `bun run web:deploy` (Pages project `cbreak-web`, cbreak.dev: `web/public/` plus the function in `web/functions/`). |
 
 None of them ever runs `supabase config push`. Each deploy job runs in the GitHub environment `production` (created on the first run; add required reviewers there if you ever want to approve deploys by hand) and stops with an error naming the missing secret when one is not set. Actions are pinned to commit SHAs; `tests/unit/workflows.test.ts` checks the pins, the paths (including every file the site imports from outside `site/`), the project ref and the commands.
 
