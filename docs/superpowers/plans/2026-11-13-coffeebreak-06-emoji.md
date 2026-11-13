@@ -32,6 +32,7 @@ The spec says nothing about emoji, so this plan adds the feature. **Also read:**
   - `:name:`, where `name` matches `[a-z0-9_+-]+` after lowercasing.
   - Replaced only when `name` is one of gemoji's names (every alias of every emoji, e.g. `+1` and `thumbsup`).
   - Unknown names stay as typed.
+  - **Amended after the final review:** a shortcode needs a character that is not a letter or digit, or the text's edge, on both sides, so `user:id:42`, `en:de:fr` and `a:heart:b` stay as typed.
   - The lookup must not see inherited object keys: `:constructor:`, `:__proto__:` and `:tostring:` stay as typed. Use a `Map`.
 - **Emoticons:** exactly this table (case-sensitive, longest match first):
 
@@ -120,7 +121,7 @@ The spec says nothing about emoji, so this plan adds the feature. **Also read:**
   - `converts shortcodes`:
     - `:heart:` → `❤️`, `:tada:` → `🎉`, `:+1:` → `👍`, `:thumbsup:` → `👍`;
     - `:Heart:` → `❤️` (lowercased lookup);
-    - `a:heart:b` → `a❤️b` (shortcodes need no spaces around them);
+    - `hi :tada:!` → `hi 🎉!` and `(:heart:)` → `(❤️)` (amended: `a:heart:b` stays as typed, see Global Constraints);
     - `:heart::tada:` → `❤️🎉`.
   - `ignores names that are not gemoji`: `:nope:`, `:constructor:`, `:__proto__:`, `:tostring:` and `::` are each unchanged.
   - `leaves urls, times and code alone`: each unchanged:

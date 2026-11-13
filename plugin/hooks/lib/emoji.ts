@@ -32,7 +32,8 @@ const EMOTICON_RE = new RegExp(
   `(^|\\s)(${[...BY_TYPED.keys()].sort((a, b) => b.length - a.length).map(escape).join('|')})(?=$|[\\s.,!?])`,
   'g',
 )
-const SHORTCODE_RE = /:([a-z0-9_+-]+):/gi
+// A shortcode needs a non-letter/digit (or the text's edge) on both sides, so `user:id:42` or `en:de:fr` stay as typed.
+const SHORTCODE_RE = /(?<![A-Za-z0-9]):([a-z0-9_+-]+):(?![A-Za-z0-9])/gi
 
 function shortcodes(s: string): string {
   let out = ''
@@ -47,7 +48,7 @@ function shortcodes(s: string): string {
       out += s.slice(i, m.index) + emoji
       i = end
     } else {
-      // not a name: keep it and try again from its closing colon (`:nope:tada:` still converts `:tada:`)
+      // not a name: keep it and try again from its closing colon (`:nope: :tada:` still converts `:tada:`)
       out += s.slice(i, end - 1)
       i = end - 1
     }

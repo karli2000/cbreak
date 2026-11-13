@@ -24,7 +24,8 @@ describe('emojify', () => {
     expect(emojify(':+1:')).toBe('👍')
     expect(emojify(':thumbsup:')).toBe('👍')
     expect(emojify(':Heart:')).toBe('❤️')
-    expect(emojify('a:heart:b')).toBe('a❤️b')
+    expect(emojify('hi :tada:!')).toBe('hi 🎉!')
+    expect(emojify('(:heart:)')).toBe('(❤️)')
     expect(emojify(':heart::tada:')).toBe('❤️🎉')
   })
 
@@ -34,6 +35,12 @@ describe('emojify', () => {
 
   test('leaves urls, times and code alone', () => {
     for (const s of ['https://x.dev/a:b', 'at 12:30', 'std::vector', '(option B)', 'great:)', '`:) :heart:`', '`a:b:c:`']) {
+      expect(emojify(s)).toBe(s)
+    }
+  })
+
+  test('shortcodes inside words stay as typed', () => {
+    for (const s of ['user:id:42', 'key cache:top:10', 'locales en:de:fr', 'HTTP:OK:200', 'a:link:hover', 'a:b:c:', 'tag v:new:', 'https://a.b/x:+1:', 'a:heart:b']) {
       expect(emojify(s)).toBe(s)
     }
   })

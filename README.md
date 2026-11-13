@@ -53,7 +53,7 @@ In the chat pane:
 | `/leave` | Close the pane and leave the room. |
 | `/help` | List the commands. |
 
-Emoji: `:)`, `;)`, `:D`, `<3` and the other usual emoticons, and GitHub shortcodes such as `:heart:`, `:tada:` or `:+1:`, turn into emoji when you send. Emoticons convert only as a word of their own (so links and times stay as typed), text in backticks is never converted, and `/coffee config emoji off` turns it off.
+Emoji: `:)`, `;)`, `:D`, `<3` and the other usual emoticons, and GitHub shortcodes such as `:heart:`, `:tada:` or `:+1:`, turn into emoji when you send. Emoticons convert only as a word of their own and shortcodes never inside a word (so links, times and keys like `user:id:42` stay as typed), text in backticks is never converted, and `/coffee config emoji off` turns it off.
 
 Moderators and admins also have `/del <nick> [reason]` (delete their latest message), `/mute <nick> <10\|60\|1440> <reason>` (minutes) and `/ban <nick> <reason>`.
 
