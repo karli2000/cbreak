@@ -32,7 +32,7 @@ export function AuthProvider({ client, children }: { client: SupabaseClient; chi
 
   const signOut = useCallback(async () => {
     try {
-      // local: the moderator's coffeebreakd (same GitHub account) keeps its session
+      // local: the moderator's cbreakd (same GitHub account) keeps its session
       await client.auth.signOut({ scope: 'local' })
     } catch {
       // the local session is dropped below regardless

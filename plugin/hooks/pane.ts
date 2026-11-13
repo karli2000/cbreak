@@ -1,4 +1,4 @@
-// Draws the coffee pane from the Controller's PaneView. Pure: no `$`, no writes (a render hook may
+// Draws the cbreak pane from the Controller's PaneView. Pure: no `$`, no writes (a render hook may
 // not write while drawing). The element constructors come from `$.ui.resolve(e)` in register.ts.
 import type { BoxProps, ElementConstructor, InputProps, RenderElement, TextProps } from 'claude-code'
 import type { Line, PaneView } from './lib/port.ts'

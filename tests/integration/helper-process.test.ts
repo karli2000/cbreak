@@ -80,7 +80,7 @@ test("writes the auth file with mode 600 and logout clears it", async () => {
 
 test("exits and leaves after idle timeout", async () => {
   const u = await userClient("hp3");
-  const h = await startHelper({ session: await sessionOf(u), env: { COFFEEBREAK_IDLE_EXIT_MS: "1500" } });
+  const h = await startHelper({ session: await sessionOf(u), env: { CBREAK_IDLE_EXIT_MS: "1500" } });
   await h.waitFor("auth");
   const a = adminClient();
   expect(await h.call("/join", { room: testRoom })).toMatchObject({ ok: true, data: { room: testRoom } });
@@ -97,7 +97,7 @@ test("exits when its parent dies", async () => {
   const out = join(makeDataDir(), "out.ndjson");
   const sh = Bun.spawn(["sh", "-c", `bun ${main} >${out} & echo $!; wait`], {
     stdout: "pipe",
-    env: { ...process.env, COFFEEBREAK_DATA_DIR: makeDataDir(), COFFEEBREAK_NO_BROWSER: "1" },
+    env: { ...process.env, CBREAK_DATA_DIR: makeDataDir(), CBREAK_NO_BROWSER: "1" },
   });
   const reader = (sh.stdout as ReadableStream<Uint8Array>).getReader();
   const pid = Number(new TextDecoder().decode((await reader.read()).value).trim());

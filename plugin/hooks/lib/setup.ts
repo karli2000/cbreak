@@ -1,4 +1,4 @@
-// The setup flow (GitHub sign-in, nickname, rules) and every /coffee subcommand except the bare one.
+// The setup flow (GitHub sign-in, nickname, rules) and every /cbreak subcommand except the bare one.
 // The Controller owns the helper process and the break; it hands this class a narrow `SetupHost`.
 // Pure: every side effect goes through the host and its Port. Runs in the mod environment.
 import type { Api, ApiPath, ApiResult, AuthState } from '../../shared/protocol.ts'
@@ -64,7 +64,7 @@ function authLine(a: AuthState): string {
 }
 
 export class Setup {
-  /** Held from `/coffee setup` until the setup is ready, banned, closed or its helper died. */
+  /** Held from `/cbreak setup` until the setup is ready, banned, closed or its helper died. */
   private lease: Lease | null = null
   private shown = false
   private step: Step = 'done'
@@ -78,7 +78,7 @@ export class Setup {
 
   constructor(private host: SetupHost) {}
 
-  /** The setup pane is up: from `/coffee setup` until it is closed or a break takes the pane over. */
+  /** The setup pane is up: from `/cbreak setup` until it is closed or a break takes the pane over. */
   showing(): boolean {
     return this.shown
   }
@@ -129,7 +129,7 @@ export class Setup {
     }
   }
 
-  /** Awaited inside the `/coffee` command hook, so the open answers the person and is placed; later
+  /** Awaited inside the `/cbreak` command hook, so the open answers the person and is placed; later
    *  calls (a new step) re-open the placed pane with a focus request. */
   async focus(): Promise<boolean> {
     this.shown = true

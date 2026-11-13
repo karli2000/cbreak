@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
   if (profile.github_id == null) return json({ error: "no_github_id" }, 400);
 
   const headers: Record<string, string> = {
-    "User-Agent": "coffeebreak",
+    "User-Agent": "cbreak",
     Accept: "application/vnd.github+json",
   };
   const ghToken = Deno.env.get("GITHUB_TOKEN");

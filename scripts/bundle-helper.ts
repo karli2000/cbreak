@@ -1,4 +1,4 @@
-// Builds the committed helper bundle: `bun run helper:bundle` writes plugin/dist/coffeebreakd.js.
+// Builds the committed helper bundle: `bun run helper:bundle` writes plugin/dist/cbreakd.js.
 // Run it after every change to plugin/helper/ or plugin/shared/; tests/unit/helper-bundle.test.ts
 // fails while the committed bundle differs from a fresh build.
 import { rmSync } from 'node:fs'
@@ -7,13 +7,13 @@ import { resolve } from 'node:path'
 const REPO = resolve(import.meta.dir, '..')
 const ENTRY = 'plugin/helper/main.ts'
 /** The bundle's path from the repository root. */
-export const BUNDLE_PATH = 'plugin/dist/coffeebreakd.js'
+export const BUNDLE_PATH = 'plugin/dist/cbreakd.js'
 
 const PRAGMA = '// @bun\n'
 
 /** The bundle's second line (after `// @bun`): which Bun built it. */
 export function bundleHeader(): string {
-  return `// coffeebreakd bundle, built with bun ${Bun.version}`
+  return `// cbreakd bundle, built with bun ${Bun.version}`
 }
 
 /** `bun build plugin/helper/main.ts --target=bun --minify` into `outfile`, with the header as line 2. */

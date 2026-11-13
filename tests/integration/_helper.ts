@@ -1,4 +1,4 @@
-// Starts a real coffeebreakd process against the local stack and talks to it over its unix socket.
+// Starts a real cbreakd process against the local stack and talks to it over its unix socket.
 import type { Session } from "@supabase/supabase-js";
 import type { Subprocess } from "bun";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -45,10 +45,10 @@ export async function startHelper(opts: { session?: Session; env?: Record<string
     stderr: "inherit",
     env: {
       ...process.env,
-      COFFEEBREAK_SUPABASE_URL: env().url,
-      COFFEEBREAK_SUPABASE_ANON_KEY: env().anonKey,
-      COFFEEBREAK_DATA_DIR: dataDir,
-      COFFEEBREAK_NO_BROWSER: "1",
+      CBREAK_SUPABASE_URL: env().url,
+      CBREAK_SUPABASE_ANON_KEY: env().anonKey,
+      CBREAK_DATA_DIR: dataDir,
+      CBREAK_NO_BROWSER: "1",
       ...opts.env,
     },
   });

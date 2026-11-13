@@ -1,4 +1,4 @@
-// Wire protocol between the Claude Code mod and coffeebreakd.
+// Wire protocol between the Claude Code mod and cbreakd.
 // Imported by the mod too (no Node, no DOM): types and one constant only, no imports.
 export const PROTOCOL_VERSION = 1
 

@@ -73,7 +73,7 @@ describe('gate', () => {
     expect((await screen.findByRole('alert')).textContent).toBe("Can't reach the server. Check your connection.")
     expect(screen.getByRole('button', { name: 'Sign out' })).toBeTruthy()
     ;(await screen.findByRole('button', { name: 'Retry' })).click()
-    expect(await screen.findByText('☕ Coffee Break moderation · karli (moderator)')).toBeTruthy()
+    expect(await screen.findByText('☕ cbreak moderation · karli (moderator)')).toBeTruthy()
     expect(api.calls.filter((c) => c.name === 'me')).toHaveLength(2)
   })
 
@@ -82,7 +82,7 @@ describe('gate', () => {
       const { client } = fakeClient(true)
       const api = fakeApi({ me: async () => staff(role), listReports: async () => [] })
       const { unmount } = render(<App client={client} api={api} />)
-      expect(await screen.findByText(`☕ Coffee Break moderation · karli (${role})`)).toBeTruthy()
+      expect(await screen.findByText(`☕ cbreak moderation · karli (${role})`)).toBeTruthy()
       for (const n of ['Reports', 'Live', 'Users', 'Bans', 'Audit']) expect(screen.getByRole('link', { name: n })).toBeTruthy()
       expect(screen.queryByRole('link', { name: 'Admin' }) !== null).toBe(role === 'admin')
       unmount()
@@ -128,7 +128,7 @@ describe('gate', () => {
     render(<App client={client} api={api} />)
     expect(await screen.findByRole('button', { name: 'Sign in with GitHub' })).toBeTruthy()
     await waitFor(() => expect(signOut).toHaveBeenCalled())
-    // local only: a global sign-out would also end the moderator's coffeebreakd session
+    // local only: a global sign-out would also end the moderator's cbreakd session
     expect(signOut.mock.calls.every((c) => JSON.stringify(c) === JSON.stringify([{ scope: 'local' }]))).toBe(true)
   })
 

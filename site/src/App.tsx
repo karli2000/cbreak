@@ -66,7 +66,7 @@ function Gate({ api }: { api: Bound }) {
     }
     return (
       <main className="center">
-        <h1>☕ Coffee Break moderation</h1>
+        <h1>☕ cbreak moderation</h1>
         <button onClick={() => void signIn()}>{COPY.signIn}</button>
         {signInError && <p role="alert">{signInError}</p>}
       </main>
@@ -125,7 +125,7 @@ function Shell({ me, api, signOutButton }: { me: Me; api: Bound; signOutButton: 
     <>
       <header className="bar">
         <h1>
-          ☕ Coffee Break moderation · {me.nickname} ({me.role})
+          ☕ cbreak moderation · {me.nickname} ({me.role})
         </h1>
         {signOutButton}
       </header>

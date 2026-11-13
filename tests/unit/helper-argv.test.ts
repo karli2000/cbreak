@@ -1,24 +1,24 @@
 import { describe, expect, test } from 'bun:test'
 import { bunVersionOk, helperArgv, homeBunPath } from '../../plugin/hooks/lib/helper-argv.ts'
 
-const ROOT = '/plugins/coffeebreak'
+const ROOT = '/plugins/cbreak'
 
 describe('helperArgv', () => {
-  test('COFFEEBREAK_HELPER_SRC=1 runs the helper source with bun', () => {
+  test('CBREAK_HELPER_SRC=1 runs the helper source with bun', () => {
     expect(helperArgv(ROOT, { pathBun: true, homeBun: null, fromSource: true })).toEqual(['bun', `${ROOT}/helper/main.ts`])
   })
 
   test('bun on PATH runs the committed bundle', () => {
     expect(helperArgv(ROOT, { pathBun: true, homeBun: '/home/x/.bun/bin/bun', fromSource: false })).toEqual([
       'bun',
-      `${ROOT}/dist/coffeebreakd.js`,
+      `${ROOT}/dist/cbreakd.js`,
     ])
   })
 
   test('finds bun in ~/.bun/bin when PATH has none', () => {
     expect(helperArgv(ROOT, { pathBun: false, homeBun: '/home/x/.bun/bin/bun', fromSource: false })).toEqual([
       '/home/x/.bun/bin/bun',
-      `${ROOT}/dist/coffeebreakd.js`,
+      `${ROOT}/dist/cbreakd.js`,
     ])
   })
 

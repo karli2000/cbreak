@@ -1,6 +1,6 @@
 # Beta runbook (owner)
 
-Coffee Break is an open beta: the repo is public and anyone with a GitHub account can sign up (the friends-beta invite gate was removed on 2026-11-14, migration 20261114000100). Hosted project and deploy notes: [deploy.md](deploy.md). Moderator site: https://coffeebreak-mod.pages.dev. Details: [moderator-site.md](moderator-site.md).
+cbreak is an open beta: the repo is public and anyone with a GitHub account can sign up (the friends-beta invite gate was removed on 2026-11-14, migration 20261114000100). Hosted project and deploy notes: [deploy.md](deploy.md). Moderator site: https://coffeebreak-mod.pages.dev. Details: [moderator-site.md](moderator-site.md).
 
 ## Pre-publication checklist
 
@@ -8,31 +8,37 @@ Coffee Break is an open beta: the repo is public and anyone with a GitHub accoun
 2. `bun run site:deploy`.
 3. **Decide about the commit-author email.** Every commit is authored with your personal email (the address in your git config), and a public repo exposes it. Options: accept it; rewrite history to a GitHub noreply address with `git filter-repo --mailmap` and force-push `main` (destructive, you run it); or use a noreply address for future commits only (`git config user.email`). A rewrite must also pass `--replace-text` (a file with the address `==>` the noreply address): earlier versions of `docs/beta.md`, `CLAUDE.md` and the Plan 4 plan spelled the address out, and `--mailmap` only changes author and committer fields, not file contents.
 4. Run `scripts/prepublish-audit.sh --history` (must exit 0).
-5. `gh repo edit karli2000/coffeebreak --visibility public --accept-visibility-change-consequences`
-6. **Test the install from a clean session.** In a fresh Claude Code session (not `--plugin-dir`, no other Coffee Break copy loaded):
+5. `gh repo edit karli2000/cbreak --visibility public --accept-visibility-change-consequences`
+6. **Test the install from a clean session.** In a fresh Claude Code session (not `--plugin-dir`, no other cbreak copy loaded):
    ```sh
-   claude plugin marketplace add karli2000/coffeebreak
-   claude plugin install coffeebreak@coffeebreak
+   claude plugin marketplace add karli2000/cbreak
+   claude plugin install cbreak@cbreak
    ```
-   Start Claude Code and check that `/coffee` is registered (the mod loaded from the installed copy), and that `/coffee status` answers (the bundled helper starts through Bun). Do not rely on `claude plugin details`: an earlier local install test showed `Hooks (0)` there, so only a real session confirms the mod loads. Then run `/coffee setup` end to end.
+   Start Claude Code and check that `/cbreak` is registered (the mod loaded from the installed copy), and that `/cbreak status` answers (the bundled helper starts through Bun). Do not rely on `claude plugin details`: an earlier local install test showed `Hooks (0)` there, so only a real session confirms the mod loads. Then run `/cbreak setup` end to end.
 7. Send friends the message below.
 
 ## Message to send
 
-> Coffee Break is a Claude Code plugin: a shared chat room that opens while Claude is busy and closes when it is done.
+> cbreak is a Claude Code plugin: a shared chat room that opens while Claude is busy and closes when it is done.
 >
 > Needs Claude Code 2.1.322+ and Bun (`curl -fsSL https://bun.sh/install | bash`).
 >
 > ```
-> claude plugin marketplace add karli2000/coffeebreak
-> claude plugin install coffeebreak@coffeebreak
+> claude plugin marketplace add karli2000/cbreak
+> claude plugin install cbreak@cbreak
 > ```
 >
-> Restart Claude Code, then run `/coffee setup`. Privacy and commands: https://github.com/karli2000/coffeebreak#readme. The pane needs a wide terminal; in a narrow one, use `/coffee` while Claude is busy.
+> Restart Claude Code, then run `/cbreak setup`. Privacy and commands: https://github.com/karli2000/cbreak#readme. The pane needs a wide terminal; in a narrow one, use `/cbreak` while Claude is busy.
+
+## Moving friends from Coffee Break (0.3.0)
+
+The plugin, marketplace and command were renamed (`coffeebreak@coffeebreak` and `/coffee` became `cbreak@cbreak` and `/cbreak`). Installed copies do not follow a rename, so send friends who installed Coffee Break:
+
+> Coffee Break is now cbreak. Please run `claude plugin uninstall coffeebreak@coffeebreak`, `claude plugin marketplace remove coffeebreak`, then `claude plugin marketplace add karli2000/cbreak` and `claude plugin install cbreak@cbreak`, and restart Claude Code. Your login carries over; the command is now `/cbreak`.
 
 ## Feedback
 
-Friends report problems as GitHub issues: https://github.com/karli2000/coffeebreak/issues
+Friends report problems as GitHub issues: https://github.com/karli2000/cbreak/issues
 
 ## Free tier limits
 
@@ -48,9 +54,9 @@ Check the current limits on Supabase's pricing page before inviting a bigger cro
 
 1. Change the code and tests.
 2. Bump `version` in `plugin/.claude-plugin/plugin.json` (users stay on a version until it changes).
-3. `bun run helper:bundle` (a test fails if the committed `plugin/dist/coffeebreakd.js` is stale).
+3. `bun run helper:bundle` (a test fails if the committed `plugin/dist/cbreakd.js` is stale).
 4. `bun run validate:all`, commit on a branch, push it and merge it through a pull request (`main` is PR-only).
-5. Friends run `claude plugin marketplace update coffeebreak`, then `claude plugin update coffeebreak@coffeebreak`, and restart Claude Code.
+5. Friends run `claude plugin marketplace update cbreak`, then `claude plugin update cbreak@cbreak`, and restart Claude Code.
 
 **Order matters:** backend migrations go out with `bunx supabase db push --remote` BEFORE you push a plugin version that needs them. Installed plugins update from GitHub `main`, so a 0.2.1 helper against the old database gets "function not found" from `join_room` and every break start fails.
 

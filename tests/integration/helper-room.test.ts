@@ -175,7 +175,7 @@ test("joining a populated room does not announce the members already there", asy
 });
 
 test("re-joins after its occupancy row was purged", async () => {
-  const { a, h } = await joinedA("ra5", { COFFEEBREAK_TICK_MS: "1000" });
+  const { a, h } = await joinedA("ra5", { CBREAK_TICK_MS: "1000" });
   // purge_expired deletes occupancy rows older than 90 s; the next heartbeat gets not_in_room
   await check(adminClient().from("occupancy").delete().eq("user_id", a.userId), "purge occupancy");
   expect(await h.waitFor("joined", undefined, 5000)).toMatchObject({ room: testRoom, topic: topic1 });
@@ -220,7 +220,7 @@ test("kicked only acts for me", async () => {
 });
 
 test("room_closed is reported", async () => {
-  const { a, h } = await joinedA("ra8", { COFFEEBREAK_TICK_MS: "1000" });
+  const { a, h } = await joinedA("ra8", { CBREAK_TICK_MS: "1000" });
   try {
     await check(adminClient().from("rooms").update({ is_open: false }).eq("slug", testRoom), "close room");
     await h.waitFor("room_closed", undefined, 5000);
@@ -239,7 +239,7 @@ test("room_closed is reported", async () => {
 });
 
 test("a re-join refused because the room closed is reported as room_closed", async () => {
-  const { a, h } = await joinedA("ra13", { COFFEEBREAK_TICK_MS: "1000" });
+  const { a, h } = await joinedA("ra13", { CBREAK_TICK_MS: "1000" });
   try {
     // purged row: heartbeat says not_in_room, then join_room says room_closed
     await check(adminClient().from("occupancy").delete().eq("user_id", a.userId), "purge occupancy");
@@ -309,7 +309,7 @@ test("a second helper of the same account survives the first one leaving", async
   const a = await agedUser("rsid1");
   const c = await agedUser("rsid2");
   const hA = await helperFor(a);
-  const hB = await helperFor(a, { COFFEEBREAK_TICK_MS: "1000" });
+  const hB = await helperFor(a, { CBREAK_TICK_MS: "1000" });
   const hC = await helperFor(c);
   const jA = await hA.call("/join", { room: testRoom });
   const jB = await hB.call("/join", { room: testRoom });

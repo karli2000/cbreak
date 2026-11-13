@@ -20,7 +20,7 @@ async function helperUp(port: FakePort, auth: AuthState): Promise<void> {
   await tick()
 }
 
-/** Runs `/coffee <args>` with a freshly spawned helper reporting `auth`. */
+/** Runs `/cbreak <args>` with a freshly spawned helper reporting `auth`. */
 async function run(port: FakePort, c: Controller, args: string, auth: AuthState = READY): Promise<string> {
   const reply = c.command(args)
   await helperUp(port, auth)
@@ -196,7 +196,7 @@ describe('Controller setup flow', () => {
     expect(port.count('/join')).toBe(1)
   })
 
-  test('coffee during a setup focuses the setup', async () => {
+  test('cbreak during a setup focuses the setup', async () => {
     const { port, c } = await make()
     c.turnStart()
     await run(port, c, 'setup', { state: 'signed_out' })
@@ -244,10 +244,10 @@ describe('Controller setup flow', () => {
   })
 })
 
-const BUN_LINE = 'Coffee Break needs Bun. Install it with: curl -fsSL https://bun.sh/install | bash — then restart Claude Code.'
+const BUN_LINE = 'cbreak needs Bun. Install it with: curl -fsSL https://bun.sh/install | bash — then restart Claude Code.'
 
 describe('Controller setup: Bun', () => {
-  test('/coffee setup without bun answers the Bun line', async () => {
+  test('/cbreak setup without bun answers the Bun line', async () => {
     const port = new FakePort()
     port.noBun = true
     const { c } = await make(port)
@@ -262,7 +262,7 @@ describe('Controller setup: Bun', () => {
   })
 })
 
-describe('Controller /coffee commands', () => {
+describe('Controller /cbreak commands', () => {
   test('status signed in', async () => {
     const port = new FakePort()
     port.answer('/status', { ok: true, data: { auth: { ...READY, role: 'moderator' }, room: null } })
@@ -317,7 +317,7 @@ describe('Controller /coffee commands', () => {
 
   test('off during a break leaves', async () => {
     const { port, c } = await inBreak()
-    expect(await c.command('off')).toBe('Coffee break is off. /coffee on turns it back on.')
+    expect(await c.command('off')).toBe('cbreak is off. /cbreak on turns it back on.')
     await tick()
     expect(port.saved.at(-1)).toMatchObject({ enabled: false })
     expect(port.count('/leave')).toBe(1)
@@ -328,8 +328,8 @@ describe('Controller /coffee commands', () => {
     port.advance(60_000)
     await tick()
     expect(port.spawns).toBe(1)
-    expect(await c.command('')).toBe('Coffee break is off. /coffee on turns it back on.')
-    expect(await c.command('on')).toBe('Coffee break is on.')
+    expect(await c.command('')).toBe('cbreak is off. /cbreak on turns it back on.')
+    expect(await c.command('on')).toBe('cbreak is on.')
     expect(port.saved.at(-1)).toMatchObject({ enabled: true })
   })
 
@@ -354,7 +354,7 @@ describe('Controller /coffee commands', () => {
     const { port, c } = await make()
     expect(await c.command('delete-account')).toBe(COPY.deleteWarn)
     expect(port.spawns).toBe(0)
-    expect(await run(port, c, 'delete-account yes')).toBe('Your coffee break profile was deleted.')
+    expect(await run(port, c, 'delete-account yes')).toBe('Your cbreak profile was deleted.')
     expect(port.paths()).toEqual(['/delete-account'])
     expect(port.stops).toBe(1)
   })
@@ -362,11 +362,11 @@ describe('Controller /coffee commands', () => {
   test('invalid lists the commands', async () => {
     const { c } = await make()
     expect(await c.command('bogus')).toBe(
-      'Unknown command "bogus". Try /coffee, /coffee setup, /coffee status.\nCommands: /coffee [setup|status|name|room|config|on|off|logout|delete-account]',
+      'Unknown command "bogus". Try /cbreak, /cbreak setup, /cbreak status.\nCommands: /cbreak [setup|status|name|room|config|on|off|logout|delete-account]',
     )
   })
 
-  test('coffee while idle answers the idle rule even when removed', async () => {
+  test('cbreak while idle answers the idle rule even when removed', async () => {
     const { port, c } = await inBreak()
     port.emit({ type: 'kicked', reason: 'spam' })
     await tick()

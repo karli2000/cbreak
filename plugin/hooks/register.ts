@@ -1,4 +1,4 @@
-// The Coffee Break mod: Claude Code hooks wired to one Controller. The Port below is the
+// The cbreak mod: Claude Code hooks wired to one Controller. The Port below is the
 // Controller's only way out; it acts on the latest `$` an event hook received. Spike rules: `$` is
 // only passed into top-level functions, and the render hook writes nothing while drawing.
 //
@@ -17,7 +17,7 @@ type Engine = EngineInterface
 type ExitInfo = { code: number | null; signal: string | null; stderr: string }
 type Child = { stream: HookStream<ProcessSpawnChunk, ProcessSpawnResult>; stopping: boolean }
 
-const PANE = 'coffee'
+const PANE = 'cbreak'
 const STDERR_KEEP = 2000
 const CLOSE_TIMEOUT_MS = 3000
 const TOAST_MS = 8000
@@ -27,7 +27,7 @@ const PROBE_TIMEOUT_MS = 3000
 let controller: Controller | null = null
 /** The Port over the newest `$` an event hook received (validation forbids keeping `$` itself). */
 let current: Port | null = null
-/** While `/coffee` runs, its own `$`: an open made through it answers the person's command. */
+/** While `/cbreak` runs, its own `$`: an open made through it answers the person's command. */
 let pinned: Port | null = null
 let child: Child | null = null
 /** A helper start waiting on the Bun lookup; `stopHelper` cancels it so no orphan is spawned. */
@@ -46,7 +46,7 @@ function ctl($: Engine): Controller {
 
 function now(): Port {
   const p = pinned ?? current
-  if (!p) throw new Error('coffeebreak: no engine yet')
+  if (!p) throw new Error('cbreak: no engine yet')
   return p
 }
 
@@ -88,14 +88,14 @@ function portOver($: Engine): Port {
 // ---------- helper process ----------
 
 /**
- * Starts coffeebreakd with the argv the Bun lookup found. Without Bun nothing is spawned: the
+ * Starts cbreakd with the argv the Bun lookup found. Without Bun nothing is spawned: the
  * Controller gets `error no_bun` and an exit (ruling R2).
  */
 function spawnHelper($: Engine, onEvent: (e: HelperEvent) => void, onExit: (info: ExitInfo) => void): void {
   const start = { cancelled: false }
   starting = start
   argvLookup ??= findHelperArgv($).catch((err: unknown) => {
-    $.ui.log(`coffeebreak: bun lookup failed: ${err instanceof Error ? err.message : String(err)}`, { to: 'debug' })
+    $.ui.log(`cbreak: bun lookup failed: ${err instanceof Error ? err.message : String(err)}`, { to: 'debug' })
     return null
   })
   void argvLookup.then((argv) => {
@@ -118,11 +118,11 @@ function spawnHelper($: Engine, onEvent: (e: HelperEvent) => void, onExit: (info
 }
 
 /**
- * `COFFEEBREAK_HELPER_SRC=1` → the source; else the bundle via `bun` on PATH, else via ~/.bun/bin/bun
+ * `CBREAK_HELPER_SRC=1` → the source; else the bundle via `bun` on PATH, else via ~/.bun/bin/bun
  * (each must answer `--version` with ≥ 1.2 within PROBE_TIMEOUT_MS).
  */
 async function findHelperArgv($: Engine): Promise<string[] | null> {
-  const fromSource = (await $.env.get('COFFEEBREAK_HELPER_SRC')) === '1'
+  const fromSource = (await $.env.get('CBREAK_HELPER_SRC')) === '1'
   const pathBun = !fromSource && (await bunVersionAt($, 'bun'))
   const homeBun = fromSource || pathBun ? null : await bunInHome($)
   return helperArgv($.plugin.root, { pathBun, homeBun, fromSource })
@@ -190,7 +190,7 @@ async function pump(
         try {
           onEvent(e) // a Controller fault must not end the loop, which would kill the helper
         } catch (err) {
-          log(`coffeebreak: ${e.type} event failed: ${err instanceof Error ? err.message : String(err)}`)
+          log(`cbreak: ${e.type} event failed: ${err instanceof Error ? err.message : String(err)}`)
         }
       }
     }
@@ -296,8 +296,8 @@ export const register: Register = (on) => {
   on('session.start', async ($, e, next) => {
     ctl($)
     await $.command.register({
-      name: 'coffee',
-      description: 'Chat with other people in the coffee room while Claude works',
+      name: 'cbreak',
+      description: 'Chat with other people in the cbreak room while Claude works',
       argumentHint: '[setup|status|name|room|config|on|off|logout|delete-account]',
       immediate: true,
     })
@@ -327,7 +327,7 @@ export const register: Register = (on) => {
 
   // The Controller opens the pane before `command()` resolves; pinning this hook's `$` makes that
   // open answer the person's command, so it is placed at any width (unasked needs 144 columns).
-  on('command.run', { command: 'coffee' }, async ($, e) => {
+  on('command.run', { command: 'cbreak' }, async ($, e) => {
     const c = ctl($)
     const p = portOver($)
     pinned = p
