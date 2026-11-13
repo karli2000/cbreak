@@ -64,6 +64,7 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 | `20261111000900_final_review_fixes.sql` | `messages_select` policy replaced (live occupancy of the same room/instance or staff, never banned, never soft-deleted). `send_message`: `room_closed`, stale row → `not_in_room`, payload gains `user_id`. `heartbeat`: `room_closed`. `report_user`: target from the message when `message_id` is given. `mod_ban`: `kicked` payload is `{user_id}` |
 | `20261112000100_moderator_site.sql` | Plan 3 RPCs: `mod_list_banned()` (moderator, banned profiles, newest first, max 500), `admin_list_staff()` (admin, role <> user), `admin_unban_github_id(github_id, reason)` (admin; deletes the `banned_github_ids` hash row, `not_found` if none, logs `admin_unban_github_id`) |
 | `20261113000100_beta_invites.sql` | Plan 4 invite gate: `beta_settings` (single row, `invite_only` default true) and `beta_invites` (`github_id` pk, `github_login`, `note`, `invited_by`, `created_at`), default grants revoked (anon nothing, authenticated SELECT only, as for every table; pgTAP `table_privs_are`), RLS select for `is_admin()` only. Admin RPCs `admin_add_invite(github_id, github_login, note)` (upsert, login cleaned, must match `^[A-Za-z0-9-]{1,39}$` and `github_id > 0`, else `invalid_login`), `admin_remove_invite(github_id)` (`not_found`), `admin_set_invite_only(enabled)`, each logging one `mod_actions` row. `claim_nickname` redefined: on a **first** claim only, after the banned-hash check, `not_invited` when `invite_only` is on and the GitHub id is null or not on the list. Renames and existing profiles are unaffected. `delete_my_account()` redefined (body from 000800) to also delete the caller's `beta_invites` row (by the profile's `github_id` or, without a profile, the GitHub identity). |
+| `20261113000200_multi_session.sql` | Plan 5: `occupancy_sessions(user_id → occupancy on delete cascade, session_id, last_seen)`, pk `(user_id, session_id)`, RLS on, all privileges revoked. `join_room(room_slug, session_id default null)` (a caller already live in the room keeps their instance; a non-null session is upserted after the occupancy upsert), `heartbeat(session_id default null)` (refreshes the session row), `leave_room(session_id default null)` (null = delete the occupancy row, sessions cascade; else delete that session and the occupancy row only if no other session is live within 90 s). Old signatures dropped, no overloads. `private.purge_expired()` also purges sessions older than 90 s (same result keys). |
 
 ## Edge Functions
 
@@ -138,6 +139,7 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 - `room_closed` → leave the room.
 - `kicked` → act only if `payload.user_id` is yours, then read the reason via `my_profile()` (`ban_reason`).
 - Break end: `leave_room()`.
+- Several sessions (Plan 5): the helper sends one per-process `session_id` (`crypto.randomUUID()`) with `join_room`, `heartbeat` and `leave_room`. Sessions of one account share one occupancy row (one room per user: a session joining another room moves the shared row, the others follow via the heartbeat topic). The row is removed when the last live session leaves.
 - Presence is advisory. Names come from `public_profiles`, "N here" from `room_counts()`.
 
 ## Plugin (Plan 2)
@@ -250,7 +252,7 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 
 ## Owner actions before and after going public (in order)
 
-1. `bunx supabase db push --remote` (migration 20261113000100, invite gate).
+1. `bunx supabase db push --remote` (migrations 20261113000100, invite gate, and 20261113000200, multi-session; the latter must be on the hosted project before the new helper (0.2.1) is used, else `join_room` answers "function not found").
 2. `bun run site:deploy` (invites UI, CSP).
 3. No self-invite needed (existing profile); invite friends on the site (Admin, Invites).
 4. Decide about the commit-author email (your personal email in every commit) before going public: accept it, rewrite history to a noreply address (`git filter-repo --mailmap` plus `--replace-text`, since earlier versions of `docs/beta.md`, this file and the Plan 4 plan contain the address; force-push, destructive, owner runs it), or use noreply for future commits only.
