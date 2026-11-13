@@ -28,13 +28,27 @@ export function renderPane(view: PaneView, els: PaneElements, on: PaneHandlers):
       Text({ dimColor: true, children: view.header }),
       ...view.lines.map((l) => lineElement(l, Text)),
       // Always drawn: /leave and /help work outside a room too (room commands answer with a line).
-      Input({
-        key: 'say',
-        placeholder: 'say something',
-        submitLabel: 'send',
-        value: view.draft,
-        onInput: on.input,
-        onSubmit: on.submit,
+      // autoFocus: whenever the pane takes the keyboard, the cursor lands in the field.
+      // The grace countdown sits at its right, so it stays in view however long the chat is.
+      Box({
+        flexDirection: 'row',
+        children: [
+          Box({
+            flexGrow: 1,
+            children: [
+              Input({
+                key: 'say',
+                placeholder: 'say something',
+                submitLabel: 'send',
+                value: view.draft,
+                autoFocus: true,
+                onInput: on.input,
+                onSubmit: on.submit,
+              }),
+            ],
+          }),
+          ...(view.countdown ? [Text({ dimColor: true, children: ' ' + view.countdown })] : []),
+        ],
       }),
     ],
   })

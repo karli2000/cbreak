@@ -15,6 +15,7 @@ export const COPY = {
   done: 'Claude is done, back to work ☕',
   busyAgain: 'Claude is busy again ☕',
   draftKept: 'You have unsent text, staying until you send or clear it.',
+  closingIn: (sec: number) => `closes in ${sec} s`,
   joined: (nick: string) => `${nick} joined the break`,
   left: (nick: string) => `${nick} went back to work`,
   moved: (room: string, instance: number) => `Moved to ${room} · ${instance}`,

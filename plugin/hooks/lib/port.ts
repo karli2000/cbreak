@@ -33,5 +33,6 @@ export type Line =
   | { kind: 'system'; text: string }
 
 export type PaneView =
-  | { mode: 'chat'; header: string; busy: boolean; lines: Line[]; draft: string; inputEnabled: boolean }
+  /** `countdown`: drawn at the right of the input while the grace period runs (`closes in N s`), else null. */
+  | { mode: 'chat'; header: string; busy: boolean; lines: Line[]; draft: string; inputEnabled: boolean; countdown: string | null }
   | { mode: 'setup'; lines: string[]; draft: string; placeholder: string }

@@ -94,6 +94,41 @@ describe('Controller break lifecycle', () => {
     expect(port.calls.filter((x) => x.path === '/join').at(-1)?.body).toEqual({ room: 'other' })
   })
 
+  test('the grace period shows a countdown until the pane closes', async () => {
+    const { port, c } = await inBreak()
+    expect(chat(c).countdown).toBeNull()
+    c.turnComplete(false)
+    expect(chat(c).countdown).toBe('closes in 15 s')
+    const redraws = port.redraws
+    port.advance(1_000)
+    expect(chat(c).countdown).toBe('closes in 14 s')
+    expect(port.redraws).toBeGreaterThan(redraws)
+    port.advance(13_000)
+    expect(chat(c).countdown).toBe('closes in 1 s')
+    port.advance(1_000)
+    await tick()
+    expect(chat(c).countdown).toBeNull()
+    expect(port.count('/leave')).toBe(1)
+  })
+
+  test('a new turn stops the countdown, unsent text hides it', async () => {
+    const { port, c } = await inBreak()
+    c.turnComplete(false)
+    port.advance(3_000)
+    c.turnStart()
+    expect(chat(c).countdown).toBeNull()
+    port.advance(5_000)
+    expect(chat(c).countdown).toBeNull()
+
+    c.turnComplete(false)
+    c.input('half a thought')
+    port.advance(15_000)
+    await tick()
+    expect(chat(c).countdown).toBeNull()
+    expect(lastLine(c)).toBe(COPY.draftKept)
+    expect(port.count('/leave')).toBe(0)
+  })
+
   test('narrow terminal shows the hint', async () => {
     const port = new FakePort()
     port.placed = false
