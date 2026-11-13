@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
   });
   const { data: profile, error: profileError } = await admin
     .from("profiles")
-    .select("github_id, github_created_at, github_age_checked_at")
+    .select("github_id, github_created_at")
     .eq("id", userData.user.id)
     .maybeSingle();
   if (profileError) return json({ error: "internal" }, 500);
@@ -41,14 +41,18 @@ Deno.serve(async (req) => {
   if (profile.github_id == null) return json({ error: "no_github_id" }, 400);
   const id = Number(profile.github_id);
   if (!Number.isSafeInteger(id) || id <= 0) return json({ error: "no_github_id" }, 400);
-  const checked = profile.github_age_checked_at ? Date.parse(profile.github_age_checked_at) : NaN;
-  if (Number.isFinite(checked) && Date.now() - checked < RETRY_AFTER_MS) return json({ error: "try_later" }, 429);
-  // record the attempt before asking GitHub, so a failing lookup is not repeated for an hour
-  const { error: markError } = await admin
+  // claim the attempt atomically: only a row not checked within the hour is updated, so
+  // concurrent calls cannot all reach GitHub (a failing lookup is not repeated for an hour)
+  const cutoff = new Date(Date.now() - RETRY_AFTER_MS).toISOString();
+  const { data: claimed, error: markError } = await admin
     .from("profiles")
     .update({ github_age_checked_at: new Date().toISOString() })
-    .eq("id", userData.user.id);
+    .eq("id", userData.user.id)
+    .is("github_created_at", null)
+    .or(`github_age_checked_at.is.null,github_age_checked_at.lt.${cutoff}`)
+    .select("id");
   if (markError) return json({ error: "internal" }, 500);
+  if (!claimed?.length) return json({ error: "try_later" }, 429);
 
   const headers: Record<string, string> = {
     "User-Agent": "cbreak",

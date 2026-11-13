@@ -1,7 +1,7 @@
 -- Security review fixes (migration 20261117000100).
 begin;
 \ir _helpers.psql
-select plan(74);
+select plan(75);
 
 delete from private.stats_cache;
 
@@ -237,6 +237,9 @@ update private.stats_cache set refreshed_at = now() - interval '3 minutes';
 select tests.create_user('sr_late');
 select is((public.public_stats() ->> 'users_total')::int, (select (stats ->> 'users_total')::int + 1 from private.stats_cache), 'a stale cache is computed live');
 select is((select command from cron.job where jobname = 'cbreak-stats'), 'select private.refresh_stats()', 'cron refreshes the cache');
+
+-- 12. no GitHub ids or logins in old invite rows (the migration strips them; none are logged today)
+select is((select count(*)::int from public.mod_actions where details ?| array['github_id', 'github_login']), 0, 'no mod_actions row names a GitHub account');
 
 -- 11. github_age_checked_at ------------------------------------------------------------------------
 select has_column('public', 'profiles', 'github_age_checked_at', 'profiles.github_age_checked_at exists');

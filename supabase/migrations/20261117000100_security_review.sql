@@ -27,6 +27,8 @@
 -- 10. mod_mute never shortens an existing mute (greatest).
 -- 11. profiles.github_age_checked_at: the github-age function records every attempt, so a profile
 --     whose GitHub lookup keeps failing cannot burn the shared token's rate limit.
+-- 12. GitHub ids and logins are dropped from the details of old invite actions (moderators read
+--     mod_actions; only the hash of an unbanned id is logged today).
 
 -- 5. reserved nicknames ------------------------------------------------------------------------
 
@@ -691,6 +693,14 @@ begin
     jsonb_build_object('filter_id', fid, 'pattern', pattern));
   return fid;
 end $$;
+
+-- 12. GitHub ids and logins in old invite rows: the invite gate is gone and moderators can read
+--     mod_actions, so the two keys are dropped server-side (the rows stay as history: note, time).
+
+update public.mod_actions
+   set details = details - 'github_id' - 'github_login'
+ where action in ('admin_add_invite', 'admin_remove_invite')
+   and details ?| array['github_id', 'github_login'];
 
 -- 9. cached public_stats ------------------------------------------------------------------------
 
