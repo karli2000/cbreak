@@ -63,8 +63,21 @@ function forwarder(): Port {
     status: (text) => now().status(text),
     toast: (text) => now().toast(text),
     after: (ms, fn) => now().after(ms, fn),
+    agentsBusy: () => now().agentsBusy(),
     loadSettings: () => now().loadSettings(),
     saveSettings: (s) => now().saveSettings(s),
+  }
+}
+
+/** Agent statuses that mean work is still going on (a teammate waiting for a message is idle). */
+const WORKING = new Set(['pending', 'running', 'waiting'])
+
+/** Whether any subagent or teammate of the session is still working; a failed list counts as none. */
+async function agentsBusy($: Engine): Promise<boolean> {
+  try {
+    return (await $.agent.list()).some((a) => WORKING.has(a.status))
+  } catch {
+    return false
   }
 }
 
@@ -80,6 +93,7 @@ function portOver($: Engine): Port {
     status: (text) => $.ui.status(text),
     toast: (text) => $.ui.toast(text, { timeoutMs: TOAST_MS }),
     after: (ms, fn) => $.clock.after(ms, fn),
+    agentsBusy: () => agentsBusy($),
     loadSettings: () => loadSettings($),
     saveSettings: (s) => saveSettings($, s),
   }
@@ -320,8 +334,11 @@ export const register: Register = (on) => {
     return next(e)
   })
 
+  // The main loop's turn ends while background subagents still work (it waits for them): the
+  // break goes on until they are done. A subagent's own turn ending is a cue to look again.
   on('turn.complete', async ($, e, next) => {
-    if (e.agentId === undefined) ctl($).turnComplete(e.isAborted)
+    if (e.agentId === undefined) ctl($).turnComplete(e.isAborted, !e.isAborted && (await agentsBusy($)))
+    else void ctl($).agentsChanged()
     return next(e)
   })
 

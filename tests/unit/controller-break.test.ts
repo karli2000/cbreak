@@ -211,6 +211,58 @@ describe('Controller break lifecycle', () => {
     expect(port.lastStatus).toBeUndefined()
   })
 
+  test('a turn that ends while subagents work keeps the break until they are done', async () => {
+    const { port, c } = await inBreak()
+    port.agents = true
+    c.turnComplete(false, true)
+    expect(lastLine(c)).toBe("Claude's subagents are still working ☕")
+    expect(c.view()).toMatchObject({ busy: true, countdown: null })
+    port.advance(30_000) // grace would have ended; the ping re-checks and finds them working
+    await tick()
+    expect(port.count('/leave')).toBe(0)
+    expect(c.view()).toMatchObject({ busy: true })
+    port.agents = false
+    await c.agentsChanged() // a subagent's turn ended
+    expect(lastLine(c)).toBe('Claude is done, back to work ☕')
+    port.advance(15_000)
+    await tick()
+    expect(port.count('/leave')).toBe(1)
+  })
+
+  test('the ping notices subagents are done', async () => {
+    const { port, c } = await inBreak()
+    port.agents = true
+    c.turnComplete(false, true)
+    port.agents = false
+    port.advance(20_000)
+    await tick()
+    expect(lastLine(c)).toBe('Claude is done, back to work ☕')
+  })
+
+  test('a new turn while waiting for subagents just goes on', async () => {
+    const { port, c } = await inBreak()
+    port.agents = true
+    c.turnComplete(false, true)
+    c.turnStart()
+    port.agents = false
+    await c.agentsChanged()
+    expect(lastLine(c)).toBe("Claude's subagents are still working ☕")
+    expect(c.view()).toMatchObject({ busy: true })
+    c.turnComplete(false)
+    expect(lastLine(c)).toBe('Claude is done, back to work ☕')
+  })
+
+  test('subagents at the end of a turn keep the pending wait going', async () => {
+    const { port, c } = await make()
+    c.turnStart()
+    port.advance(5_000)
+    port.agents = true
+    c.turnComplete(false, true)
+    port.advance(10_000)
+    await tick()
+    expect(port.spawns).toBe(1) // the min-wait timer still fired
+  })
+
   test('new turn during grace keeps the room', async () => {
     const { port, c } = await inBreak()
     c.turnComplete(false)

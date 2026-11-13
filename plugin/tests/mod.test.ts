@@ -2,7 +2,7 @@
 // The test's own hooks sit beneath the plugin and play the world: the helper process, its socket,
 // the panes, the store and the clock.
 import { expect, mock, test, type Engine } from 'claude-code/testing'
-import type { HttpInit, On, PaneOpenArgs, ProcessSpawnChunk, ProcessSpawnRequest } from 'claude-code'
+import type { AgentInfo, HttpInit, On, PaneOpenArgs, ProcessSpawnChunk, ProcessSpawnRequest } from 'claude-code'
 
 const PLUGIN = 'cbreak'
 const SECRET = 'SECRET-PROMPT-1234'
@@ -68,6 +68,8 @@ function world(on: On, bun: Bun = { path: '1.4.4', home: null }) {
     commands: [] as string[],
     opens: [] as PaneOpenArgs[],
     toasts: [] as string[],
+    /** What `$.agent.list()` answers. */
+    agents: [] as AgentInfo[],
   }
   on('fs.exists', async (_$, e) => {
     w.exists.push(e.path)
@@ -77,6 +79,7 @@ function world(on: On, bun: Bun = { path: '1.4.4', home: null }) {
   on('session.end', async () => ({ sessionId: 'test' }))
   on('turn.start', async (_$, e) => ({ turnId: e.turnId }))
   on('turn.complete', async () => ({ text: '' }))
+  on('agent.list', async () => ({ value: w.agents }))
   on('prompt.submit', async (_$, e) => ({ text: e.text }))
   on('command.register', async (_$, e) => {
     w.commands.push(e.name)
@@ -149,6 +152,36 @@ test('cbreak while busy opens the pane focused before it answers', async ($, on)
   // opened inside the command (an asked open, placed at any width), before the helper joined
   expect(w.opens).toEqual([{ id: 'cbreak', title: '☕ lobby · 0 here', focus: true }])
   expect(w.fetches).toHaveLength(0)
+})
+
+test('the break goes on while background subagents work, and ends when they are done', async ($, on) => {
+  const w = world(on)
+  await startSession($)
+  await $.turn.start({ text: 'long task', turnId: 't1' })
+  await w.clock.advance(20_000)
+  helperJoins(w)
+  await w.clock.settle()
+  w.agents = [{ id: 'agent-1', description: 'review', type: 'general-purpose', status: 'running' }]
+  await $.turn.complete({ turnId: 't1', isAborted: false, answer: '', durationMs: 25_000, reason: 'answer' })
+  await w.clock.settle()
+  const mount = () =>
+    $.ui.mount({
+      plugin: PLUGIN,
+      surface: 'terminal',
+      component: 'Pane',
+      requestId: 'cbreak',
+      props: { title: '☕ lobby · 2 here', isFocused: false, bodyColumns: 80, placement: 'inline', scroll: { offset: 0, bodyRows: 20 }, view: {} },
+    })
+  let ui = await mount()
+  expect(await ui.find({ type: 'Text', text: "Claude's subagents are still working ☕" })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: 'closes in 15 s' })).toBeUndefined()
+  await ui.unmount()
+  w.agents = [{ id: 'agent-1', description: 'review', type: 'general-purpose', status: 'completed' }]
+  await $.turn.complete({ turnId: 't-sub', agentId: 'agent-1', isAborted: false, answer: '', durationMs: 1000, reason: 'answer' })
+  await w.clock.settle()
+  ui = await mount()
+  expect(await ui.find({ type: 'Text', text: 'closes in 15 s' })).toBeDefined()
+  await ui.unmount()
 })
 
 test('subagent turns are ignored', async ($, on) => {
