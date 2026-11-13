@@ -24,7 +24,6 @@ In the chat pane: type to send, `/me <action>`, `/report <nick> <reason>`, `/lea
 ## Requirements
 
 - Bun must be installed (`curl -fsSL https://bun.sh/install | bash`), then restart Claude Code.
-- Coffee Break is invite-only right now. Ask the person who invited you to add your GitHub account, then run `/coffee setup` again.
 
 ## Privacy
 

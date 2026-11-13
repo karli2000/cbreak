@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ApiError, type Bound, type Invite, type Role, type Room } from '../api.ts'
+import { ApiError, type Bound, type Role, type Room } from '../api.ts'
 import { useOnAuthError } from '../auth.tsx'
 import { COPY, errorText } from '../copy.ts'
 
@@ -52,7 +52,6 @@ export function Admin({ api }: { api: Bound }) {
       <StaffSection api={api} />
       <RoomsSection api={api} />
       <FilterSection api={api} />
-      <InvitesSection api={api} />
     </section>
   )
 }
@@ -335,123 +334,6 @@ function FilterRow({ filter, api, onRemoved }: { filter: Filter; api: Bound; onR
   return (
     <li className="report">
       <code className="snap-body">{filter.pattern}</code>{' '}
-      <button disabled={g.busy} onClick={() => void remove()}>
-        Remove
-      </button>
-      {g.error && <p role="alert">{g.error}</p>}
-    </li>
-  )
-}
-
-function InvitesSection({ api }: { api: Bound }) {
-  const { items, error, reload } = useList<Invite>(() => api.listInvites())
-  const onAuthError = useOnAuthError()
-  const toggle = useGuarded()
-  const add = useGuarded()
-  const [on, setOn] = useState<boolean | null>(null)
-  const [stateError, setStateError] = useState<string | null>(null)
-  const [confirmOff, setConfirmOff] = useState(false)
-  const [login, setLogin] = useState('')
-  const [note, setNote] = useState('')
-
-  useEffect(() => {
-    let alive = true
-    api.inviteOnly().then(
-      (v) => {
-        if (alive) setOn(v)
-      },
-      (e) => {
-        onAuthError(e)
-        if (alive) setStateError(errorText(e instanceof ApiError ? e.code : 'unknown'))
-      },
-    )
-    return () => {
-      alive = false
-    }
-  }, [api, onAuthError])
-
-  async function set(enabled: boolean) {
-    setConfirmOff(false)
-    if (await toggle.run(() => api.setInviteOnly(enabled))) setOn(enabled)
-  }
-
-  async function submit(ev: React.FormEvent) {
-    ev.preventDefault()
-    const name = login.trim().replace(/^@/, '').trim()
-    if (!name) {
-      add.setError(errorText('invalid_login'))
-      return
-    }
-    const n = note.trim() || null
-    const ok = await add.run(async () => {
-      const u = await api.githubUser(name)
-      await api.addInvite(u.id, u.login, n)
-    })
-    if (ok) {
-      setLogin('')
-      setNote('')
-      await reload()
-    }
-  }
-
-  return (
-    <section aria-label="Invites">
-      <h2>Invites</h2>
-      <p className="muted">{COPY.invitesNote}</p>
-      {stateError && <p role="alert">{stateError}</p>}
-      {on !== null && (
-        <p>
-          {confirmOff ? (
-            <>
-              <button type="button" disabled={toggle.busy} onClick={() => void set(false)}>
-                {COPY.inviteOffConfirm}
-              </button>{' '}
-              <button type="button" disabled={toggle.busy} onClick={() => setConfirmOff(false)}>
-                Cancel
-              </button>
-            </>
-          ) : (
-            <button type="button" disabled={toggle.busy} onClick={() => (on ? setConfirmOff(true) : void set(true))}>
-              {on ? 'Invite-only: on' : 'Invite-only: off'}
-            </button>
-          )}
-        </p>
-      )}
-      {toggle.error && <p role="alert">{toggle.error}</p>}
-      {error && <p role="alert">{error}</p>}
-      <ul className="reports">
-        {items?.map((i) => (
-          <InviteRow key={i.github_id} invite={i} api={api} onRemoved={reload} />
-        ))}
-      </ul>
-      <form onSubmit={(e) => void submit(e)}>
-        <label>
-          GitHub username <input value={login} onChange={(e) => setLogin(e.target.value)} />
-        </label>{' '}
-        <label>
-          Note <input value={note} onChange={(e) => setNote(e.target.value)} />
-        </label>{' '}
-        <button type="submit" disabled={add.busy}>
-          Add invite
-        </button>
-      </form>
-      {add.error && <p role="alert">{add.error}</p>}
-    </section>
-  )
-}
-
-function InviteRow({ invite, api, onRemoved }: { invite: Invite; api: Bound; onRemoved(): Promise<void> }) {
-  const g = useGuarded()
-  async function remove() {
-    if (await g.run(() => api.removeInvite(invite.github_id))) await onRemoved()
-  }
-  return (
-    <li className="report">
-      <a href={'https://github.com/' + encodeURIComponent(invite.github_login)} target="_blank" rel="noopener noreferrer">
-        {invite.github_login}
-      </a>{' '}
-      {invite.note && <span>{invite.note}</span>}{' '}
-      <span className="muted">{new Date(invite.created_at).toLocaleString()}</span>{' '}
       <button disabled={g.busy} onClick={() => void remove()}>
         Remove
       </button>

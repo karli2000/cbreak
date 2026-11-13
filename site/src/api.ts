@@ -231,48 +231,6 @@ export async function setRole(c: SupabaseClient, userId: string, role: Role): Pr
   await run(c.rpc('admin_set_role', { target: userId, new_role: role }))
 }
 
-export type Invite = { github_id: number; github_login: string; note: string | null; created_at: string }
-
-export async function listInvites(c: SupabaseClient): Promise<Invite[]> {
-  return run<Invite[]>(c.from('beta_invites').select('github_id, github_login, note, created_at').order('created_at', { ascending: false }))
-}
-
-export async function addInvite(c: SupabaseClient, githubId: number, githubLogin: string, note: string | null): Promise<void> {
-  await run(c.rpc('admin_add_invite', { github_id: githubId, github_login: githubLogin, note }))
-}
-
-export async function removeInvite(c: SupabaseClient, githubId: number): Promise<void> {
-  await run(c.rpc('admin_remove_invite', { github_id: githubId }))
-}
-
-export async function inviteOnly(c: SupabaseClient): Promise<boolean> {
-  return (await run<{ invite_only: boolean }>(c.from('beta_settings').select('invite_only').single())).invite_only
-}
-
-export async function setInviteOnly(c: SupabaseClient, enabled: boolean): Promise<void> {
-  await run(c.rpc('admin_set_invite_only', { enabled }))
-}
-
-/** Resolves a GitHub username to its numeric id and canonical login (public API, no auth). */
-export async function githubUser(_c: SupabaseClient, login: string): Promise<{ id: number; login: string }> {
-  let res: Response
-  try {
-    res = await fetch('https://api.github.com/users/' + encodeURIComponent(login))
-  } catch {
-    throw new ApiError('network')
-  }
-  if (res.status === 404) throw new ApiError('github_not_found')
-  if (res.status === 403 || res.status === 429) throw new ApiError('github_rate_limited')
-  if (!res.ok) throw new ApiError('unknown')
-  try {
-    const j = (await res.json()) as { id?: unknown; login?: unknown }
-    if (typeof j.id !== 'number' || typeof j.login !== 'string') throw new Error('shape')
-    return { id: j.id, login: j.login }
-  } catch {
-    throw new ApiError('unknown')
-  }
-}
-
 const fns = {
   me,
   listReports,
@@ -297,12 +255,6 @@ const fns = {
   removeFilter,
   listStaff,
   setRole,
-  listInvites,
-  addInvite,
-  removeInvite,
-  inviteOnly,
-  setInviteOnly,
-  githubUser,
 }
 
 type WithoutClient<F> = F extends (c: SupabaseClient, ...a: infer A) => infer R ? (...a: A) => R : never
