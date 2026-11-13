@@ -58,13 +58,13 @@ Check the current limits on Supabase's pricing page before inviting a bigger cro
 4. `bun run validate:all`, commit on a branch, push it and merge it through a pull request (`main` is PR-only).
 5. Friends run `claude plugin marketplace update cbreak`, then `claude plugin update cbreak@cbreak`, and restart Claude Code.
 
-**Order matters:** backend migrations go out with `bunx supabase db push --remote` BEFORE you push a plugin version that needs them. Installed plugins update from GitHub `main`, so a 0.2.1 helper against the old database gets "function not found" from `join_room` and every break start fails.
+**Order matters:** backend migrations must be live BEFORE a plugin version that needs them reaches `main`. Migrations deploy automatically when their pull request is merged (pgTAP first, a few minutes; see [deploy.md](deploy.md#automatic-deploys-github-actions)), so merge the migration in its own pull request and wait for the green deploy before merging the plugin change. Installed plugins update from GitHub `main`, so a 0.2.1 helper against the old database gets "function not found" from `join_room` and every break start fails.
 
-Backend changes: `bunx supabase db push --remote` (and `functions deploy` when an Edge Function changed). Site changes: `bun run site:deploy`.
+Backend, function, moderator-site and homepage changes deploy automatically when their pull request is merged into `main` ([deploy.md](deploy.md#automatic-deploys-github-actions)). By hand, if ever needed: `bunx supabase db push --remote`, `bunx supabase functions deploy github-age`, `bun run site:deploy`, `bun run web:deploy`.
 
 ## Before a public launch
 
 - Move Supabase to a paid plan (Realtime connection and pause limits).
 - Publish an imprint and privacy page on the static site (spec section 6.7: the operator's legal notice, if launched publicly in the EU).
 - Ship compiled helper binaries (about 110 MB each) so people without Bun can install.
-- Consider CI (none yet) and an icon for the plugin directory listing.
+- Consider CI on pull requests (only the deploy workflows run, on merges into `main`).
