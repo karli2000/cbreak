@@ -47,6 +47,25 @@ function setup(c: Controller): Extract<PaneView, { mode: 'setup' }> {
 const SETTINGS_LINE = 'Room: lobby · min wait 20 s · grace 15 s · auto-open on · emoji on · enabled'
 
 describe('Controller setup flow', () => {
+  test('each step that needs typing asks for the keyboard again', async () => {
+    const { port, c } = await make()
+    await run(port, c, 'setup', { state: 'signed_out' })
+    expect(port.opens).toHaveLength(1)
+    // back from the browser: the nickname step asks for focus (granted only over an empty prompt)
+    port.emit({ type: 'auth', state: 'needs_nickname' })
+    await tick()
+    expect(port.opens.at(-1)).toEqual({ focus: true, title: COPY.setupTitle })
+    expect(port.opens).toHaveLength(2)
+    // the same state reported again asks nothing
+    port.emit({ type: 'auth', state: 'needs_nickname' })
+    await tick()
+    expect(port.opens).toHaveLength(2)
+    port.emit({ type: 'auth', state: 'needs_rules', nickname: 'lena' })
+    await tick()
+    expect(port.opens).toHaveLength(3)
+    expect(port.opens.at(-1)).toEqual({ focus: true, title: COPY.setupTitle })
+  })
+
   test('setup walks sign-in, nickname, rules', async () => {
     const { port, c } = await make()
     expect(await run(port, c, 'setup', { state: 'signed_out' })).toBe(COPY.setupOpening)

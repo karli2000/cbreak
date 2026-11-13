@@ -129,7 +129,8 @@ export class Setup {
     }
   }
 
-  /** Awaited inside the `/coffee` command hook, so the open answers the person and is placed. */
+  /** Awaited inside the `/coffee` command hook, so the open answers the person and is placed; later
+   *  calls (a new step) re-open the placed pane with a focus request. */
   async focus(): Promise<boolean> {
     this.shown = true
     return this.host.openPane(true, COPY.setupTitle)
@@ -208,7 +209,12 @@ export class Setup {
   // ---- helper events (the Controller forwards them) ----
 
   onAuth(a: AuthState): void {
-    if (this.running()) this.follow(a)
+    if (!this.running()) return
+    const before = this.step
+    this.follow(a)
+    // a step that needs typing, reached later (back from the browser sign-in, after the nickname):
+    // ask for the keyboard again; the surface grants it only over an empty prompt
+    if (this.step !== before && (this.step === 'nick' || this.step === 'rules')) void this.focus()
   }
 
   onLogin(url: string): void {
