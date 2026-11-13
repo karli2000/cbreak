@@ -222,14 +222,6 @@ export class Controller {
     if (s) this.takeSuggestion(s)
   }
 
-  /** Tab in the input while the emoji box shows: the best row is taken. False when there is none. */
-  acceptSuggestion(): boolean {
-    const s = this.suggestions()[0]
-    if (!s) return false
-    this.takeSuggestion(s)
-    return true
-  }
-
   async submit(value: string): Promise<void> {
     if (this.setup.showing()) return this.setup.submit(value)
     this.draft = value

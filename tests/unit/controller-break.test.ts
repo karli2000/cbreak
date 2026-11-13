@@ -689,11 +689,10 @@ describe('Controller chat', () => {
     expect(chat(c).draft).toBe('hi 😏 ok')
   })
 
-  test('Tab takes the best row; without a box it is not ours', async () => {
+  test('a picked emoji is sent as it is', async () => {
     const { port, c } = await inBreak()
-    expect(c.acceptSuggestion()).toBe(false)
     c.input(':tad')
-    expect(c.acceptSuggestion()).toBe(true)
+    c.pickSuggestion('tada')
     expect(chat(c).draft).toBe('🎉 ')
     await c.submit(chat(c).draft + 'yay')
     expect(port.calls.at(-1)).toEqual({ path: '/send', body: { body: '🎉 yay' } })
@@ -704,7 +703,6 @@ describe('Controller chat', () => {
     await c.command('config emoji off')
     c.input(':smi')
     expect(chat(c).suggestions).toEqual([])
-    expect(c.acceptSuggestion()).toBe(false)
   })
 
   test('report reason is not converted', async () => {

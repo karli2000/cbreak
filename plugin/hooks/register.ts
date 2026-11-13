@@ -11,7 +11,7 @@ import { splitLines } from './lib/format.ts'
 import { bunVersionOk, helperArgv, homeBunPath } from './lib/helper-argv.ts'
 import type { Port, Timer } from './lib/port.ts'
 import { mergeStored, type Settings } from './lib/settings.ts'
-import { isTabFromInput, renderPane, SAY_KEY } from './pane.ts'
+import { renderPane, SAY_KEY } from './pane.ts'
 
 type Engine = EngineInterface
 type ExitInfo = { code: number | null; signal: string | null; stderr: string }
@@ -36,8 +36,6 @@ let starting: { cancelled: boolean } | null = null
 let argvLookup: Promise<string[] | null> | null = null
 /** The pane is open (placed or waiting) under this title; null when closed. */
 let paneTitle: string | null = null
-/** The key of our element holding the pane's focus ring (from `ui.focus`); undefined for an engine stop. */
-let focused: string | undefined
 
 /** Every event hook goes through here: it moves the Port to this `$` and builds the Controller once. */
 function ctl($: Engine): Controller {
@@ -361,20 +359,10 @@ export const register: Register = (on) => {
   // (after Esc a close is refused); here only the person's close is handled.
   on('ui.close', { id: PANE }, async ($, e, next) => {
     const res = await next(e)
-    focused = undefined
     if (e.origin.kind === 'person') {
       paneTitle = null
       ctl($).paneClosedByPerson()
     }
-    return res
-  }).catch(async (_$, e, next) => next(e))
-
-  // The emoji box (spike S4): Tab in the chat input moves the ring to an engine stop (the pane's
-  // close mark); while the box shows, that Tab takes the best row instead and the ring stays put.
-  on('ui.focus', { requestId: PANE }, async ($, e, next) => {
-    if (isTabFromInput(focused, e) && ctl($).acceptSuggestion()) return {}
-    const res = await next(e)
-    if (!res.deny) focused = e.element
     return res
   }).catch(async (_$, e, next) => next(e))
 
@@ -391,10 +379,13 @@ export const register: Register = (on) => {
       {
         input: (v) => c.input(v),
         submit: (v) => void c.submit(v),
-        // a picked emoji row hands the focus back to the input (spike S4: from the press, this `$`)
+        // A picked emoji row hands the focus back to the input first, then the box goes: the ring
+        // follows positions, so redrawing first would leave it on a row that no longer exists.
         pick: (name) => {
-          c.pickSuggestion(name)
-          $.ui.focus({ requestId: PANE, key: SAY_KEY }).catch(() => {})
+          $.ui
+            .focus({ requestId: PANE, key: SAY_KEY })
+            .catch(() => {})
+            .finally(() => c.pickSuggestion(name))
         },
       },
       fillRows,
