@@ -173,11 +173,7 @@ export class Setup {
         }
         const r = await lease.call('/nickname/claim', { nick }) // success arrives as an `auth` event
         if (r.ok || this.step !== 'nick') break
-        if (r.code === 'not_invited') {
-          // a lasting line (not the live check): the person stays on this step and can retry once invited
-          this.check = null
-          if (this.lines[this.lines.length - 1] !== COPY.notInvited) this.push(COPY.notInvited)
-        } else this.check = errorText(r.code)
+        this.check = errorText(r.code)
         break
       }
       case 'rules': {

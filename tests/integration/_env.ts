@@ -10,43 +10,6 @@ let cached: Env | undefined;
 
 const LOCAL_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]", "::1"]);
 
-/**
- * Decides what setup() does about the beta invite gate: a remote target with invite_only on is
- * refused (never change production), a local one gets it switched off for the run.
- */
-export function inviteOnlyAction(url: string, inviteOnly: boolean): "keep" | "disable" {
-  if (!inviteOnly) return "keep";
-  if (!LOCAL_HOSTS.has(new URL(url).hostname)) {
-    throw new Error("invite_only is on for the remote project; turn it off in the moderator site for the test run");
-  }
-  return "disable";
-}
-
-/** invite_only value found by setup() when it switched the gate off; teardown() restores it. */
-let savedInviteOnly: boolean | undefined;
-
-/**
- * Switches invite_only off for the run (local only; throws on a remote target where it is on) and
- * remembers the old value. Called by setup() and by userClient(), so suites without setup() work
- * too. teardown() restores the value (never the plain cleanup(), which warm-up and afterEach call).
- */
-export async function openInviteGate(): Promise<void> {
-  if (savedInviteOnly !== undefined) return;
-  const a = adminClient();
-  const { data } = check(await a.from("beta_settings").select("invite_only").single(), "read invite_only");
-  if (inviteOnlyAction(env().url, data!.invite_only as boolean) === "disable") {
-    check(await a.from("beta_settings").update({ invite_only: false }).eq("id", true), "disable invite_only");
-    savedInviteOnly = true;
-  }
-}
-
-async function restoreInviteGate(): Promise<void> {
-  if (savedInviteOnly === undefined) return;
-  const restore = savedInviteOnly;
-  check(await adminClient().from("beta_settings").update({ invite_only: restore }).eq("id", true), "restore invite_only");
-  savedInviteOnly = undefined;
-}
-
 export function env(): Env {
   if (cached) return cached;
   let e: Env;
@@ -110,7 +73,6 @@ export async function userClient(
   nick: string,
   role: "user" | "moderator" | "admin" = "user",
 ): Promise<TestUser> {
-  await openInviteGate();
   const nickname = `${nick}_${runId}`;
   const email = `${nickname}@test.local`;
   const password = `pw-${crypto.randomUUID()}`;
@@ -141,7 +103,6 @@ export async function userClient(
  * Its `nickname` is unset until claimed.
  */
 export async function bareUser(): Promise<TestUser> {
-  await openInviteGate();
   const email = `bare_${runId}_${crypto.randomUUID().slice(0, 8)}@test.local`;
   const password = `pw-${crypto.randomUUID()}`;
   const { data: made } = check(
@@ -180,8 +141,6 @@ export async function teardown(): Promise<void> {
   try {
     await cleanup();
   } finally {
-    // restore first so a failing delete below cannot leave the gate open
-    await restoreInviteGate();
     const a = adminClient();
     check(await a.from("occupancy").delete().in("room", testRooms), "delete test occupancy");
     check(await a.from("messages").delete().in("room", testRooms), "delete test messages");
@@ -242,7 +201,6 @@ export async function warmUpRealtime(timeoutMs = 30_000): Promise<void> {
 /** beforeAll body: rooms + warm-up; on any failure everything created so far is removed. */
 export async function setup(): Promise<void> {
   try {
-    await openInviteGate();
     await createTestRooms();
     await warmUpRealtime();
   } catch (err) {

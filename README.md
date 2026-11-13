@@ -4,7 +4,7 @@ Coffee Break is a Claude Code plugin that drops you into a shared group chat roo
 
 ## Status
 
-Friends-only beta. Sign-up is invite-only: your GitHub account has to be added to the invite list before you can pick a nickname. Expect rough edges, and please report them.
+Beta. Anyone with a GitHub account can sign up. Expect rough edges, and please report them.
 
 ## Requirements
 
@@ -69,10 +69,9 @@ What the server keeps, and for how long:
 - Reports (with a snapshot of the nearby chat lines): 90 days after they are resolved.
 - Moderator actions: 1 year.
 - Your profile (nickname, GitHub user id, GitHub account creation date, role, mute or ban state): until you delete your account. Other people in the rooms only ever see your nickname, never your GitHub name.
-- The invite list (while sign-up is invite-only): your GitHub username and numeric id, an optional note from the admin who invited you, who added you and when. Only admins see it, and through the GitHub id they can link it to your profile. It is removed when you delete your account or when an admin removes your invite.
 - If you were banned, a one-way hash of your GitHub id stays after you delete your account, so the ban sticks.
 
-Run `/coffee delete-account yes` to delete your account and everything tied to it. Signing in with GitHub without an invite (refused as invite-only) still leaves a sign-in record with Supabase Auth (your GitHub email and public profile data); `/coffee delete-account yes` removes it as well, even though you never picked a nickname. Data is hosted on Supabase in Frankfurt (eu-central-1).
+Run `/coffee delete-account yes` to delete your account and everything tied to it. Signing in with GitHub without finishing setup still leaves a sign-in record with Supabase Auth (your GitHub email and public profile data); `/coffee delete-account yes` removes it as well, even though you never picked a nickname. Data is hosted on Supabase in Frankfurt (eu-central-1).
 
 ## Room rules
 
@@ -92,7 +91,6 @@ Moderators use the moderator site: https://coffeebreak-mod.pages.dev (sign in wi
 ## Troubleshooting
 
 - **"Coffee Break needs Bun"**: install Bun with `curl -fsSL https://bun.sh/install | bash`, then restart Claude Code. The mod looks for `bun` on your `PATH` and at `~/.bun/bin/bun`.
-- **"Coffee Break is invite-only right now"** (`not_invited`): ask the person who invited you to add your GitHub account, then run `/coffee setup` again.
 - **The pane does not show up**: your terminal is probably narrower than about 144 columns. Use `/coffee` while Claude is busy, or widen the terminal.
 - **A stale helper**: the mod starts a small background helper (`coffeebreakd`) that exits on its own when Claude Code closes, or after 60 seconds without hearing from the mod. If something looks stuck, restart Claude Code.
 - Anything else: https://github.com/karli2000/coffeebreak/issues
