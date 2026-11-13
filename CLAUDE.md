@@ -86,7 +86,8 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 
 ## Workflow
 
-- Branch: `main`. Remote `origin` = github.com/karli2000/coffeebreak. **Don't push unless the owner asks.**
+- Branch: `main`. Remote `origin` = github.com/karli2000/coffeebreak (public since 2026-11-13). **Don't push unless the owner asks.**
+- `main` is protected by the GitHub ruleset `main: pull requests only` (id 27184087, no bypass, admins included): changes reach `main` only through a pull request (0 approvals required, so the owner merges their own), and force-pushes and deleting `main` are blocked. Work on a branch, push the branch, open a PR with `gh pr create`; a direct `git push origin main` is rejected.
 - Commits end with a `Co-Authored-By:` trailer.
 - Build plans are executed task-by-task with subagents (superpowers subagent-driven-development). Progress and rulings are logged in `.superpowers/sdd/<plan>/progress.md`, which is git-ignored scratch.
 - **Keep this CLAUDE.md up to date** whenever a task adds migrations, commands, conventions or decisions.
@@ -254,10 +255,10 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 
 ## Owner actions before and after going public (in order)
 
-1. `bunx supabase db push --remote` (migrations 20261113000100, invite gate, and 20261113000200, multi-session; the latter must be on the hosted project before the new helper (0.2.1) is used, else `join_room` answers "function not found").
+1. Done (2026-11-13, hosted `heartbeat` checked to match the final-review fix): `bunx supabase db push --remote` (migrations 20261113000100, invite gate, and 20261113000200, multi-session; the latter must be on the hosted project before the new helper (0.2.1) is used, else `join_room` answers "function not found").
 2. `bun run site:deploy` (invites UI, CSP).
 3. No self-invite needed (existing profile); invite friends on the site (Admin, Invites).
 4. Decide about the commit-author email (your personal email in every commit) before going public: accept it, rewrite history to a noreply address (`git filter-repo --mailmap` plus `--replace-text`, since earlier versions of `docs/beta.md`, this file and the Plan 4 plan contain the address; force-push, destructive, owner runs it), or use noreply for future commits only.
-5. `scripts/prepublish-audit.sh --history` must exit 0, then `gh repo edit karli2000/coffeebreak --visibility public --accept-visibility-change-consequences`.
+5. Done (2026-11-13; `main` then protected, see Workflow): `scripts/prepublish-audit.sh --history` must exit 0, then `gh repo edit karli2000/coffeebreak --visibility public --accept-visibility-change-consequences`.
 6. Test the install from a clean session: `claude plugin marketplace add karli2000/coffeebreak` + `claude plugin install coffeebreak@coffeebreak`, then in a fresh Claude Code session check that `/coffee` is registered (the mod loaded from the installed copy) and `/coffee status` answers (the bundled helper spawns via Bun). `claude plugin details` once showed `Hooks (0)`, so only a real session confirms the mod loads.
 7. Send friends the message from `docs/beta.md`.
