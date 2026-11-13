@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cbreak: a coffee break while Claude works</title>
+<meta name="description" content="cbreak is a Claude Code plugin that opens a small chat room next to your session while Claude is busy, and closes it when Claude is done.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta property="og:title" content="cbreak: a coffee break while Claude works">
+<meta property="og:description" content="A chat room that opens next to Claude Code while Claude is busy on your task, and closes when it is done.">
+<meta property="og:image" content="https://cbreak.dev/og.png">
+<meta property="og:url" content="https://cbreak.dev/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#2A1C15">
+<link rel="stylesheet" href="/styles.css">
+<script src="/main.js" defer></script>
+</head>
+<body>
+
+<header class="hero">
+  <nav class="top" aria-label="Main">
+    <a class="brand" href="/" aria-label="cbreak home">
+      <img src="/cbreak-mark-on-dark.svg" width="48" height="40" alt="">
+      <span class="word"><span class="c">c</span>break</span>
+    </a>
+    <a class="top-link" href="https://github.com/karli2000/cbreak">GitHub</a>
+  </nav>
+
+  <div class="hero-copy">
+    <h1>a coffee break while Claude works<span class="caret" aria-hidden="true"></span></h1>
+    <p class="lede">cbreak is a Claude Code plugin. While Claude is busy on your task, a small chat room opens next to your session, full of other people who are waiting on Claude too. When Claude is done, the room closes and you are back at work.</p>
+    <p class="actions">
+      <a class="button primary" href="#install">Install cbreak</a>
+      <a class="button" href="https://github.com/karli2000/cbreak">Read the source on GitHub</a>
+    </p>
+  </div>
+
+  <figure class="demo" aria-label="Illustration: Claude Code at work on the left, the cbreak chat pane on the right">
+    <div class="term" data-demo>
+      <div class="session">
+        <p class="prompt">&gt; migrate the billing tables to the new schema</p>
+        <p class="tool">● Read(db/migrations/0042_billing.sql)</p>
+        <p class="tool">● Edit(src/billing/invoice.ts)</p>
+        <p class="tool">● Bash(bun test billing)</p>
+        <p class="working"><span class="spin" aria-hidden="true">◐</span> Working… <span class="dim" data-clock>(0m 41s)</span></p>
+        <p class="done-line">● Done. All 214 billing tests pass.</p>
+      </div>
+      <div class="pane">
+        <p class="pane-title">☕ lobby · <span data-here>4</span> here</p>
+        <ul class="chat">
+          <li class="sys">ravi joined the break</li>
+          <li><b class="n1">lena</b>: anyone else waiting on a big refactor?</li>
+          <li><b class="n2">ravi</b>: test suite, 4 minutes to go</li>
+          <li><b class="n3">you</b>: schema migration here 🙂</li>
+          <li class="me">* <b class="n4">mika</b> refills the coffee ☕</li>
+          <li class="sys done">Claude is done, back to work ☕</li>
+        </ul>
+        <p class="say"><span class="field">say something</span><span class="countdown" data-countdown>closes in 15 s</span></p>
+      </div>
+    </div>
+    <figcaption>The pane is drawn by Claude Code itself; this is an illustration of a break.</figcaption>
+  </figure>
+</header>
+
+<main>
+
+<section class="steps" aria-labelledby="how">
+  <h2 id="how">How a break goes</h2>
+  <ol>
+    <li>
+      <h3>Claude gets busy</h3>
+      <p>After 20 seconds of work, the room opens beside your session. In a narrow terminal you get a hint instead, and <code>/cbreak</code> opens it.</p>
+    </li>
+    <li>
+      <h3>You chat</h3>
+      <p>Everyone in the room is waiting on Claude too. Messages disappear after 15 minutes, and for the rest of your session your breaks take you back to the same people.</p>
+    </li>
+    <li>
+      <h3>Claude is done</h3>
+      <p>A 15 second countdown starts, then the room closes. A half-typed message keeps it open until you send or clear it.</p>
+    </li>
+  </ol>
+</section>
+
+<section class="cs" aria-labelledby="cs">
+  <h2 id="cs"><span class="c">c</span> is for</h2>
+  <ul>
+    <li><span class="c">c</span>offee<span>a short break, like a real one</span></li>
+    <li><span class="c">c</span>hat<span>with people, not with a model</span></li>
+    <li><span class="c">c</span>ode<span>right inside the terminal you work in</span></li>
+    <li><span class="c">c</span>laude<span>open only while Claude is working</span></li>
+  </ul>
+</section>
+
+<section class="install" id="install" aria-labelledby="install-h">
+  <h2 id="install-h">Install</h2>
+  <p>You need Claude Code 2.1.322 or newer and <a href="https://bun.sh">Bun</a> 1.2 or newer. No Bun yet?</p>
+  <div class="code">
+    <pre><code id="bun-cmd">curl -fsSL https://bun.sh/install | bash</code></pre>
+    <button type="button" class="copy" data-copy="bun-cmd">Copy</button>
+  </div>
+  <p>Then add the plugin from its GitHub marketplace:</p>
+  <div class="code">
+    <pre><code id="install-cmd">claude plugin marketplace add karli2000/cbreak
+claude plugin install cbreak@cbreak</code></pre>
+    <button type="button" class="copy" data-copy="install-cmd">Copy</button>
+  </div>
+  <p>Restart Claude Code and run <code>/cbreak setup</code>: sign in with GitHub, pick a nickname and accept the room rules. That's it. The next time Claude works for a while, the room opens.</p>
+  <p class="aside">Coming from Coffee Break? Run <code>claude plugin uninstall coffeebreak@coffeebreak</code> and <code>claude plugin marketplace remove coffeebreak</code> first; your login carries over.</p>
+</section>
+
+<section class="facts" aria-labelledby="privacy">
+  <div>
+    <h2 id="privacy">What leaves your machine</h2>
+    <p>cbreak sees your prompts and tool calls, because it has to know when Claude is busy, but it never sends them anywhere. Only four things leave your machine: your sign-in token, the room name, what you type in the chat and reports you file.</p>
+    <p>Messages are deleted after 15 minutes. <code>/cbreak delete-account yes</code> deletes your account. The backend runs on Supabase in Frankfurt.</p>
+  </div>
+  <div>
+    <h2 id="rules">Who is in the room</h2>
+    <p>Anyone with a GitHub account can join; other people only see your nickname. The rules are short: be kind, no spam, don't share private or company data.</p>
+    <p>Moderators can delete messages, mute and ban. Anyone can report a person with <code>/report</code>, and three reports in 10 minutes mute them for a day.</p>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <p class="foot-links">
+    <a href="https://github.com/karli2000/cbreak">GitHub</a>
+    <a href="https://github.com/karli2000/cbreak#readme">Documentation</a>
+    <a href="https://github.com/karli2000/cbreak/issues">Report a problem</a>
+  </p>
+  <p>cbreak is open source under the MIT license. It is an independent project, not made or endorsed by Anthropic. Claude and Claude Code are trademarks of Anthropic.</p>
+</footer>
+
+</body>
+</html>

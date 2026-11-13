@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#2A1C15"/>
+  <g transform="translate(96 150) scale(2.2)">
+    <path d="M76.05 28.14 A34 34 0 1 0 76.05 71.86" fill="none" stroke="#F6EFE6" stroke-width="16" stroke-linecap="round"/>
+    <circle cx="72" cy="56" r="6" fill="#E59A5C"/>
+    <circle cx="88" cy="46" r="6" fill="#E59A5C"/>
+    <circle cx="104" cy="36" r="6" fill="#E59A5C"/>
+  </g>
+  <text x="400" y="290" font-family="'JetBrains Mono', 'DejaVu Sans Mono', monospace" font-weight="800" font-size="120" letter-spacing="-4" fill="#F6EFE6"><tspan fill="#E59A5C">c</tspan>break<tspan fill="#E59A5C" font-weight="500">_</tspan></text>
+  <text x="404" y="370" font-family="'DejaVu Sans', system-ui, sans-serif" font-size="38" fill="#E6D9CC">a coffee break while Claude works</text>
+  <text x="404" y="500" font-family="'JetBrains Mono', 'DejaVu Sans Mono', monospace" font-size="30" fill="#C9B7A6"><tspan fill="#E59A5C">c</tspan>offee · <tspan fill="#E59A5C">c</tspan>hat · <tspan fill="#E59A5C">c</tspan>ode · <tspan fill="#E59A5C">c</tspan>laude</text>
+</svg>

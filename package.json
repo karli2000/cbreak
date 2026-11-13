@@ -17,7 +17,8 @@
     "site:build": "cd site && bunx vite build",
     "site:deploy": "bun run site:build && bunx wrangler@4.161.0 pages deploy site/dist --project-name coffeebreak-mod --branch main",
     "emoji:gen": "bun scripts/gen-emoji.ts",
-    "brand:png": "bun scripts/render-brand.ts"
+    "brand:png": "bun scripts/render-brand.ts",
+    "web:deploy": "bunx wrangler@4.161.0 pages deploy web --project-name cbreak-web --branch main"
   },
   "devDependencies": {
     "@resvg/resvg-js": "2.6.2",
