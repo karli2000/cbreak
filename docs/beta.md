@@ -1,6 +1,6 @@
 # Beta runbook (owner)
 
-cbreak is an open beta: the repo is public and anyone with a GitHub account can sign up (the friends-beta invite gate was removed on 2026-11-14, migration 20261114000100). Hosted project and deploy notes: [deploy.md](deploy.md). Moderator site: https://coffeebreak-mod.pages.dev. Details: [moderator-site.md](moderator-site.md).
+cbreak is an open beta: the repo is public and anyone with a GitHub account can sign up (the friends-beta invite gate was removed on 2026-11-14, migration 20261114000100). Hosted project and deploy notes: [deploy.md](deploy.md). Moderator site: https://mod.cbreak.dev. Details: [moderator-site.md](moderator-site.md).
 
 ## Pre-publication checklist
 
