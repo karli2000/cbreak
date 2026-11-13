@@ -1,7 +1,7 @@
 // cbreakd: the helper process the Claude Code mod talks to over a unix socket.
 // stdout = NDJSON events, stdin is unused. Run: bun plugin/helper/main.ts
-import { chmodSync, mkdirSync, rmSync } from 'node:fs'
-import { homedir, tmpdir } from 'node:os'
+import { rmSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../shared/backend'
 import { PROTOCOL_VERSION } from '../shared/protocol'
@@ -11,6 +11,7 @@ import { dataDirFor } from './data-dir'
 import { createEmitter } from './emit'
 import { IdleWatch } from './idle'
 import { CoffeeError, codeOf, rpc } from './rpc'
+import { socketBase, socketDir } from './socket-dir'
 
 const num = (name: string, dflt: number) => {
   const v = Number(process.env[name])
@@ -22,10 +23,9 @@ const idleExitMs = num('CBREAK_IDLE_EXIT_MS', 60_000)
 const marginS = num('CBREAK_REFRESH_MARGIN_S', 120)
 const dataDir = dataDirFor(process.env, homedir())
 
-const sockDir = join(process.env.XDG_RUNTIME_DIR ?? tmpdir(), `cbreak-${process.getuid?.() ?? 0}`)
-mkdirSync(sockDir, { recursive: true, mode: 0o700 })
-chmodSync(sockDir, 0o700)
-const socketPath = join(sockDir, `${process.pid}.sock`)
+const uid = process.getuid?.() ?? 0
+const sock = socketDir(socketBase(process.env, uid), uid)
+const socketPath = join(sock.dir, `${process.pid}.sock`)
 
 let shuttingDown = false
 let shutdown: (reason: string) => Promise<void> = async () => {}
@@ -144,6 +144,7 @@ shutdown = async (_reason: string) => {
     await server.stop(true)
   } catch {}
   rmSync(socketPath, { force: true })
+  if (sock.temporary) rmSync(sock.dir, { recursive: true, force: true })
   process.exit(0)
 }
 

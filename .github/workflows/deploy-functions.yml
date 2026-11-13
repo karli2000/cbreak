@@ -21,6 +21,8 @@ env:
 
 jobs:
   deploy:
+    # a run started by hand on another branch deploys nothing
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: production

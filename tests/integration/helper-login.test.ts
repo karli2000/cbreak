@@ -12,7 +12,8 @@ test("login URL targets GitHub with a localhost callback", async () => {
   expect(u.pathname).toBe("/auth/v1/authorize");
   expect(u.searchParams.get("provider")).toBe("github");
   expect(u.searchParams.get("code_challenge_method")?.toLowerCase()).toBe("s256");
-  expect(u.searchParams.get("redirect_to")).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/callback$/);
+  // the callback carries a nonce only this login knows
+  expect(u.searchParams.get("redirect_to")).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/callback\?n=[0-9a-f]{32}$/);
   const ev = await h.waitFor("login");
   expect(ev.url).toBe(res.data.url);
   // a second /login while pending returns the same URL
@@ -25,7 +26,7 @@ test("callback error is escaped and reported", async () => {
   const res = await h.call("/login");
   if (!res.ok) throw new Error(JSON.stringify(res));
   const redirect = new URL(res.data.url).searchParams.get("redirect_to")!;
-  const page = await fetch(`${redirect}?error=access_denied&error_description=${encodeURIComponent("<b>x</b>")}`);
+  const page = await fetch(`${redirect}&error=access_denied&error_description=${encodeURIComponent("<b>x</b>")}`);
   const html = await page.text();
   expect(html).toContain("&lt;b&gt;x&lt;/b&gt;");
   expect(html).not.toContain("<b>");
@@ -50,7 +51,9 @@ test("a stray /callback request does not end a pending login", async () => {
   if (!res.ok) throw new Error(JSON.stringify(res));
   const redirect = new URL(res.data.url).searchParams.get("redirect_to")!;
   expect((await fetch(redirect)).status).toBe(400);
-  expect((await fetch(`${redirect}?code=bogus`)).status).toBe(400);
+  expect((await fetch(`${redirect}&code=bogus`)).status).toBe(400);
+  // without the nonce nothing is even looked at
+  expect((await fetch(`${redirect.replace(/\?n=.*$/, "")}?error=access_denied`)).status).toBe(404);
   await Bun.sleep(300);
   expect(h.events.some((e) => e.type === "error")).toBe(false);
   const again = await h.call("/login");

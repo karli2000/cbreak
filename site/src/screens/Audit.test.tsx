@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { AuthProvider } from '../auth.tsx'
 import { ApiError, type ModAction, type Role } from '../api.ts'
@@ -26,7 +26,7 @@ const row = (id: number, over: Partial<ModAction> = {}): ModAction => ({
   ...over,
 })
 
-function setup(over: Parameters<typeof fakeApi>[0] = {}) {
+function setup(over: Parameters<typeof fakeApi>[0] = {}, role: Role = 'moderator') {
   const api = fakeApi({
     listActions: async () => [row(2), row(1)],
     names: async () =>
@@ -38,7 +38,7 @@ function setup(over: Parameters<typeof fakeApi>[0] = {}) {
   })
   render(
     <AuthProvider client={client}>
-      <Audit api={api} pageSize={2} />
+      <Audit api={api} role={role} pageSize={2} />
     </AuthProvider>,
   )
   return api
@@ -60,6 +60,17 @@ describe('audit', () => {
     expect(await screen.findByText('reason 2')).toBeTruthy()
     expect(screen.getAllByText('modmax')).toHaveLength(2)
     expect(screen.getAllByText('minutes: 10')).toHaveLength(2)
+  })
+
+  test('GitHub ids and logins in old invite details show to admins only', async () => {
+    const invite = () => [row(5, { action: 'admin_add_invite', target_id: null, reason: null, details: { github_id: 4242, github_login: 'octo', note: 'friend' } })]
+    setup({ listActions: async () => invite() })
+    expect(await screen.findByText('note: friend')).toBeTruthy()
+    expect(screen.queryByText(/github_login/)).toBeNull()
+    expect(screen.queryByText(/4242/)).toBeNull()
+    cleanup()
+    setup({ listActions: async () => invite() }, 'admin')
+    expect(await screen.findByText('github_id: 4242, github_login: octo, note: friend')).toBeTruthy()
   })
 
   test('audit filter by action calls listActions with it', async () => {

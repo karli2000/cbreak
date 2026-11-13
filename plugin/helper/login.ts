@@ -29,6 +29,9 @@ export function openBrowser(url: string): void {
   } catch {}
 }
 
+/** Code exchanges one login tries before giving up (a real callback needs one). */
+const MAX_EXCHANGES = 3
+
 const escapeHtml = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
 
@@ -51,13 +54,18 @@ export async function startLogin(
     settle(r)
   }
 
+  // The callback carries a nonce only this login knows (`?n=`), so a request from another local
+  // process or a web page that found the port cannot end, flood or substitute the login. Supabase
+  // sends the browser back to the redirect URL with its query intact.
+  const nonce = crypto.randomUUID().replace(/-/g, '')
+  let exchanges = 0
   let restorePkce: () => void = () => {}
   const server = Bun.serve({
     hostname: '127.0.0.1',
     port: 0,
     async fetch(req) {
       const u = new URL(req.url)
-      if (u.pathname !== '/callback') return new Response('not found', { status: 404 })
+      if (u.pathname !== '/callback' || u.searchParams.get('n') !== nonce) return new Response('not found', { status: 404 })
       if (settled) return page('Login failed: this login is no longer active.', 410)
       const code = u.searchParams.get('code')
       const err = u.searchParams.get('error_description') ?? u.searchParams.get('error')
@@ -67,6 +75,10 @@ export async function startLogin(
       }
       // a stray request (no code, no error) or a code that does not exchange must not end a pending login
       if (!code) return page('Login failed: no code in this request.', 400)
+      if (++exchanges > MAX_EXCHANGES) {
+        finish({ ok: false, error: new Error('too many callback attempts') })
+        return page('Login failed: too many attempts.', 429)
+      }
       const { data, error } = await client.auth.exchangeCodeForSession(code)
       if (error || !data.session) {
         restorePkce() // a stray code must not consume the verifier the real callback needs
@@ -84,7 +96,7 @@ export async function startLogin(
   }
 
   try {
-    const redirectTo = `http://127.0.0.1:${server.port}/callback`
+    const redirectTo = `http://127.0.0.1:${server.port}/callback?n=${nonce}`
     const { data, error } = await client.auth.signInWithOAuth({
       provider: 'github',
       options: { redirectTo, skipBrowserRedirect: true },

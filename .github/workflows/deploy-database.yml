@@ -38,6 +38,8 @@ jobs:
         run: bun run db:test
 
   deploy:
+    # a run started by hand on another branch deploys nothing
+    if: github.ref == 'refs/heads/main'
     needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 10

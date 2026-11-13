@@ -24,7 +24,10 @@ insert into public.occupancy (user_id, room, instance, last_seen) values
   (:'st', 'lobby', 1, now() - interval '91 seconds'),
   (:'bn', 'lobby', 1, now()),
   (:'cl', 'shut-x', 1, now()),
-  (:'kk', 'lobby', 1, now());
+  (:'kk', 'lobby', 1, now()),
+  -- reporters report from the room (migration 20261117000100)
+  (:'p1', 'lobby', 1, now()),
+  (:'p2', 'lobby', 1, now());
 
 insert into public.messages (room, instance, user_id, nickname, body) values
   ('lobby', 1, :'au', 'rauth', 'rl-1a'),
@@ -86,6 +89,7 @@ update public.profiles set nickname = 'ren_new' where id = :'rn';
 -- someone else takes the freed old name
 select tests.create_user('ren_two') as rn2 \gset
 update public.profiles set nickname = 'ren' where id = :'rn2';
+insert into public.occupancy (user_id, room, instance) values (:'rn2', 'lobby', 1);
 select tests.login_as(:'p1');
 select ok((select public.report_user('ren', :'rmid', 'rude')) > 0, 'old nickname + message id files a report');
 select tests.logout();

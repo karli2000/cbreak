@@ -1,5 +1,6 @@
-// RoomSession presence against a fake channel: the initial state is not announced, joins/leaves are
-// batched per sync with one nickname query, and events keep their order.
+// RoomSession presence comes from the server's `presence` broadcasts (join_room, leave_room, mod_ban,
+// purge): nickname and count from the payload, never from client presence keys. Own events are not
+// lines, malformed payloads are dropped, and the count reaches `current()`.
 import { expect, test } from 'bun:test'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { HelperEvent } from '../../plugin/shared/protocol'
@@ -9,31 +10,16 @@ const info = { room: 'r', instance: 1, topic: 'room:r:1', here: 1 }
 type Handler = (p: any) => void
 
 function fakeClient() {
-  const queries: string[][] = []
   const handlers: Record<string, Handler[]> = {}
-  let state: Record<string, unknown[]> = {}
-  let release: (() => void) | null = null
-  const nick = (id: string) => ({ id, nickname: `n-${id}`, role: 'user' })
-  const from = () => {
-    let ids: string[] = []
-    const q: any = {
-      select: () => q,
-      eq: () => q,
-      is: () => q,
-      order: () => q,
-      limit: () => q,
-      in: (_c: string, v: string[]) => ((ids = v), queries.push(v), q),
-      then: (r: (v: unknown) => void) => {
-        const answer = () => r({ data: ids.map(nick), error: null })
-        if (ids.includes('slow')) release = answer
-        else answer()
-      },
-    }
-    return q
-  }
+  const configs: unknown[] = []
+  const tracked: unknown[] = []
+  const query: any = new Proxy({}, {
+    get: (_t, k) => (k === 'then' ? (r: (v: unknown) => void) => r({ data: [], error: null }) : () => query),
+  })
   const client = {
     rpc: async (fn: string) => ({ data: fn === 'join_room' || fn === 'heartbeat' ? info : null, error: null }),
-    channel: () => {
+    channel: (_topic: string, config: unknown) => {
+      configs.push(config)
       const ch: any = {
         on: (type: string, filter: { event: string }, h: Handler) => {
           ;(handlers[`${type}:${filter.event}`] ??= []).push(h)
@@ -43,24 +29,17 @@ function fakeClient() {
           queueMicrotask(() => cb('SUBSCRIBED'))
           return ch
         },
-        track: async () => 'ok',
-        presenceState: () => state,
+        track: async (p: unknown) => (tracked.push(p), 'ok'),
+        presenceState: () => ({}),
       }
       return ch
     },
     removeChannel: async () => 'ok',
-    from,
+    from: () => query,
   } as unknown as SupabaseClient
-  const fire = (event: string, p: any = {}) => (handlers[`presence:${event}`] ?? []).forEach((h) => h({ event, ...p }))
-  return {
-    client,
-    queries,
-    setState: (keys: string[]) => (state = Object.fromEntries(keys.map((k) => [k, [{}]]))),
-    join: (key: string, current: unknown[] = []) => fire('join', { key, currentPresences: current, newPresences: [{}] }),
-    leave: (key: string, current: unknown[] = []) => fire('leave', { key, currentPresences: current, leftPresences: [{}] }),
-    sync: () => fire('sync'),
-    releaseSlow: () => release?.(),
-  }
+  const broadcast = (payload: unknown) => (handlers['broadcast:presence'] ?? []).forEach((h) => h({ event: 'presence', payload }))
+  const presenceHandlers = () => Object.keys(handlers).filter((k) => k.startsWith('presence:'))
+  return { client, broadcast, configs, tracked, presenceHandlers }
 }
 
 const flush = async () => {
@@ -72,67 +51,44 @@ async function joined() {
   const events: HelperEvent[] = []
   const room = new RoomSession({ client: f.client, emit: (e) => events.push(e), userId: 'me', cache: new NicknameCache(f.client), sessionId: 's' })
   await room.join('r')
-  f.queries.length = 0 // backlog lookups
   const presence = () => events.filter((e) => e.type === 'presence')
   return { f, room, events, presence }
 }
 
-test('the initial presence state is one event with the count and no names, and no lookups', async () => {
-  const { f, presence } = await joined()
-  f.setState(['b', 'c', 'me'])
-  f.join('b')
-  f.join('c')
-  f.join('me')
-  f.sync()
-  await flush()
-  expect(presence()).toEqual([{ type: 'presence', here: 3, joined: [], left: [] }])
-  expect(f.queries).toEqual([])
+test('the channel uses no client presence: no key, no track, no presence handlers', async () => {
+  const { f } = await joined()
+  expect(f.configs).toEqual([{ config: { private: true } }])
+  expect(f.tracked).toEqual([])
+  expect(f.presenceHandlers()).toEqual([])
 })
 
-test('later joins and leaves of one sync are one event with one nickname query', async () => {
-  const { f, presence } = await joined()
-  f.setState(['b', 'me'])
-  f.join('b')
-  f.sync()
+test('a server join or leave broadcast becomes one presence event with the nickname and the count', async () => {
+  const { f, room, presence } = await joined()
+  f.broadcast({ event: 'join', user_id: 'u-lena', nickname: 'lena', here: 4 })
+  f.broadcast({ event: 'leave', user_id: 'u-ravi', nickname: 'ravi', here: 3 })
   await flush()
-  f.setState(['me', 'd', 'e'])
-  f.join('d')
-  f.join('e')
-  f.leave('b')
-  f.join('me', [{}]) // own re-track: not new, and never announced
-  f.sync()
-  await flush()
-  expect(presence().at(-1)).toEqual({ type: 'presence', here: 3, joined: ['n-d', 'n-e'], left: ['n-b'] })
-  expect(f.queries).toEqual([['d', 'e', 'b']])
+  expect(presence()).toEqual([
+    { type: 'presence', here: 4, joined: ['lena'], left: [] },
+    { type: 'presence', here: 3, joined: [], left: ['ravi'] },
+  ])
+  expect(room.current()).toEqual({ ...info, here: 3 })
 })
 
-test('a second presence of a key already there is neither a join nor a leave', async () => {
+test('own join and leave are not announced', async () => {
   const { f, presence } = await joined()
-  f.setState(['b', 'me'])
-  f.join('b')
-  f.sync()
+  f.broadcast({ event: 'join', user_id: 'me', nickname: 'me_nick', here: 2 })
+  f.broadcast({ event: 'leave', user_id: 'me', nickname: 'me_nick', here: 1 })
   await flush()
-  f.join('b', [{}]) // b opened a second tab
-  f.leave('b', [{}]) // and closed one: b is still here
-  f.sync()
-  await flush()
-  expect(presence().slice(1)).toEqual([])
+  expect(presence()).toEqual([])
 })
 
-test('presence events keep their order when a lookup is slow', async () => {
+test('malformed payloads are dropped', async () => {
   const { f, presence } = await joined()
-  f.setState(['me'])
-  f.sync()
+  f.broadcast({ event: 'join', user_id: 'x', nickname: 42, here: 2 })
+  f.broadcast({ event: 'join', user_id: 'x', nickname: 'x', here: 'two' })
+  f.broadcast({ event: 'poke', user_id: 'x', nickname: 'x', here: 2 })
+  f.broadcast(null)
+  f.broadcast('join')
   await flush()
-  f.setState(['me', 'slow'])
-  f.join('slow')
-  f.sync()
-  f.setState(['me', 'slow', 'x'])
-  f.join('x')
-  f.sync()
-  await flush()
-  expect(presence()).toHaveLength(1)
-  f.releaseSlow()
-  await flush()
-  expect(presence().slice(1).map((e) => (e as { joined: string[] }).joined)).toEqual([['n-slow'], ['n-x']])
+  expect(presence()).toEqual([])
 })

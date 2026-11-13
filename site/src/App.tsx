@@ -49,6 +49,15 @@ function Gate({ api }: { api: Bound }) {
     }
   }, [api, userId, onAuthError, attempt])
 
+  // a moderator demoted or banned while signed in: re-check when the tab comes back into view
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') setAttempt((a) => a + 1)
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
+
   if (loading) return <p className="center">Loading…</p>
 
   if (!session) {
@@ -154,7 +163,7 @@ function Screen({ tab, api, role }: { tab: Tab; api: Bound; role: Role }) {
     case 'bans':
       return <Bans api={api} role={role} />
     case 'audit':
-      return <Audit api={api} />
+      return <Audit api={api} role={role} />
     case 'admin':
       return <Admin api={api} />
   }

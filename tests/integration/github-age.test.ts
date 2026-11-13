@@ -44,7 +44,7 @@ describe("github-age", () => {
 
   test("fills github_created_at from GitHub (octocat)", async () => {
     const u = await userClient("gh_octo");
-    await setProfile(u, { github_id: 583231, github_created_at: null });
+    await setProfile(u, { github_id: 583231, github_created_at: null, github_age_checked_at: null });
     const r = await call(u);
     expect(r.status).toBe(200);
     expect(new Date(r.body.github_created_at as string).toISOString()).toBe("2011-01-25T18:44:36.000Z");
@@ -59,6 +59,20 @@ describe("github-age", () => {
     expect(r.status).toBe(200);
     expect(new Date(r.body.github_created_at as string).toISOString()).toBe("2020-05-05T05:05:05.000Z");
     expect(new Date((await storedCreatedAt(u))!).toISOString()).toBe("2020-05-05T05:05:05.000Z");
+  });
+
+  test("a failed lookup is not retried within an hour (429 try_later)", async () => {
+    const u = await userClient("gh_gone");
+    // another id that does not exist on GitHub (999999999999 belongs to the test above)
+    await setProfile(u, { github_id: 999999999998, github_created_at: null, github_age_checked_at: null });
+    const first = await call(u);
+    expect(first.status).toBe(400);
+    expect(first.body).toEqual({ error: "github_user_not_found" });
+    const again = await call(u);
+    expect(again.status).toBe(429);
+    expect(again.body).toEqual({ error: "try_later" });
+    await setProfile(u, { github_age_checked_at: new Date(Date.now() - 2 * 3600_000).toISOString() });
+    expect((await call(u)).status).toBe(400);
   });
 
   test("400 no_github_id when the profile has no github_id", async () => {

@@ -93,6 +93,10 @@ export function errorText(code: string, ctx?: { mutedUntil?: string | null }): s
     case 'nickname_taken': return 'That name is taken.'
     case 'nickname_change_too_soon': return 'You can change your name once every 30 days.'
     case 'not_in_room': return "You're not in the room anymore."
+    case 'rules_not_accepted': return 'Accept the rules first. Run /cbreak setup.'
+    case 'github_required': return 'cbreak needs a GitHub account. Sign in with GitHub.'
+    case 'empty': return 'Say something first.'
+    case 'limit_reached': return 'That limit is reached.'
     case 'not_signed_in': return 'Not signed in. Run /cbreak setup.'
     case 'network': return "Can't reach cbreak, retrying…"
     case 'realtime_unavailable': return COPY.full

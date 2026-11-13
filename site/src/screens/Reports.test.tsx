@@ -2,6 +2,7 @@ import { describe, expect, jest, test } from 'bun:test'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { AuthProvider } from '../auth.tsx'
+import { ARM_MS } from '../components/ActionBar.tsx'
 import { ApiError, type Report, type Role } from '../api.ts'
 import { COPY } from '../copy.ts'
 import { fakeApi } from '../fake-api.ts'
@@ -128,7 +129,11 @@ describe('reports', () => {
     fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'scam' } })
     fireEvent.click(screen.getByRole('button', { name: 'Ban' }))
     expect(names(api)).not.toContain('ban')
+    // a click right after arming (a double-click) is ignored
     fireEvent.click(await screen.findByRole('button', { name: 'Confirm ban' }))
+    expect(names(api)).not.toContain('ban')
+    await Bun.sleep(ARM_MS + 20)
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm ban' }))
     await waitFor(() => expect(names(api)).toContain('ban'))
     expect(api.calls.find((c) => c.name === 'ban')!.args).toEqual(['t1', 'scam'])
   })

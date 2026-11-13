@@ -9,7 +9,7 @@ const dir = join(root, '.github/workflows')
 const FILES = ['deploy-database.yml', 'deploy-functions.yml', 'deploy-homepage.yml', 'deploy-mod-site.yml']
 
 type Step = { uses?: string; run?: string; with?: Record<string, unknown> }
-type Job = { needs?: string | string[]; steps: Step[]; environment?: string; env?: Record<string, string> }
+type Job = { needs?: string | string[]; steps: Step[]; environment?: string; env?: Record<string, string>; if?: string }
 type Workflow = {
   on: { push: { branches: string[]; paths: string[] }; workflow_dispatch: unknown }
   permissions: Record<string, string>
@@ -51,9 +51,10 @@ describe.each(FILES)('%s', (f) => {
     for (const job of Object.keys(w.jobs)) expect(runs(w, job)).not.toMatch(/config\s+push/)
   })
 
-  test('the deploy job runs in the production environment and checks its secrets first', () => {
+  test('the deploy job runs in the production environment, only from main, and checks its secrets first', () => {
     const deploy = w.jobs['deploy']!
     expect(deploy.environment).toBe('production')
+    expect(deploy.if).toBe("github.ref == 'refs/heads/main'")
     const first = deploy.steps.find((s) => s.run)!.run!
     expect(first).toContain('::error::')
   })

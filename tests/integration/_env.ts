@@ -4,7 +4,7 @@
 // INTEGRATION_ALLOW_REMOTE=1 (any non-local URL is refused without it).
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-type Env = { url: string; anonKey: string; serviceKey: string };
+type Env = { url: string; anonKey: string; serviceKey: string; dbUrl?: string };
 
 let cached: Env | undefined;
 
@@ -15,7 +15,7 @@ export function env(): Env {
   let e: Env;
   const { SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY } = process.env;
   if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_SERVICE_ROLE_KEY) {
-    e = { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY, serviceKey: SUPABASE_SERVICE_ROLE_KEY };
+    e = { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY, serviceKey: SUPABASE_SERVICE_ROLE_KEY, dbUrl: process.env.SUPABASE_DB_URL };
   } else {
     const out = Bun.spawnSync(["bunx", "supabase", "status", "-o", "json"], { stderr: "pipe" });
     if (out.exitCode !== 0) {
@@ -25,7 +25,7 @@ export function env(): Env {
     const anonKey = s.ANON_KEY ?? s.PUBLISHABLE_KEY;
     const serviceKey = s.SERVICE_ROLE_KEY ?? s.SECRET_KEY;
     if (!s.API_URL || !anonKey || !serviceKey) throw new Error("supabase status: missing API_URL or keys");
-    e = { url: s.API_URL, anonKey, serviceKey };
+    e = { url: s.API_URL, anonKey, serviceKey, dbUrl: s.DB_URL };
   }
   if (!LOCAL_HOSTS.has(new URL(e.url).hostname) && process.env.INTEGRATION_ALLOW_REMOTE !== "1") {
     throw new Error(`refusing to run integration tests against ${e.url}: set INTEGRATION_ALLOW_REMOTE=1`);
@@ -65,9 +65,34 @@ function check<T extends { error: unknown }>(res: T, what: string): T {
   return res;
 }
 
+/** Whether tests can reach Postgres directly (local stack, or SUPABASE_DB_URL on a hosted run). */
+export function hasDb(): boolean {
+  return !!env().dbUrl;
+}
+
 /**
- * Creates an email/password user via the admin API, signs in, claims `<nick>_<runId>`,
- * accepts the rules and sets the role via the service role.
+ * Gives an auth user a GitHub identity (provider_id = `ghId`) straight in the database, as the
+ * GitHub sign-in would. A first claim_nickname needs one (migration 20261117000100). Needs `hasDb()`.
+ */
+export async function githubIdentity(userId: string, ghId: number): Promise<void> {
+  const dbUrl = env().dbUrl;
+  if (!dbUrl) throw new Error("githubIdentity needs a database URL (local stack or SUPABASE_DB_URL)");
+  const { SQL } = await import("bun");
+  const sql = new SQL(dbUrl);
+  try {
+    await sql`insert into auth.identities (id, provider_id, user_id, identity_data, provider, created_at, updated_at)
+      values (gen_random_uuid(), ${String(ghId)}, ${userId}::uuid, jsonb_build_object('sub', ${String(ghId)}::text), 'github', now(), now())`;
+  } finally {
+    await sql.close();
+  }
+}
+
+let nextGithubId = 900_000_000 + Math.floor(Math.random() * 90_000_000);
+
+/**
+ * Creates an email/password user via the admin API, signs in, and gives it a ready profile
+ * `<nick>_<runId>` (rules accepted, a made-up GitHub id) through the service role, since a
+ * first claim_nickname needs a GitHub identity. The role is set the same way.
  */
 export async function userClient(
   nick: string,
@@ -89,20 +114,21 @@ export async function userClient(
 
   check(await client.auth.signInWithPassword({ email, password }), "sign in");
   await client.realtime.setAuth();
-  check(await client.rpc("claim_nickname", { nick: nickname }), "claim_nickname");
-  check(await client.rpc("accept_rules"), "accept_rules");
-
-  if (role !== "user") {
-    check(await adminClient().from("profiles").update({ role }).eq("id", client.userId), "set role");
-  }
+  check(
+    await adminClient()
+      .from("profiles")
+      .insert({ id: client.userId, nickname, github_id: nextGithubId++, rules_accepted_at: new Date().toISOString(), role }),
+    `create profile ${nickname}`,
+  );
   return client;
 }
 
 /**
  * Email user signed in without a profile (no claim_nickname), tracked for cleanup.
- * Its `nickname` is unset until claimed.
+ * Its `nickname` is unset until claimed. With `github`, the user gets a GitHub identity (needs
+ * `hasDb()`), so it can claim a first nickname.
  */
-export async function bareUser(): Promise<TestUser> {
+export async function bareUser(github = false): Promise<TestUser> {
   const email = `bare_${runId}_${crypto.randomUUID().slice(0, 8)}@test.local`;
   const password = `pw-${crypto.randomUUID()}`;
   const { data: made } = check(
@@ -113,6 +139,7 @@ export async function bareUser(): Promise<TestUser> {
   client.userId = made.user!.id;
   client.nickname = "";
   created.push(client);
+  if (github) await githubIdentity(client.userId, nextGithubId++);
   check(await client.auth.signInWithPassword({ email, password }), "sign in");
   return client;
 }

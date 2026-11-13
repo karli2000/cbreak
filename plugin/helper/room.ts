@@ -1,4 +1,4 @@
-// Room session: join_room + the private Realtime channel, chat relay, presence, re-join, moderation calls.
+// Room session: join_room + the private Realtime channel, chat relay, server-sourced presence, re-join, moderation calls.
 import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js'
 import type { ChatMessage, HelperEvent, JoinInfo, Role } from '../shared/protocol'
 import { CoffeeError, codeOf, rpc } from './rpc'
@@ -77,8 +77,6 @@ export class RoomSession {
   /** Live events held back until the backlog has been emitted. */
   private pending: HelperEvent[] | null = null
   private rejoining: Promise<JoinInfo> | null = null
-  /** Presence events are emitted through this queue, so a slow nickname lookup never reorders them. */
-  private presenceQueue: Promise<void> = Promise.resolve()
   /** The last error code a heartbeat reported; the same code is not repeated until a heartbeat succeeds. */
   private heartbeatError: string | null = null
 
@@ -279,7 +277,9 @@ export class RoomSession {
   private subscribe(topic: string): Promise<void> {
     this.dropChannel()
     const gen = this.chanGen
-    const ch = this.client.channel(topic, { config: { private: true, presence: { key: this.userId } } })
+    // No Phoenix presence: who is here comes from the server (join_room, leave_room, mod_ban and the
+    // purge broadcast `presence` with the nickname from profiles), so a client cannot announce anyone.
+    const ch = this.client.channel(topic, { config: { private: true } })
     this.channel = ch
     ch.on('broadcast', { event: 'message' }, ({ payload }) => {
       const p = payload as ChatMessage
@@ -297,30 +297,19 @@ export class RoomSession {
     ch.on('broadcast', { event: 'kicked' }, ({ payload }) => {
       if (gen === this.chanGen && (payload as { user_id?: string }).user_id === this.userId) void this.onKicked()
     })
-    // Phoenix fires `join` for every member of the initial state, then `sync`. Nothing is announced
-    // until the channel's first sync (that one only reports the count); afterwards the keys that
-    // really arrived or left (no other presence of the key) are collected and flushed per sync.
-    let synced = false
-    let lastHere = -1
-    let joins: string[] = []
-    let leaves: string[] = []
-    ch.on('presence', { event: 'join' }, ({ key, currentPresences }) => {
-      if (synced && key !== this.userId && !currentPresences?.length) joins.push(key)
-    })
-    ch.on('presence', { event: 'leave' }, ({ key, currentPresences }) => {
-      if (synced && key !== this.userId && !currentPresences?.length) leaves.push(key)
-    })
-    ch.on('presence', { event: 'sync' }, () => {
-      if (gen !== this.chanGen) return
-      synced = true
-      const here = Object.keys(ch.presenceState()).length
-      const [joined, left] = [joins, leaves]
-      joins = []
-      leaves = []
-      if (here === lastHere && !joined.length && !left.length) return
-      lastHere = here
-      // one lookup per sync; the queue keeps the events in order while lookups run
-      this.presenceQueue = this.presenceQueue.then(() => this.presence(gen, here, joined, left)).catch(() => {})
+    ch.on('broadcast', { event: 'presence' }, ({ payload }) => {
+      // only well-formed server payloads; our own join/leave is not a line (the join answer has the count)
+      if (typeof payload !== 'object' || payload === null) return
+      const p = payload as { event?: unknown; user_id?: unknown; nickname?: unknown; here?: unknown }
+      if (typeof p.nickname !== 'string' || typeof p.here !== 'number' || !Number.isFinite(p.here)) return
+      if ((p.event !== 'join' && p.event !== 'leave') || p.user_id === this.userId) return
+      if (gen === this.chanGen && this.info) this.info = { ...this.info, here: p.here }
+      this.relay(gen, {
+        type: 'presence',
+        here: p.here,
+        joined: p.event === 'join' ? [p.nickname] : [],
+        left: p.event === 'leave' ? [p.nickname] : [],
+      })
     })
 
     return new Promise<void>((resolve) => {
@@ -336,26 +325,10 @@ export class RoomSession {
         if (status === 'SUBSCRIBED') {
           if (this.failures > 0) this.emit({ type: 'connection', state: 'online' })
           this.failures = 0
-          void ch.track({}).catch(() => {})
         } else this.onChannelFailure(gen)
         settle()
       })
     })
-  }
-
-  /** Emits one presence event for a sync: the count plus the nicknames that joined/left (one lookup). */
-  private async presence(gen: number, here: number, joinedIds: string[], leftIds: string[]): Promise<void> {
-    if (gen !== this.chanGen) return
-    let names = new Map<string, Profile>()
-    if (joinedIds.length || leftIds.length) {
-      await this.freshen()
-      try {
-        names = await this.cache.names([...joinedIds, ...leftIds])
-      } catch {}
-    }
-    if (gen !== this.chanGen) return
-    const nick = (ids: string[]) => ids.flatMap((id) => names.get(id)?.nickname ?? [])
-    this.emit({ type: 'presence', here, joined: nick(joinedIds), left: nick(leftIds) })
   }
 
   /** CHANNEL_ERROR / TIMED_OUT / CLOSED while joined: heartbeat, then re-subscribe with backoff. */

@@ -4,6 +4,9 @@ begin;
 \ir _helpers.psql
 select plan(15);
 
+-- the cron job may have cached a row; without one public_stats() counts live (migration 20261117000100)
+delete from private.stats_cache;
+
 create temp table base on commit drop as select public.public_stats() as s;
 create function pg_temp.d(k text) returns bigint language sql as
   $$ select (public.public_stats() ->> k)::bigint - (select (s ->> k)::bigint from base) $$;
