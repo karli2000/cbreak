@@ -1,5 +1,5 @@
 ---
-name: coffee
+name: coffee-help
 description: Use when the user asks how Coffee Break works, how to join or set it up, which /coffee commands exist, or what data it sends (privacy).
 ---
 
