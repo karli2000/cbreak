@@ -11,22 +11,33 @@ export type PaneElements = {
 
 export type PaneHandlers = { input(v: string): void; submit(v: string): void }
 
-export function renderPane(view: PaneView, els: PaneElements, on: PaneHandlers): RenderElement {
+/**
+ * `fillRows`: the rows the tree should fill, so the input is always the pane's last row; the lines'
+ * box takes the free rows and keeps its lines at its bottom, right above the input. 0 = as tall as
+ * the lines (an inline pane, whose frame fits the tree anyway). A longer chat still scrolls, since
+ * this is a minimum height.
+ */
+export function renderPane(view: PaneView, els: PaneElements, on: PaneHandlers, fillRows = 0): RenderElement {
   const { Box, Text, Input } = els
+  const fill = fillRows > 0 ? { minHeight: fillRows } : {}
+  const linesBox = (children: RenderElement[]) =>
+    Box({ flexDirection: 'column', flexGrow: 1, justifyContent: 'flex-end', children })
   if (view.mode === 'setup') {
     return Box({
       flexDirection: 'column',
+      ...fill,
       children: [
-        ...view.lines.map((l) => Text({ children: l })),
+        linesBox(view.lines.map((l) => Text({ children: l }))),
         Input({ key: 'setup', placeholder: view.placeholder, value: view.draft, onInput: on.input, onSubmit: on.submit }),
       ],
     })
   }
   return Box({
     flexDirection: 'column',
+    ...fill,
     children: [
       Text({ dimColor: true, children: view.header }),
-      ...view.lines.map((l) => lineElement(l, Text)),
+      linesBox(view.lines.map((l) => lineElement(l, Text))),
       // Always drawn: /leave and /help work outside a room too (room commands answer with a line).
       // autoFocus: whenever the pane takes the keyboard, the cursor lands in the field.
       // The grace countdown sits at its right, so it stays in view however long the chat is.

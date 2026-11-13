@@ -359,3 +359,68 @@ test('an old bun in ~/.bun/bin gives the Bun line', async ($, on) => {
   expect(w.spawns).toHaveLength(0)
   expect(w.toasts).toEqual([BUN_LINE])
 })
+
+/** The pane as the surface would draw it: docked beside the transcript or inline above the prompt. */
+const mountPane = ($: Engine, placement: 'dock' | 'inline', bodyRows = 30) =>
+  $.ui.mount({
+    plugin: PLUGIN,
+    surface: 'terminal',
+    component: 'Pane',
+    requestId: 'cbreak',
+    props: { title: '☕ lobby · 2 here', isFocused: true, bodyColumns: 60, placement, scroll: { offset: 0, bodyRows }, view: {} },
+  })
+
+type Drawn = { type: string; props?: Record<string, unknown>; children?: unknown[] }
+const kids = (el: unknown) => ((el as Drawn).children ?? []) as Drawn[]
+const holdsInput = (el: Drawn, key: string): boolean =>
+  (el.type === 'Input' && el.props?.key === key) || kids(el).some((c) => holdsInput(c, key))
+
+test('docked, the chat input sits at the bottom of the pane however few lines there are', async ($, on) => {
+  const w = world(on)
+  await startSession($)
+  await $.turn.start({ text: 'long task', turnId: 't1' })
+  await w.clock.advance(20_000)
+  helperJoins(w)
+  await w.clock.settle()
+  const ui = await mountPane($, 'dock', 30)
+  const root = (await ui.drawn()) as Drawn
+  // The tree fills the body: the lines' box takes the free rows, so the input row is the last row.
+  expect(root.props).toMatchObject({ flexDirection: 'column', minHeight: 30 })
+  const parts = kids(root)
+  expect(parts).toHaveLength(3) // header, lines, input row
+  expect(parts[1]!.props).toMatchObject({ flexDirection: 'column', flexGrow: 1, justifyContent: 'flex-end' })
+  expect(holdsInput(parts[2]!, 'say')).toBe(true)
+  expect(holdsInput(parts[1]!, 'say')).toBe(false)
+  await ui.unmount()
+})
+
+test('inline, the pane stays as tall as its lines', async ($, on) => {
+  const w = world(on)
+  await startSession($)
+  await $.turn.start({ text: 'long task', turnId: 't1' })
+  await w.clock.advance(20_000)
+  helperJoins(w)
+  await w.clock.settle()
+  const ui = await mountPane($, 'inline', 30)
+  const root = (await ui.drawn()) as Drawn
+  expect(root.props?.minHeight).toBeUndefined()
+  expect(holdsInput(kids(root).at(-1)!, 'say')).toBe(true)
+  await ui.unmount()
+})
+
+test('docked, the setup input sits at the bottom of the pane too', async ($, on) => {
+  const w = world(on)
+  await startSession($)
+  w.helper.emit({ type: 'hello', protocol: 1, pid: 4242, socket: SOCKET })
+  w.helper.emit({ type: 'auth', state: 'signed_out' })
+  await runCbreak($, 'setup')
+  await w.clock.settle()
+  const ui = await mountPane($, 'dock', 24)
+  const root = (await ui.drawn()) as Drawn
+  expect(root.props).toMatchObject({ flexDirection: 'column', minHeight: 24 })
+  const parts = kids(root)
+  expect(parts).toHaveLength(2) // lines, input
+  expect(parts[0]!.props).toMatchObject({ flexGrow: 1, justifyContent: 'flex-end' })
+  expect(holdsInput(parts[1]!, 'setup')).toBe(true)
+  await ui.unmount()
+})
