@@ -1,6 +1,6 @@
 # Moderator site
 
-Static React + Vite app in `site/` (supabase-js in the browser, no server code, no service-role key). It is hosted on Cloudflare Pages as project `coffeebreak-mod` (default URL `https://coffeebreak-mod.pages.dev`).
+Static React + Vite app in `site/` (supabase-js in the browser, no server code, no service-role key). It is hosted on Cloudflare Pages as project `coffeebreak-mod` at **https://mod.cbreak.dev** (custom domain, owner, 2026-11-14); the project's default URL `https://coffeebreak-mod.pages.dev` still serves the same site.
 
 ## Local dev
 
@@ -41,9 +41,9 @@ bunx wrangler@4.161.0 pages project create coffeebreak-mod --production-branch m
 bun run site:deploy           # builds, then wrangler pages deploy site/dist --project-name coffeebreak-mod --branch main
 ```
 
-`site:deploy` always passes `--branch main`, so the upload is the production deployment at `https://coffeebreak-mod.pages.dev` whatever git branch is checked out. Without it, wrangler uses the current git branch, and a branch other than the production branch becomes a preview at `<hash>.coffeebreak-mod.pages.dev`, which is not in the redirect allowlist. The wrangler version is pinned in the script and above; bump it in both places together.
+`site:deploy` always passes `--branch main`, so the upload is the production deployment (https://mod.cbreak.dev, and `https://coffeebreak-mod.pages.dev`) whatever git branch is checked out. Without it, wrangler uses the current git branch, and a branch other than the production branch becomes a preview at `<hash>.coffeebreak-mod.pages.dev`, which is not in the redirect allowlist. The wrangler version is pinned in the script and above; bump it in both places together.
 
-A custom domain is optional (Pages dashboard, Custom domains). A public imprint waits for a public launch.
+Custom domain `mod.cbreak.dev` (owner, 2026-11-14): Pages dashboard → `coffeebreak-mod` → Custom domains (the `mod` CNAME points at `coffeebreak-mod.pages.dev`; Cloudflare issues the certificate, and `.dev` is HTTPS-only). Supabase Site URL `https://mod.cbreak.dev`, redirect URL `https://mod.cbreak.dev/**` added next to the `pages.dev` one. No code change: sign-in redirects to the page's own origin and the CSP lists only Supabase. To retire the old address later, remove `https://coffeebreak-mod.pages.dev/**` from the redirect URLs. A public imprint waits for a public launch.
 
 ## Owner steps, in order
 

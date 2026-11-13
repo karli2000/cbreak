@@ -27,9 +27,9 @@ Beta operations (inviting friends, shipping updates, pre-publication checklist):
 ## Auth configuration (dashboard, set by the owner)
 
 - **GitHub provider:** enabled. It's a GitHub **App** (Client ID `Iv23li…`) with callback `https://meioekkvutvrspfvqgye.supabase.co/auth/v1/callback` and **Account permissions → Email addresses: Read-only**.
-- **Site URL:** `https://coffeebreak-mod.pages.dev` (the moderator site; set by the owner on 2026-11-12, step 4 in [moderator-site.md](moderator-site.md)). Until then it was the GitHub repo, which is where a sign-in landed when its redirect target was not allow-listed.
+- **Site URL:** `https://mod.cbreak.dev` (the moderator site's custom domain; set by the owner on 2026-11-14, before that `https://coffeebreak-mod.pages.dev` from 2026-11-12, step 4 in [moderator-site.md](moderator-site.md)). Until then it was the GitHub repo, which is where a sign-in landed when its redirect target was not allow-listed.
 - **Access token (JWT) expiry:** 900 s (set by the owner on 2026-11-12). This limits how long a banned client can keep reading its current room on an already-open channel.
-- **Redirect URLs:** `http://127.0.0.1:*/callback` (cbreakd's local login callback), `https://coffeebreak-mod.pages.dev/**` and `http://localhost:5173/**` (moderator site; added by the owner on 2026-11-12). A redirect target missing from this list makes Supabase fall back to the Site URL.
+- **Redirect URLs:** `http://127.0.0.1:*/callback` (cbreakd's local login callback), `https://coffeebreak-mod.pages.dev/**` and `http://localhost:5173/**` (moderator site; added by the owner on 2026-11-12), `https://mod.cbreak.dev/**` (custom domain, 2026-11-14). A redirect target missing from this list makes Supabase fall back to the Site URL.
 - **Do not run `supabase config push`.** It would overwrite these dashboard settings with the local `config.toml`.
 
 ## Before the friends beta (owner checks)
