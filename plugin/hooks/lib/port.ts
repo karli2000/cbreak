@@ -24,6 +24,8 @@ export interface Port {
   status(text: string | undefined): void
   toast(text: string): void
   after(ms: number, fn: () => void): Timer
+  /** Whether a subagent or teammate of this session is still working (`$.agent.list()`); false on error. */
+  agentsBusy(): Promise<boolean>
   loadSettings(): Promise<Settings>
   saveSettings(s: Settings): Promise<void>
 }

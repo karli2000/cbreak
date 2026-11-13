@@ -52,6 +52,8 @@ export class Controller {
   private settings: Settings = { ...DEFAULTS }
   private settingsReady: Promise<void>
   private busy = false
+  /** The main turn ended but subagents still work: the break goes on until `agentsChanged` finds none. */
+  private waitingAgents = false
   private phase: Phase = 'idle'
   /** Bumped whenever a break attempt is abandoned or ended; stale continuations compare against it. */
   private gen = 0
@@ -114,6 +116,7 @@ export class Controller {
 
   turnStart(): void {
     this.busy = true
+    this.waitingAgents = false
     if (!this.settings.enabled || this.removed !== null || this.ended || this.noBunTurn) return
     switch (this.phase) {
       case 'idle': // not `left`: closing the pane holds off until a turn completes
@@ -132,7 +135,20 @@ export class Controller {
     }
   }
 
-  turnComplete(_aborted: boolean): void {
+  /**
+   * `agentsRunning`: the turn ended while subagents still work (the main loop waits for them), so
+   * Claude is not done: the break, or the wait for one, goes on until `agentsChanged` finds none.
+   */
+  turnComplete(_aborted: boolean, agentsRunning = false): void {
+    if (agentsRunning && (this.phase === 'pending' || this.phase === 'joining' || this.phase === 'break')) {
+      if (!this.waitingAgents && this.phase === 'break') {
+        this.addLine(COPY.agentsBusy)
+        this.port.redraw()
+      }
+      this.waitingAgents = true
+      return
+    }
+    this.waitingAgents = false
     this.busy = false
     this.noBunTurn = false
     switch (this.phase) {
@@ -159,6 +175,14 @@ export class Controller {
         this.phase = 'idle'
         return
     }
+  }
+
+  /** Looks again whether subagents still work; when none does, the waited-for turn is complete. */
+  async agentsChanged(): Promise<void> {
+    if (!this.waitingAgents) return
+    if (await this.port.agentsBusy()) return
+    if (!this.waitingAgents) return // a new turn started meanwhile
+    this.turnComplete(false)
   }
 
   /** After Esc a close is refused until the next input (spike S1), so it is retried here. */
@@ -580,6 +604,7 @@ export class Controller {
     h.ping = this.port.after(PING_MS, () => {
       if (!h.alive) return
       void this.call(h, '/ping', {})
+      void this.agentsChanged() // a subagent may have ended without a turn event reaching us
       this.schedulePing(h)
     })
   }

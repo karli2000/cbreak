@@ -14,6 +14,7 @@ export const COPY = {
   statusHint: (here: number) => `☕ ${here} on break · /cbreak to join`,
   done: 'Claude is done, back to work ☕',
   busyAgain: 'Claude is busy again ☕',
+  agentsBusy: "Claude's subagents are still working ☕",
   draftKept: 'You have unsent text, staying until you send or clear it.',
   closingIn: (sec: number) => `closes in ${sec} s`,
   joined: (nick: string) => `${nick} joined the break`,

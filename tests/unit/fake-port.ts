@@ -28,6 +28,8 @@ export class FakePort implements Port {
   alive = false
   /** The adapter finds no Bun: each spawn reports `error no_bun` and exits without starting (ruling R2). */
   noBun = false
+  /** What `agentsBusy()` answers (subagents still working). */
+  agents = false
 
   private onEvent: ((e: HelperEvent) => void) | null = null
   private onExit: ((info: ExitInfo) => void) | null = null
@@ -160,6 +162,10 @@ export class FakePort implements Port {
     }
     this.timers = this.timers.filter((t) => !t.cancelled)
     this.now = end
+  }
+
+  async agentsBusy(): Promise<boolean> {
+    return this.agents
   }
 
   async loadSettings(): Promise<Settings> {
