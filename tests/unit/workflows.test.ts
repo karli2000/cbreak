@@ -122,6 +122,16 @@ test('homepage: tested, then deployed with the package script', () => {
   expect(runs(w, 'deploy')).toContain('bun run web:deploy')
 })
 
+test('the Cloudflare deploys install the root packages (wrangler is a root dev dependency) before deploying', () => {
+  for (const f of ['deploy-homepage.yml', 'deploy-mod-site.yml']) {
+    const steps = (load(f).jobs['deploy']!.steps as (Step & { 'working-directory'?: string })[])
+    const install = steps.findIndex((s) => s.run === 'bun install --frozen-lockfile' && !s['working-directory'])
+    const deploy = steps.findIndex((s) => /bun run (web|site):deploy/.test(s.run ?? ''))
+    expect(install).toBeGreaterThan(-1)
+    expect(install).toBeLessThan(deploy)
+  }
+})
+
 test('the Cloudflare deploys pass the token and account id from secrets', () => {
   for (const f of ['deploy-homepage.yml', 'deploy-mod-site.yml']) {
     expect(load(f).jobs['deploy']!.env).toEqual({
