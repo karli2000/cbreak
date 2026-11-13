@@ -264,7 +264,7 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 - The moderator site moved to the custom domain `mod.cbreak.dev` (owner step 9, done; `coffeebreak-mod.pages.dev` still works). Kept on purpose: applied migrations, `docs/superpowers/` plans and specs (history, file names unchanged), the Supabase project and organization `coffeebreak`, the pg_cron job `coffeebreak-purge`, the Cloudflare Pages project `coffeebreak-mod` (renaming means a new project; a custom domain such as `mod.cbreak.dev` is the way to a new URL), internal code names (`CoffeeError`, `parseCoffeeArgs`, `CoffeeCommand`), the `github-age` User-Agent (changes only with a functions deploy), the local folder name.
 - Login carries over: `plugin/helper/data-dir.ts` `dataDirFor(env, home)` moves an old `<config>/coffeebreak` to `<config>/cbreak` once, when the new one does not exist and `CBREAK_DATA_DIR` is unset (test `tests/unit/data-dir.test.ts`). Mod settings (`$.store`) belong to the plugin name, so they start from the defaults after the reinstall.
 - `cbreak` is a reserved nickname (migration 20261115000100: `claim_nickname` body from 20261114000100 with `cbreak` added; pgTAP `150_reserve_cbreak`).
-- Installed copies do not follow the rename: people uninstall `coffeebreak@coffeebreak`, remove the marketplace `coffeebreak`, then add `karli2000/cbreak` and install `cbreak@cbreak` (README "Coming from Coffee Break?", `docs/beta.md` message).
+- Installed copies do not follow the rename: people uninstall `coffeebreak@coffeebreak`, remove the marketplace `coffeebreak`, then add `karli2000/cbreak` and install `cbreak@cbreak` (the `docs/beta.md` move message; the README and the homepage no longer mention it).
 
 ## Brand (0.3.1)
 
