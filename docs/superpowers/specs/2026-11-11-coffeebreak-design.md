@@ -80,7 +80,7 @@ Distributed through a plugin **marketplace** (a GitHub repo with `.claude-plugin
 
 ### 4.3 Busy/idle detection: when you're "on break"
 - **Start:** mod event `turn.start` for the main conversation. Ignore subagent turns (`agentId` set). **[my call]**
-- **Minimum wait:** only join if Claude is still busy after **20 s** (configurable). Short tasks never open the pane. **[my call]**
+- **Minimum wait:** only join if Claude is still busy after **15 s** (configurable; 20 s until plugin 0.3.2, owner change). Short tasks never open the pane. **[my call]**
 - **Still busy:** permission prompts count as busy. The room stays open while Claude waits for you to approve something. **[my call]**
 - **End:** mod event `turn.complete`, including `isAborted` (Esc interrupt). Also handle API-error stops (`StopFailure`) and `session.end`. **[my call]**
 - **Leaving:** on end, the pane shows "Claude is done, back to work ☕" and leaves after a **15 s** grace period. If the pane input holds an unsent draft, it waits until the draft is sent or cleared. **[owner agreed to grace period]**
@@ -133,7 +133,7 @@ Stored in `${CLAUDE_PLUGIN_DATA}/config.json`, which survives plugin updates. Ch
 |---|---|---|
 | nickname | chosen at setup | `/coffee name <new>` |
 | room | `lobby` | `/coffee room <slug>` |
-| min busy time before joining | 20 s | `/coffee config` |
+| min busy time before joining | 15 s (20 s until 0.3.2) | `/coffee config` |
 | grace period after Claude finishes | 15 s | `/coffee config` |
 | auto-open pane | on | `/coffee config` |
 | enabled | on | `/coffee off` · `/coffee on` |

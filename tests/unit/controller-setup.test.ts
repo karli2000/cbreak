@@ -31,7 +31,7 @@ async function run(port: FakePort, c: Controller, args: string, auth: AuthState 
 async function inBreak(port = new FakePort()): Promise<{ port: FakePort; c: Controller }> {
   const r = await make(port)
   r.c.turnStart()
-  port.advance(20_000)
+  port.advance(15_000)
   await helperUp(port, READY)
   port.emit({ type: 'joined', room: 'lobby', instance: 1, topic: 'room:lobby:1', here: 3 })
   await tick()
@@ -44,7 +44,7 @@ function setup(c: Controller): Extract<PaneView, { mode: 'setup' }> {
   return v
 }
 
-const SETTINGS_LINE = 'Room: lobby · min wait 20 s · grace 15 s · auto-open on · emoji on · enabled'
+const SETTINGS_LINE = 'Room: lobby · min wait 15 s · grace 15 s · auto-open on · emoji on · enabled'
 
 describe('Controller setup flow', () => {
   test('each step that needs typing asks for the keyboard again', async () => {
@@ -112,7 +112,7 @@ describe('Controller setup flow', () => {
 
     port.emit({ type: 'auth', ...READY })
     await tick()
-    expect(setup(c).lines).toContain(COPY.ready('lena', 20))
+    expect(setup(c).lines).toContain(COPY.ready('lena', 15))
     expect(port.stops).toBe(1)
     expect(port.alive).toBe(false)
     expect(port.count('/join')).toBe(0)
@@ -172,7 +172,7 @@ describe('Controller setup flow', () => {
     const { port, c } = await make()
     c.turnStart()
     await run(port, c, 'setup', { state: 'needs_rules', nickname: 'lena' })
-    port.advance(20_000) // the min-busy timer does not start a break while the setup runs
+    port.advance(15_000) // the min-busy timer does not start a break while the setup runs
     await tick()
     expect(port.count('/join')).toBe(0)
     expect(port.toasts).toEqual([])
