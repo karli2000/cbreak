@@ -133,11 +133,11 @@ describe('Controller break lifecycle', () => {
 
     c.turnComplete(false)
     c.input('half a thought')
+    expect(lastLine(c)).toBe(COPY.draftKept)
     port.advance(15_000)
     await tick()
     expect(chat(c).countdown).toBeNull()
-    expect(lastLine(c)).toBe(COPY.draftKept)
-    expect(port.count('/leave')).toBe(0)
+    expect(port.count('/leave')).toBe(1)
   })
 
   test('narrow terminal shows the hint', async () => {
@@ -275,30 +275,52 @@ describe('Controller break lifecycle', () => {
     expect(port.spawns).toBe(1)
   })
 
-  test('draft holds the grace period', async () => {
+  test('unsent text does not hold the room: it closes after grace and the text is back at the next break', async () => {
     const { port, c } = await inBreak()
     c.input('typing')
     c.turnComplete(false)
-    port.advance(15_000)
-    await tick()
-    expect(port.count('/leave')).toBe(0)
-    expect(texts(c)).toContain(COPY.draftKept)
-    port.advance(30_000)
+    expect(lastLine(c)).toBe(COPY.draftKept)
+    c.input('typing more')
     expect(texts(c).filter((t) => t === COPY.draftKept)).toHaveLength(1)
-    c.input('')
+    port.advance(15_000)
     await tick()
     expect(port.count('/leave')).toBe(1)
     expect(port.closes).toBe(1)
+
+    // next long turn: the break opens with the text still in the input
+    c.turnStart()
+    port.advance(15_000)
+    await helperUp(port)
+    expect(port.count('/join')).toBe(2)
+    expect(chat(c).draft).toBe('typing more')
+    expect(texts(c)).toContain(COPY.draftBack)
+    await c.submit('typing more')
+    expect(port.calls.at(-1)).toEqual({ path: '/send', body: { body: 'typing more' } })
+    expect(chat(c).draft).toBe('')
   })
 
-  test('sending the kept draft leaves after grace', async () => {
+  test('a break without unsent text shows neither draft line', async () => {
+    const { port, c } = await inBreak()
+    c.turnComplete(false)
+    port.advance(15_000)
+    await tick()
+    expect(texts(c)).not.toContain(COPY.draftKept)
+    c.turnStart()
+    port.advance(15_000)
+    await helperUp(port)
+    expect(texts(c)).not.toContain(COPY.draftBack)
+  })
+
+  test('sending during the grace period, then leaving at its end', async () => {
     const { port, c } = await inBreak()
     c.input('bye all')
     c.turnComplete(false)
-    port.advance(15_000)
+    port.advance(10_000)
     await c.submit('bye all')
+    port.advance(5_000)
     await tick()
     expect(port.paths()).toEqual(['/join', '/send', '/leave'])
+    expect(chat(c).draft).toBe('')
   })
 
   test('refused close is retried on next prompt', async () => {

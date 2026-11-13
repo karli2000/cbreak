@@ -1,7 +1,7 @@
 {
   "name": "cbreak",
   "displayName": "cbreak",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "cbreak: chat with other people in a shared room while Claude works on your task",
   "author": { "name": "Max Kossatz", "url": "https://github.com/karli2000" },
   "homepage": "https://github.com/karli2000/cbreak#readme",

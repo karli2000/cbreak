@@ -162,6 +162,7 @@ export class Controller {
       case 'break':
         this.phase = 'grace'
         this.addLine(COPY.done)
+        this.noteDraftKept()
         this.graceTimer = this.port.after(this.settings.graceSec * 1000, () => {
           this.graceTimer = null
           this.stopCountdown()
@@ -211,6 +212,7 @@ export class Controller {
     if (this.setup.showing()) return this.setup.input(value)
     const before = this.suggestionKey()
     this.draft = value
+    if (this.phase === 'grace' && this.noteDraftKept()) this.port.redraw()
     // the Input shows what is typed by itself; a redraw only when the emoji box changes
     if (this.suggestionKey() !== before) this.port.redraw()
     if (!value.trim()) this.checkGrace()
@@ -380,6 +382,8 @@ export class Controller {
     this.seats.set(res.data.room, res.data.instance)
     this.phase = 'break'
     this.lines = this.lines.filter((l) => !(l.kind === 'system' && l.text === COPY.joining))
+    // text left unsent when the last break closed is still in the input
+    if (this.draft.trim()) this.addLine(COPY.draftBack)
     this.setup.dismiss()
     this.port.redraw()
     if (!this.manual && !this.settings.autoOpen && !this.paneOpen) return this.port.status(COPY.statusHint(this.here()))
@@ -449,17 +453,21 @@ export class Controller {
     return this.lifecycle
   }
 
+  /**
+   * The room closes when the grace period ends, unsent text or not (0.3.7, owner): the draft stays
+   * in the Controller and is back in the input at the next break of this session.
+   */
   private checkGrace(): void {
     if (this.phase !== 'grace' || this.busy || !this.graceExpired) return
-    if (this.draft.trim()) {
-      if (!this.draftKeptShown) {
-        this.draftKeptShown = true
-        this.addLine(COPY.draftKept)
-        this.port.redraw()
-      }
-      return
-    }
     void this.end('idle', { leave: true, close: true })
+  }
+
+  /** During the grace period, once: unsent text is kept for the next break. True when it added the line. */
+  private noteDraftKept(): boolean {
+    if (this.draftKeptShown || !this.draft.trim()) return false
+    this.draftKeptShown = true
+    this.addLine(COPY.draftKept)
+    return true
   }
 
   private async saveSettings(s: Settings): Promise<boolean> {
