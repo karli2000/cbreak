@@ -4,7 +4,7 @@ Coffee Break is a friends-only beta: the repo is public, but sign-up is invite-o
 
 ## Pre-publication checklist
 
-1. `bunx supabase db push --remote` (migration 20261113000100, the invite gate; `invite_only` starts on).
+1. `bunx supabase db push --remote` (migrations 20261113000100, the invite gate with `invite_only` on from the start, and 20261113000200, multi-session; both go out in this one push, and it must happen before plugin 0.2.1 is used).
 2. `bun run site:deploy` (the invites UI and the CSP change reach production only after this).
 3. You need no invite yourself: the gate only applies to a first `claim_nickname` and you already have a profile.
 4. **Decide about the commit-author email.** Every commit is authored with your personal email (the address in your git config), and a public repo exposes it. Options: accept it; rewrite history to a GitHub noreply address with `git filter-repo --mailmap` and force-push `main` (destructive, you run it); or use a noreply address for future commits only (`git config user.email`). A rewrite must also pass `--replace-text` (a file with the address `==>` the noreply address): earlier versions of `docs/beta.md`, `CLAUDE.md` and the Plan 4 plan spelled the address out, and `--mailmap` only changes author and committer fields, not file contents.
@@ -59,6 +59,8 @@ Check the current limits on Supabase's pricing page before a bigger invite wave.
 3. `bun run helper:bundle` (a test fails if the committed `plugin/dist/coffeebreakd.js` is stale).
 4. `bun run validate:all`, commit, push.
 5. Friends run `claude plugin marketplace update coffeebreak`, then `claude plugin update coffeebreak@coffeebreak`, and restart Claude Code.
+
+**Order matters:** backend migrations go out with `bunx supabase db push --remote` BEFORE you push a plugin version that needs them. Installed plugins update from GitHub `main`, so a 0.2.1 helper against the old database gets "function not found" from `join_room` and every break start fails.
 
 Backend changes: `bunx supabase db push --remote` (and `functions deploy` when an Edge Function changed). Site changes: `bun run site:deploy`.
 

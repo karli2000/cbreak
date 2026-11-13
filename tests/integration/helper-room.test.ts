@@ -340,3 +340,12 @@ test("a second helper of the same account survives the first one leaving", async
   await hB.stop();
   await hC.stop();
 });
+
+test("old helper path: join_room, heartbeat and leave_room without session_id work", async () => {
+  const u = await userClient("oldh");
+  await check(u.rpc("join_room", { room_slug: testRoom }), "join");
+  await check(u.rpc("heartbeat"), "heartbeat");
+  expect(await occupancyOf(u.userId)).toHaveLength(1);
+  await check(u.rpc("leave_room"), "leave");
+  expect(await occupancyOf(u.userId)).toEqual([]);
+});

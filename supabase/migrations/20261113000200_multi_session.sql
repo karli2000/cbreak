@@ -120,6 +120,7 @@ begin
   end if;
 
   update public.occupancy set last_seen = now() where user_id = uid;
+  if not found then raise exception 'not_in_room'; end if;
   if session_id is not null then
     insert into public.occupancy_sessions (user_id, session_id, last_seen)
     values (uid, heartbeat.session_id, now())

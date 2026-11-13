@@ -3,7 +3,7 @@
 A Claude Code plugin that drops users into a shared group chat room while Claude is busy on their task, and takes them out when it's done. This repo holds the Supabase backend (built), plus later the helper `coffeebreakd`, the Claude Code mod/plugin, and a static moderator site.
 
 - Design spec (the authority): `docs/superpowers/specs/2026-11-11-coffeebreak-design.md`
-- Current plan: `docs/superpowers/plans/2026-11-13-coffeebreak-04-packaging-and-beta.md` (Plan 4). Done: Plan 1 (`…-01-spikes-and-backend.md`), Plan 2 (`…-02-helper-and-mod.md`), Plan 3 (`…-03-moderator-site.md`, deployed).
+- Current plan: `docs/superpowers/plans/2026-11-13-coffeebreak-05-multi-session.md` (Plan 5). Done: Plan 1 (`…-01-spikes-and-backend.md`), Plan 2 (`…-02-helper-and-mod.md`), Plan 3 (`…-03-moderator-site.md`, deployed), Plan 4 (`…-04-packaging-and-beta.md`).
 - Roadmap: Plan 2 = helper + Claude Code mod (after spikes S1/S3), Plan 3 = static moderator site (Cloudflare R2/Pages), Plan 4 = packaging + friends beta.
 
 ## Commands
@@ -139,7 +139,7 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 - `not_in_room` from `heartbeat`/`send_message` → call `join_room` again and switch to its topic. `join_room` may move you to another instance, so don't call it on mere reconnects; re-subscribe to the topic `heartbeat` returns instead.
 - `room_closed` → leave the room.
 - `kicked` → act only if `payload.user_id` is yours, then read the reason via `my_profile()` (`ban_reason`).
-- Break end: `leave_room()`.
+- Break end: `leave_room(session_id)` (null = old behaviour).
 - Several sessions (Plan 5): the helper sends one per-process `session_id` (`crypto.randomUUID()`) with `join_room`, `heartbeat` and `leave_room`. Sessions of one account share one occupancy row (one room per user: a session joining another room moves the shared row, the others follow via the heartbeat topic). The row is removed when the last live session leaves.
 - Presence is advisory. Names come from `public_profiles`, "N here" from `room_counts()`.
 
@@ -245,7 +245,7 @@ Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 - Marketplace: `.claude-plugin/marketplace.json` (name `coffeebreak`, one plugin, `source: ./plugin`). Install: `claude plugin marketplace add karli2000/coffeebreak` then `claude plugin install coffeebreak@coffeebreak`; local test: `marketplace add ./`. Manifest: `plugin/.claude-plugin/plugin.json` (`displayName` Coffee Break, version 0.2.1, MIT, no icon).
 - Skill: `plugin/skills/coffee/SKILL.md` (help: commands, Bun, invite-only, privacy, issues). The README's `## Privacy` reuses the skill's `## Privacy` paragraph verbatim (the rules copy links to `#privacy`, keep the heading).
 - `bun run validate:all` validates marketplace and plugin. The only accepted warning is ICON_MISSING (no icon by plan decision); README_TRIVIAL is gone since the README rewrite.
-- Release: bump `version` in `plugin/.claude-plugin/plugin.json`, (currently 0.2.1) `bun run helper:bundle`, commit, push.
+- Release: bump `version` in `plugin/.claude-plugin/plugin.json` (currently 0.2.1), run `bun run helper:bundle`, commit, push.
 
 ## Publication (Plan 4, Task 5)
 
