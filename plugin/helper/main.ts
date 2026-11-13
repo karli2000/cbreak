@@ -46,6 +46,7 @@ persistRefreshes(client, store)
 
 const idleIntervalMs = Math.max(50, Math.min(1000, idleExitMs / 4))
 const idleWatch = new IdleWatch({ idleExitMs, intervalMs: idleIntervalMs })
+const sessionId = crypto.randomUUID()
 const ctx: Ctx = {
   client,
   store,
@@ -54,6 +55,7 @@ const ctx: Ctx = {
   touch: () => idleWatch.touch(),
   marginS,
   signedIn: false,
+  sessionId,
 }
 
 for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) process.on(sig, () => void shutdown(sig))
@@ -130,7 +132,7 @@ shutdown = async (_reason: string) => {
     const session = await peekSession(client)
     if (session && usableWithoutRefresh(session)) {
       // RoomSession.leave = leave_room + remove the channel; never throws
-      const leaving = ctx.room ? ctx.room.leave() : rpc(client, 'leave_room').catch(() => {})
+      const leaving = ctx.room ? ctx.room.leave() : rpc(client, 'leave_room', { session_id: sessionId }).catch(() => {})
       await Promise.race([leaving, Bun.sleep(3000)])
     } else {
       // a token close to expiry would make supabase-js refresh outside the lock, and an exit in the

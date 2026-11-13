@@ -304,3 +304,39 @@ test("leave removes occupancy", async () => {
   expect(await h.call("/status")).toMatchObject({ ok: true, data: { room: null } });
   await h.stop();
 });
+
+test("a second helper of the same account survives the first one leaving", async () => {
+  const a = await agedUser("rsid1");
+  const c = await agedUser("rsid2");
+  const hA = await helperFor(a);
+  const hB = await helperFor(a, { COFFEEBREAK_TICK_MS: "1000" });
+  const hC = await helperFor(c);
+  const jA = await hA.call("/join", { room: testRoom });
+  const jB = await hB.call("/join", { room: testRoom });
+  const jC = await hC.call("/join", { room: testRoom });
+  expect(jA).toMatchObject({ ok: true, data: { topic: topic1 } });
+  expect(jB).toMatchObject({ ok: true, data: { topic: topic1 } });
+  expect(jC).toMatchObject({ ok: true });
+  await hB.waitFor("joined");
+  await hB.waitFor("backlog");
+  await hC.waitFor("joined");
+  await hC.waitFor("backlog");
+  await Bun.sleep(1500); // let presence settle (events may precede the backlog)
+  const joinedBefore = hB.events.filter((e) => e.type === "joined").length;
+  const { data: prof } = await check(adminClient().from("profiles").select("nickname").eq("id", a.userId).single(), "nick");
+  const nickname = (prof as { nickname: string }).nickname;
+
+  expect(await hA.call("/leave")).toEqual({ ok: true, data: {} });
+  expect(await occupancyOf(a.userId)).toHaveLength(1);
+  await Bun.sleep(3000);
+  expect(hB.events.filter((e) => e.type === "joined")).toHaveLength(joinedBefore);
+  expect(await hB.call("/send", { body: "still here" })).toMatchObject({ ok: true });
+  const leftA = hC.events.filter((e) => e.type === "presence" && e.left.includes(nickname));
+  expect(leftA).toEqual([]);
+
+  expect(await hB.call("/leave")).toEqual({ ok: true, data: {} });
+  expect(await occupancyOf(a.userId)).toEqual([]);
+  await hA.stop();
+  await hB.stop();
+  await hC.stop();
+});

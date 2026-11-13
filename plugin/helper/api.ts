@@ -18,6 +18,8 @@ export type Ctx = {
   marginS: number
   /** Whether a session was present at the last check; route handlers that sign out reset it. */
   signedIn: boolean
+  /** Random per helper process; sent with every join_room, heartbeat and leave_room. */
+  sessionId: string
   /** The login in flight, if any; a second /login returns its URL. */
   login?: Promise<{ url: string }> | null
 }
@@ -102,6 +104,7 @@ async function roomOf(ctx: Ctx): Promise<RoomSession> {
   ctx.room = new RoomSession({
     client: ctx.client,
     emit: ctx.emit,
+    sessionId: ctx.sessionId,
     userId: session.user.id,
     cache: new NicknameCache(ctx.client),
     fresh: () => ensureFreshSession(ctx.client, ctx.store, ctx.marginS),
@@ -147,7 +150,7 @@ export const routes: Routes = {
   '/join': async (ctx, { room }) => (await roomOf(ctx)).join(room),
   '/leave': async (ctx) => {
     if (ctx.room) await ctx.room.leave()
-    else await rpc(ctx.client, 'leave_room').catch(() => {})
+    else await rpc(ctx.client, 'leave_room', { session_id: ctx.sessionId }).catch(() => {})
     return {}
   },
   '/send': async (ctx, { body }) => (await roomOf(ctx)).send(body),

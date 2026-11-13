@@ -70,7 +70,7 @@ const flush = async () => {
 async function joined() {
   const f = fakeClient()
   const events: HelperEvent[] = []
-  const room = new RoomSession({ client: f.client, emit: (e) => events.push(e), userId: 'me', cache: new NicknameCache(f.client) })
+  const room = new RoomSession({ client: f.client, emit: (e) => events.push(e), userId: 'me', cache: new NicknameCache(f.client), sessionId: 's' })
   await room.join('r')
   f.queries.length = 0 // backlog lookups
   const presence = () => events.filter((e) => e.type === 'presence')

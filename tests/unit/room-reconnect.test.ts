@@ -46,7 +46,7 @@ function fakeClient(statuses: string[], rpcs: Record<string, () => { data?: unkn
 
 function session(client: SupabaseClient) {
   const events: HelperEvent[] = []
-  const room = new RoomSession({ client, emit: (e) => events.push(e), userId: 'me', cache: new NicknameCache(client) })
+  const room = new RoomSession({ client, emit: (e) => events.push(e), userId: 'me', cache: new NicknameCache(client), sessionId: 's' })
   return { room, events }
 }
 
@@ -259,6 +259,7 @@ test('helper-initiated calls (heartbeat, kicked my_profile) refresh the session 
     emit: () => {},
     userId: 'me',
     cache: new NicknameCache(client),
+    sessionId: 's',
     fresh: async () => void calls.push('fresh'),
   })
   await room.join('r')
@@ -274,6 +275,7 @@ test('a failing refresh does not stop the call', async () => {
     emit: () => {},
     userId: 'me',
     cache: new NicknameCache(client),
+    sessionId: 's',
     fresh: async () => {
       throw new Error('network')
     },

@@ -15,7 +15,7 @@ const store = {
     throw new CoffeeError('network')
   },
 } as unknown as AuthStore
-const ctx: Ctx = { client, store, emit: () => {}, room: null, touch: () => {}, marginS: 120, signedIn: true }
+const ctx: Ctx = { client, store, emit: () => {}, room: null, touch: () => {}, marginS: 120, signedIn: true, sessionId: 's' }
 const post = (path: string) => createFetchHandler(ctx, routes)(new Request('http://x' + path, { method: 'POST', body: '{}' }))
 
 test('/ping returns {} even when the session refresh fails with network', async () => {

@@ -54,6 +54,8 @@ type Deps = {
   cache: NicknameCache
   /** Refreshes the session under the store lock (ensureFreshSession); run before calls the helper makes on its own. */
   fresh?: () => Promise<unknown>
+  /** This helper process's id; lets several sessions of one account share a room. */
+  sessionId: string
 }
 
 export class RoomSession {
@@ -62,6 +64,7 @@ export class RoomSession {
   readonly userId: string
   private cache: NicknameCache
   private freshFn: (() => Promise<unknown>) | undefined
+  private sessionId: string
 
   private info: JoinInfo | null = null
   private channel: RealtimeChannel | null = null
@@ -85,6 +88,7 @@ export class RoomSession {
     this.userId = deps.userId
     this.cache = deps.cache
     this.freshFn = deps.fresh
+    this.sessionId = deps.sessionId
   }
 
   current(): JoinInfo | null {
@@ -93,7 +97,7 @@ export class RoomSession {
 
   /** join_room, then subscribe to the instance's channel; emits `joined`, then `backlog`. */
   async join(room: string): Promise<JoinInfo> {
-    const info = await rpc<JoinInfo>(this.client, 'join_room', { room_slug: room })
+    const info = await rpc<JoinInfo>(this.client, 'join_room', { room_slug: room, session_id: this.sessionId })
     await this.attach(info)
     return info
   }
@@ -106,7 +110,7 @@ export class RoomSession {
     let hb: JoinInfo
     try {
       await this.freshen()
-      hb = await rpc<JoinInfo>(this.client, 'heartbeat')
+      hb = await rpc<JoinInfo>(this.client, 'heartbeat', { session_id: this.sessionId })
     } catch (e) {
       if (gen !== this.roomGen) return
       const code = codeOf(e)
@@ -127,7 +131,7 @@ export class RoomSession {
   /** Never throws: leave_room errors are ignored. */
   async leave(): Promise<void> {
     this.drop()
-    await rpc(this.client, 'leave_room').catch(() => {})
+    await rpc(this.client, 'leave_room', { session_id: this.sessionId }).catch(() => {})
   }
 
   /** Forgets the room locally (channel, retries, `current()`) without calling the backend. */
