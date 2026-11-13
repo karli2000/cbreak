@@ -271,10 +271,10 @@ A full review (database, helper, mod, site, edge function, homepage, CI) found n
 
 ## Packaging (Plan 4, Task 4)
 
-- Marketplace: `.claude-plugin/marketplace.json` (name `cbreak`, one plugin, `source: ./plugin`). Install: `claude plugin marketplace add karli2000/cbreak` then `claude plugin install cbreak@cbreak`; local test: `marketplace add ./`. Manifest: `plugin/.claude-plugin/plugin.json` (`displayName` cbreak, version 0.3.7, MIT, icon `plugin/.claude-plugin/icon.png`).
+- Marketplace: `.claude-plugin/marketplace.json` (name `cbreak`, one plugin, `source: ./plugin`). Install: `claude plugin marketplace add karli2000/cbreak` then `claude plugin install cbreak@cbreak`; local test: `marketplace add ./`. Manifest: `plugin/.claude-plugin/plugin.json` (`displayName` cbreak, version 0.3.8, homepage `https://cbreak.dev`, MIT, icon `plugin/.claude-plugin/icon.png`).
 - Skill: `plugin/skills/cbreak-help/SKILL.md` (name `cbreak-help`; help: commands, Bun, privacy, issues). Never name a skill like the command (`cbreak`): a skill named like the mod's command takes the name over (the help skill was named `coffee` in 0.2.0-0.2.3, so `/coffee setup` opened it instead of the command; fixed in 0.2.4; `tests/unit/skill-names.test.ts`). The README's `## Privacy` reuses the skill's `## Privacy` paragraph verbatim (the rules copy links to `#privacy`, keep the heading).
 - `bun run validate:all` validates marketplace and plugin. No plugin-directory warnings since 0.3.1 (ICON_MISSING is gone with `plugin/.claude-plugin/icon.png`); the remaining "with warnings" are the TS5097 import-path notes the validator prints for every mod file.
-- Release: bump `version` in `plugin/.claude-plugin/plugin.json` (currently 0.3.7), run `bun run helper:bundle` when the helper changed, commit on a branch and merge it through a pull request (`main` is PR-only).
+- Release: bump `version` in `plugin/.claude-plugin/plugin.json` (currently 0.3.8), run `bun run helper:bundle` when the helper changed, commit on a branch and merge it through a pull request (`main` is PR-only).
 
 ## Publication (Plan 4, Task 5)
 
