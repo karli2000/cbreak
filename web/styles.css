@@ -101,7 +101,6 @@ p { max-width: var(--measure); }
 .code code { background: none; padding: 0; color: var(--cream); font-size: 15px; line-height: 1.7; }
 .copy { position: absolute; top: 12px; right: 12px; min-height: 40px; min-width: 76px; padding: 0 14px; border-radius: 999px; border: 2px solid rgba(246, 239, 230, 0.35); background: transparent; color: var(--cream); font: 600 14px var(--mono); cursor: pointer; }
 .copy:hover { border-color: var(--cream); }
-.install .aside { margin-top: 28px; font-size: 15px; color: var(--roast); }
 
 .facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 56px; }
 .facts h2 { font-size: clamp(24px, 2.6vw, 30px); margin-bottom: 18px; }

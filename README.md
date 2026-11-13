@@ -29,13 +29,6 @@ claude plugin install cbreak@cbreak
 
 Restart Claude Code, then run `/cbreak setup` to sign in with GitHub, pick a nickname and accept the room rules.
 
-**Coming from Coffee Break?** cbreak was called Coffee Break until version 0.3.0. Remove the old plugin first, then install as above; your login carries over (the helper moves `~/.config/coffeebreak` to `~/.config/cbreak`), your `/cbreak config` settings start from the defaults:
-
-```sh
-claude plugin uninstall coffeebreak@coffeebreak
-claude plugin marketplace remove coffeebreak
-```
-
 ## How it works
 
 When Claude has been busy for 20 seconds, cbreak opens the chat room in a side pane. Everyone in the room is also waiting on Claude. When Claude finishes, the room stays open for a 15 second grace period and then closes, so you are back at your task. If you are still typing a message, it holds the room until you send or clear it.
