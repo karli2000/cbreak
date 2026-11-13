@@ -5,7 +5,7 @@
 import type { Api, ApiPath, ApiResult, AuthState, ChatMessage, HelperEvent, JoinInfo } from '../../shared/protocol.ts'
 import { parseCoffeeArgs, parsePaneInput, type PaneCommand } from './commands.ts'
 import { COPY, errorText } from './copy.ts'
-import { emojify } from './emoji.ts'
+import { applySuggestion, emojiSuggest, emojify, type EmojiSuggestion } from './emoji.ts'
 import { isAction, nickColor, segments } from './format.ts'
 import type { Line, PaneView, Port, Timer } from './port.ts'
 import { DEFAULTS, type Settings } from './settings.ts'
@@ -209,8 +209,25 @@ export class Controller {
 
   input(value: string): void {
     if (this.setup.showing()) return this.setup.input(value)
+    const before = this.suggestionKey()
     this.draft = value
+    // the Input shows what is typed by itself; a redraw only when the emoji box changes
+    if (this.suggestionKey() !== before) this.port.redraw()
     if (!value.trim()) this.checkGrace()
+  }
+
+  /** An emoji row was picked (Enter or a click): its emoji replaces the `:token` (register.ts refocuses the input). */
+  pickSuggestion(name: string): void {
+    const s = this.suggestions().find((x) => x.name === name)
+    if (s) this.takeSuggestion(s)
+  }
+
+  /** Tab in the input while the emoji box shows: the best row is taken. False when there is none. */
+  acceptSuggestion(): boolean {
+    const s = this.suggestions()[0]
+    if (!s) return false
+    this.takeSuggestion(s)
+    return true
   }
 
   async submit(value: string): Promise<void> {
@@ -256,6 +273,7 @@ export class Controller {
       draft: this.draft,
       inputEnabled: this.inRoom() && !!this.helper?.socket,
       countdown: this.graceLeft === null ? null : COPY.closingIn(this.graceLeft),
+      suggestions: this.suggestions(),
     }
   }
 
@@ -785,6 +803,24 @@ export class Controller {
   private pushLine(l: Line): void {
     this.lines.push(l)
     if (this.lines.length > MAX_LINES) this.lines.splice(0, this.lines.length - MAX_LINES)
+  }
+
+  /** The emoji box for the draft: chat mode with the `emoji` setting on only. */
+  private suggestions(): EmojiSuggestion[] {
+    return this.settings.emoji && !this.setup.showing() ? emojiSuggest(this.draft) : []
+  }
+
+  private suggestionKey(): string {
+    return this.suggestions()
+      .map((s) => s.name)
+      .join(' ')
+  }
+
+  private takeSuggestion(s: EmojiSuggestion): void {
+    const next = applySuggestion(this.draft, s)
+    if (next === null) return
+    this.draft = next
+    this.port.redraw()
   }
 
   private clearDraft(submitted: string): void {

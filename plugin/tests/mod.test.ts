@@ -3,6 +3,7 @@
 // the panes, the store and the clock.
 import { expect, mock, test, type Engine } from 'claude-code/testing'
 import type { AgentInfo, HttpInit, On, PaneOpenArgs, ProcessSpawnChunk, ProcessSpawnRequest } from 'claude-code'
+import { isTabFromInput } from '../hooks/pane.ts'
 
 const PLUGIN = 'cbreak'
 const SECRET = 'SECRET-PROMPT-1234'
@@ -303,6 +304,56 @@ test('a sent message carries emoji', async ($, on) => {
   const send = w.fetches.find((f) => new URL(f.url).pathname === '/send')
   expect(JSON.parse(String(send?.init?.body))).toEqual({ body: 'hey ❤️' })
   await ui.unmount()
+})
+
+test('typing :token shows the emoji box above the input; a pressed row fills the input', async ($, on) => {
+  const w = world(on)
+  await startSession($)
+  await $.turn.start({ text: 'long task', turnId: 't1' })
+  await w.clock.advance(20_000)
+  helperJoins(w)
+  await w.clock.settle()
+  const ui = await $.ui.mount({
+    plugin: PLUGIN,
+    surface: 'terminal',
+    component: 'Pane',
+    requestId: 'cbreak',
+    props: {
+      title: '☕ lobby · 2 here',
+      isFocused: true,
+      bodyColumns: 80,
+      placement: 'inline',
+      scroll: { offset: 0, bodyRows: 20 },
+      view: {},
+    },
+  })
+  expect(await ui.find({ type: 'Button', key: 'emoji:smile' })).toBeUndefined()
+  await ui.input({ key: 'say', text: 'hi :smi', kind: 'change' })
+  await w.clock.settle()
+  const rows = await ui.findAll({ type: 'Button' })
+  // best match drawn last, right above the input, so Up reaches it first
+  expect(rows.map((r) => r.props.key)).toEqual(['emoji:smirk_cat', 'emoji:smile_cat', 'emoji:smiley', 'emoji:smirk', 'emoji:smile'])
+  expect(rows.at(-1)?.props).toMatchObject({ label: '😄  :smile:', plain: true, dimColor: true })
+  await ui.press({ key: 'emoji:smirk' })
+  await w.clock.settle()
+  expect((await ui.find({ type: 'Input', key: 'say' }))?.props.value).toBe('hi 😏 ')
+  expect(await ui.find({ type: 'Button', key: 'emoji:smile' })).toBeUndefined()
+  // the press also hands the focus back to the input ($.ui.focus): the kit answers no plugin-raised
+  // ui.focus, so that part was checked in a real terminal (spikes/FINDINGS.md S4)
+  await ui.input({ key: 'say', text: 'hi 😏 yo' })
+  await w.clock.settle()
+  const send = w.fetches.find((f) => new URL(f.url).pathname === '/send')
+  expect(JSON.parse(String(send?.init?.body))).toEqual({ body: 'hi 😏 yo' })
+  await ui.unmount()
+})
+
+test('only the person\'s Tab out of the chat input takes the best emoji row', async () => {
+  const person = { kind: 'person' }
+  expect(isTabFromInput('say', { origin: person })).toBe(true)
+  expect(isTabFromInput('say', { element: 'emoji:smile', origin: person })).toBe(false) // Up / Shift+Tab onto a row
+  expect(isTabFromInput('emoji:smile', { origin: person })).toBe(false)
+  expect(isTabFromInput(undefined, { origin: person })).toBe(false)
+  expect(isTabFromInput('say', { origin: { kind: 'plugin' } })).toBe(false)
 })
 
 test('the helper runs from the committed bundle with bun on PATH', async ($, on) => {

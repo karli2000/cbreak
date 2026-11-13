@@ -1,6 +1,7 @@
 // The Controller's view of the world: every side effect goes through `Port`, and the pane is
 // drawn from a plain `PaneView`. Types only (runs in the mod environment).
 import type { Api, ApiPath, ApiResult, HelperEvent, Role } from '../../shared/protocol.ts'
+import type { EmojiSuggestion } from './emoji.ts'
 import type { Segment } from './format.ts'
 import type { Settings } from './settings.ts'
 
@@ -35,6 +36,18 @@ export type Line =
   | { kind: 'system'; text: string }
 
 export type PaneView =
-  /** `countdown`: drawn at the right of the input while the grace period runs (`closes in N s`), else null. */
-  | { mode: 'chat'; header: string; busy: boolean; lines: Line[]; draft: string; inputEnabled: boolean; countdown: string | null }
+  /**
+   * `countdown`: drawn at the right of the input while the grace period runs (`closes in N s`), else null.
+   * `suggestions`: the emoji box for a draft ending in `:token`, best first (empty: no box).
+   */
+  | {
+      mode: 'chat'
+      header: string
+      busy: boolean
+      lines: Line[]
+      draft: string
+      inputEnabled: boolean
+      countdown: string | null
+      suggestions: EmojiSuggestion[]
+    }
   | { mode: 'setup'; lines: string[]; draft: string; placeholder: string }

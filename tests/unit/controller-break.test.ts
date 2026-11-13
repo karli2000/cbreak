@@ -659,6 +659,54 @@ describe('Controller chat', () => {
     expect(port.calls.at(-1)).toEqual({ path: '/send', body: { body: 'hi :)' } })
   })
 
+  test('a draft ending in :token shows the emoji box; a redraw only when the box changes', async () => {
+    const { port, c } = await inBreak()
+    expect(chat(c).suggestions).toEqual([])
+    const r0 = port.redraws
+    c.input('hi')
+    expect(port.redraws).toBe(r0)
+    c.input('hi :smi')
+    expect(chat(c).suggestions.map((s) => s.name)).toEqual(['smile', 'smirk', 'smiley', 'smile_cat', 'smirk_cat'])
+    expect(port.redraws).toBe(r0 + 1)
+    c.input('hi :smile_')
+    const r1 = port.redraws
+    c.input('hi :smile_c')
+    expect(port.redraws).toBe(r1)
+    c.input('hi :smile_c ')
+    expect(chat(c).suggestions).toEqual([])
+    expect(port.redraws).toBe(r1 + 1)
+  })
+
+  test('picking a row replaces the :token', async () => {
+    const { c } = await inBreak()
+    c.input('hi :smi')
+    c.pickSuggestion('smirk')
+    expect(chat(c).draft).toBe('hi 😏 ')
+    expect(chat(c).suggestions).toEqual([])
+    // a row from a box that is gone (the draft moved on) changes nothing
+    c.input('hi 😏 ok')
+    c.pickSuggestion('smile')
+    expect(chat(c).draft).toBe('hi 😏 ok')
+  })
+
+  test('Tab takes the best row; without a box it is not ours', async () => {
+    const { port, c } = await inBreak()
+    expect(c.acceptSuggestion()).toBe(false)
+    c.input(':tad')
+    expect(c.acceptSuggestion()).toBe(true)
+    expect(chat(c).draft).toBe('🎉 ')
+    await c.submit(chat(c).draft + 'yay')
+    expect(port.calls.at(-1)).toEqual({ path: '/send', body: { body: '🎉 yay' } })
+  })
+
+  test('emoji off: no box', async () => {
+    const { c } = await inBreak()
+    await c.command('config emoji off')
+    c.input(':smi')
+    expect(chat(c).suggestions).toEqual([])
+    expect(c.acceptSuggestion()).toBe(false)
+  })
+
   test('report reason is not converted', async () => {
     const { port, c } = await inBreak()
     await c.submit('/report lena spam :)')
