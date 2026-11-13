@@ -24,6 +24,29 @@ Beta operations (inviting friends, shipping updates, pre-publication checklist):
    ```
 7. GitHub login set up by the owner, then verified with spike S3. The owner's profile `karli2000` was set to `admin`.
 
+## Automatic deploys (GitHub Actions)
+
+Merging a pull request into `main` deploys what it changed. Each workflow in `.github/workflows/` runs only when its paths changed, and can also be started by hand (Actions → the workflow → Run workflow):
+
+| Workflow | Runs when a merge changes | Does |
+|---|---|---|
+| `deploy-database.yml` | `supabase/migrations/**` | Starts a local stack, runs `bun run db:test` (pgTAP), and only if that passes: `supabase db push --remote=meioekkvutvrspfvqgye --skip-vault` (dry run first, so the log lists the migrations). |
+| `deploy-functions.yml` | `supabase/functions/**` | `supabase functions deploy github-age --use-api` (bundled server-side, no Docker). Its `GITHUB_TOKEN` secret stays in the dashboard. |
+| `deploy-mod-site.yml` | `site/**` and the two files the site imports from outside it (`plugin/hooks/lib/format.ts`, `plugin/shared/backend.ts`) | The site's headers test, then `bun run site:deploy` (Pages project `coffeebreak-mod`, mod.cbreak.dev). |
+| `deploy-homepage.yml` | `web/**` | `tests/unit/web.test.ts`, then `bun run web:deploy` (Pages project `cbreak-web`, cbreak.dev). |
+
+None of them ever runs `supabase config push`. Each deploy job runs in the GitHub environment `production` (created on the first run; add required reviewers there if you ever want to approve deploys by hand) and stops with an error naming the missing secret when one is not set. Actions are pinned to commit SHAs; `tests/unit/workflows.test.ts` checks the pins, the paths (including every file the site imports from outside `site/`), the project ref and the commands.
+
+Repository secrets (GitHub → Settings → Secrets and variables → Actions → New repository secret; or `gh secret set <NAME>` in your own terminal, which prompts for the value; never paste a secret into a chat):
+
+- `SUPABASE_ACCESS_TOKEN`: a personal access token from https://supabase.com/dashboard/account/tokens. If the dashboard lets you scope it, limit it to the project `coffeebreak` with the permissions the CLI lists for these commands: `database_write`, `database_pooling_config_read`, `projects_read`, `branching_production_read`, `edge_functions_write`, `edge_functions_read`. No database password is needed: without one the CLI signs in through a temporary login role (`Initialising login role...`).
+- `CLOUDFLARE_API_TOKEN`: Cloudflare dashboard → My Profile → API Tokens → Create Token → Custom token with **Account → Cloudflare Pages → Edit** for your account.
+- `CLOUDFLARE_ACCOUNT_ID`: shown by `bunx wrangler@4.161.0 whoami`, or in the dashboard's account overview.
+
+Order: a migration reaches production a few minutes after the merge (the pgTAP job runs first), while a plugin change in the same merge is on `main` at once. When a new helper needs a new database function, merge the migration in its own pull request first and wait for the green deploy, then merge the plugin change.
+
+The pages project `cbreak-web` must exist before the first homepage deploy (`bunx wrangler@4.161.0 pages project create cbreak-web --production-branch main`, once). The manual commands below still work, for example to redeploy without a merge.
+
 ## Auth configuration (dashboard, set by the owner)
 
 - **GitHub provider:** enabled. It's a GitHub **App** (Client ID `Iv23li…`) with callback `https://meioekkvutvrspfvqgye.supabase.co/auth/v1/callback` and **Account permissions → Email addresses: Read-only**.
