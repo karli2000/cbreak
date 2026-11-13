@@ -210,6 +210,37 @@ test('pane draws messages and the input', async ($, on) => {
   expect(mention?.props).toMatchObject({ bold: true, inverse: true })
   const input = await ui.find({ type: 'Input', key: 'say' })
   expect(input?.props.placeholder).toBe('say something')
+  expect(input?.props.autoFocus).toBe(true)
+  expect(await ui.find({ type: 'Text', text: 'closes in 15 s' })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('after the turn the pane shows the countdown beside the input', async ($, on) => {
+  const w = world(on)
+  await startSession($)
+  await $.turn.start({ text: 'long task', turnId: 't1' })
+  await w.clock.advance(25_000)
+  helperJoins(w)
+  await w.clock.settle()
+  await $.turn.complete({ turnId: 't1', isAborted: false, answer: '', durationMs: 25_000, reason: 'answer' })
+  await w.clock.settle()
+  const ui = await $.ui.mount({
+    plugin: PLUGIN,
+    surface: 'terminal',
+    component: 'Pane',
+    requestId: 'coffee',
+    props: {
+      title: '☕ lobby · 2 here',
+      isFocused: false,
+      bodyColumns: 80,
+      placement: 'inline',
+      scroll: { offset: 0, bodyRows: 20 },
+      view: {},
+    },
+  })
+  const countdown = await ui.find({ type: 'Text', text: 'closes in 15 s' })
+  expect(countdown?.props.dimColor).toBe(true)
+  expect(await ui.find({ type: 'Input', key: 'say' })).toBeDefined()
   await ui.unmount()
 })
 

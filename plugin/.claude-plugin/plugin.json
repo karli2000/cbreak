@@ -1,7 +1,7 @@
 {
   "name": "coffeebreak",
   "displayName": "Coffee Break",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "description": "Coffee Break: chat with other people in a shared room while Claude works on your task",
   "author": { "name": "Max Kossatz", "url": "https://github.com/karli2000" },
   "homepage": "https://github.com/karli2000/coffeebreak#readme",

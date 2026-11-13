@@ -70,6 +70,9 @@ export class Controller {
   private paneOpen = false
   private pendingTimer: Timer | null = null
   private graceTimer: Timer | null = null
+  /** Seconds left in the grace period, counted down once a second for the pane; null outside it. */
+  private graceLeft: number | null = null
+  private graceTick: Timer | null = null
   private graceExpired = false
   private draftKeptShown = false
   private closePending = false
@@ -145,9 +148,11 @@ export class Controller {
         this.addLine(COPY.done)
         this.graceTimer = this.port.after(this.settings.graceSec * 1000, () => {
           this.graceTimer = null
+          this.stopCountdown()
           this.graceExpired = true
           this.checkGrace()
         })
+        this.startCountdown(this.settings.graceSec)
         this.port.redraw()
         return
       case 'left':
@@ -226,6 +231,7 @@ export class Controller {
       lines: this.lines.slice(),
       draft: this.draft,
       inputEnabled: this.inRoom() && !!this.helper?.socket,
+      countdown: this.graceLeft === null ? null : COPY.closingIn(this.graceLeft),
     }
   }
 
@@ -459,7 +465,29 @@ export class Controller {
     this.pendingTimer = null
   }
 
+  private startCountdown(sec: number): void {
+    this.stopCountdown()
+    if (sec <= 0) return
+    this.graceLeft = sec
+    const step = () => {
+      this.graceTick = null
+      if (this.graceLeft === null) return
+      this.graceLeft--
+      if (this.graceLeft <= 0) return this.stopCountdown()
+      this.graceTick = this.port.after(1_000, step)
+      this.port.redraw()
+    }
+    this.graceTick = this.port.after(1_000, step)
+  }
+
+  private stopCountdown(): void {
+    this.graceTick?.cancel()
+    this.graceTick = null
+    this.graceLeft = null
+  }
+
   private cancelGrace(): void {
+    this.stopCountdown()
     this.graceTimer?.cancel()
     this.graceTimer = null
     this.graceExpired = false
