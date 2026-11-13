@@ -44,7 +44,7 @@ function setup(c: Controller): Extract<PaneView, { mode: 'setup' }> {
   return v
 }
 
-const SETTINGS_LINE = 'Room: lobby · min wait 20 s · grace 15 s · auto-open on · enabled'
+const SETTINGS_LINE = 'Room: lobby · min wait 20 s · grace 15 s · auto-open on · emoji on · enabled'
 
 describe('Controller setup flow', () => {
   test('setup walks sign-in, nickname, rules', async () => {
@@ -338,7 +338,7 @@ describe('Controller /coffee commands', () => {
     expect(port.saved.at(-1)).toMatchObject({ graceSec: 30 })
     expect(await c.command('config min-wait 5')).toBe('Saved.')
     expect(await c.command('config auto-open off')).toBe('Saved.')
-    expect(await c.command('config')).toBe('Room: lobby · min wait 5 s · grace 30 s · auto-open off · enabled')
+    expect(await c.command('config')).toBe('Room: lobby · min wait 5 s · grace 30 s · auto-open off · emoji on · enabled')
   })
 
   test('off during a break leaves', async () => {

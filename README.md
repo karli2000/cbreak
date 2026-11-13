@@ -38,7 +38,7 @@ Rooms hold at most 50 people. A busy room is split into instances, and you are p
 | `/coffee status` | Who you are signed in as, your settings, whether you are on a break. |
 | `/coffee name <nickname>` | Change your nickname (3-20 characters: a-z, 0-9, `_`, `-`; at most once per 30 days after the first change). |
 | `/coffee room <name>` | Choose the room (applies from your next break). |
-| `/coffee config [min-wait <s> \| grace <s> \| auto-open on\|off]` | Show or change settings (wait 0-600 s, grace 0-300 s). |
+| `/coffee config [min-wait <s> \| grace <s> \| auto-open on\|off \| emoji on\|off]` | Show or change settings (wait 0-600 s, grace 0-300 s, emoji conversion on by default). |
 | `/coffee on` / `/coffee off` | Enable or disable Coffee Break. |
 | `/coffee logout` | Sign out. |
 | `/coffee delete-account yes` | Delete your account and data. |
@@ -52,6 +52,8 @@ In the chat pane:
 | `/report <nick> <reason>` | Report a person to the moderators. |
 | `/leave` | Close the pane and leave the room. |
 | `/help` | List the commands. |
+
+Emoji: `:)`, `;)`, `:D`, `<3` and the other usual emoticons, and GitHub shortcodes such as `:heart:`, `:tada:` or `:+1:`, turn into emoji when you send. Emoticons convert only as a word of their own (so links and times stay as typed), text in backticks is never converted, and `/coffee config emoji off` turns it off.
 
 Moderators and admins also have `/del <nick> [reason]` (delete their latest message), `/mute <nick> <10\|60\|1440> <reason>` (minutes) and `/ban <nick> <reason>`.
 

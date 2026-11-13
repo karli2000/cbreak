@@ -521,6 +521,27 @@ describe('Controller chat', () => {
     expect(port.calls.at(-1)).toEqual({ path: '/send', body: { body: '/me waves' } })
   })
 
+  test('send converts emoji', async () => {
+    const { port, c } = await inBreak()
+    await c.submit('hi :) :tada:')
+    expect(port.calls.at(-1)).toEqual({ path: '/send', body: { body: 'hi 🙂 🎉' } })
+    await c.submit('/me waves <3')
+    expect(port.calls.at(-1)).toEqual({ path: '/send', body: { body: '/me waves ❤️' } })
+  })
+
+  test('emoji off sends as typed', async () => {
+    const { port, c } = await inBreak()
+    expect(await c.command('config emoji off')).toBe('Saved.')
+    await c.submit('hi :)')
+    expect(port.calls.at(-1)).toEqual({ path: '/send', body: { body: 'hi :)' } })
+  })
+
+  test('report reason is not converted', async () => {
+    const { port, c } = await inBreak()
+    await c.submit('/report lena spam :)')
+    expect(port.calls.at(-1)).toMatchObject({ path: '/report', body: { nickname: 'lena', reason: 'spam :)' } })
+  })
+
   test('empty submit does nothing', async () => {
     const { port, c } = await inBreak()
     const before = texts(c).length

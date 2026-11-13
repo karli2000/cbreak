@@ -213,6 +213,34 @@ test('pane draws messages and the input', async ($, on) => {
   await ui.unmount()
 })
 
+test('a sent message carries emoji', async ($, on) => {
+  const w = world(on)
+  await startSession($)
+  await $.turn.start({ text: 'long task', turnId: 't1' })
+  await w.clock.advance(25_000)
+  helperJoins(w)
+  await w.clock.settle()
+  const ui = await $.ui.mount({
+    plugin: PLUGIN,
+    surface: 'terminal',
+    component: 'Pane',
+    requestId: 'coffee',
+    props: {
+      title: '☕ lobby · 2 here',
+      isFocused: true,
+      bodyColumns: 80,
+      placement: 'inline',
+      scroll: { offset: 0, bodyRows: 20 },
+      view: {},
+    },
+  })
+  await $.ui.input({ plugin: PLUGIN, key: 'say', text: 'hey :heart:' })
+  await w.clock.settle()
+  const send = w.fetches.find((f) => new URL(f.url).pathname === '/send')
+  expect(JSON.parse(String(send?.init?.body))).toEqual({ body: 'hey ❤️' })
+  await ui.unmount()
+})
+
 test('the helper runs from the committed bundle with bun on PATH', async ($, on) => {
   const w = world(on)
   await startSession($)

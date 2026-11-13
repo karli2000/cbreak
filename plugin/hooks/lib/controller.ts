@@ -5,6 +5,7 @@
 import type { Api, ApiPath, ApiResult, AuthState, ChatMessage, HelperEvent, JoinInfo } from '../../shared/protocol.ts'
 import { parseCoffeeArgs, parsePaneInput, type PaneCommand } from './commands.ts'
 import { COPY, errorText } from './copy.ts'
+import { emojify } from './emoji.ts'
 import { isAction, nickColor, segments } from './format.ts'
 import type { Line, PaneView, Port, Timer } from './port.ts'
 import { DEFAULTS, type Settings } from './settings.ts'
@@ -655,10 +656,12 @@ export class Controller {
     let done: string | null = null
     switch (cmd.kind) {
       case 'say':
-      case 'me':
-        res = await this.call(h, '/send', { body: cmd.kind === 'me' ? `/me ${cmd.body}` : cmd.body })
+      case 'me': {
+        const body = this.settings.emoji ? emojify(cmd.body) : cmd.body
+        res = await this.call(h, '/send', { body: cmd.kind === 'me' ? `/me ${body}` : body })
         if (res.ok) this.port.scrollToEnd()
         break
+      }
       case 'report':
         res = await this.call(h, '/report', { nickname: cmd.nickname, message_id: this.newestBy(cmd.nickname), reason: cmd.reason })
         done = COPY.reported(cmd.nickname)

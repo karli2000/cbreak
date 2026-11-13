@@ -14,12 +14,12 @@ Coffee Break drops you into a shared group chat room while Claude is busy on you
 - `/coffee status`: who you are signed in as, your settings, whether you are on a break.
 - `/coffee name <nickname>`: change your nickname (3-20 characters: a-z, 0-9, `_`, `-`; at most once per 30 days).
 - `/coffee room <name>`: choose the room (applies from your next break).
-- `/coffee config [min-wait <s> | grace <s> | auto-open on|off]`: show or change settings.
+- `/coffee config [min-wait <s> | grace <s> | auto-open on|off | emoji on|off]`: show or change settings.
 - `/coffee on` / `/coffee off`: enable or disable Coffee Break.
 - `/coffee logout`: sign out.
 - `/coffee delete-account yes`: delete your account and data.
 
-In the chat pane: type to send, `/me <action>`, `/report <nick> <reason>`, `/leave`, `/help`.
+In the chat pane: type to send, `/me <action>`, `/report <nick> <reason>`, `/leave`, `/help`. Emoticons such as `:)` and `<3` and shortcodes such as `:heart:` or `:tada:` turn into emoji when sent (not inside backticks; `/coffee config emoji off` turns it off).
 
 ## Requirements
 

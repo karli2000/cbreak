@@ -20,6 +20,7 @@ describe('parseCoffeeArgs', () => {
     expect(parseCoffeeArgs('config min-wait 30')).toEqual({ kind: 'config_set', key: 'min-wait', value: 30 })
     expect(parseCoffeeArgs('config grace 999').kind).toBe('invalid')
     expect(parseCoffeeArgs('config auto-open off')).toEqual({ kind: 'config_set', key: 'auto-open', value: false })
+    expect(parseCoffeeArgs('config emoji off')).toEqual({ kind: 'config_set', key: 'emoji', value: false })
     expect(parseCoffeeArgs('config grace').kind).toBe('invalid')
     expect(parseCoffeeArgs('config nope 1').kind).toBe('invalid')
   })

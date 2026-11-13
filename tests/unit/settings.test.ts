@@ -16,6 +16,11 @@ describe('validateSetting', () => {
     expect(validateSetting('auto-open', 'false')).toEqual({ ok: true, value: false })
     expect(validateSetting('auto-open', 'maybe').ok).toBe(false)
   })
+  test('emoji', () => {
+    expect(validateSetting('emoji', 'off')).toEqual({ ok: true, value: false })
+    expect(validateSetting('emoji', 'on')).toEqual({ ok: true, value: true })
+    expect(validateSetting('emoji', 'maybe')).toEqual({ ok: false, error: 'emoji must be on or off.' })
+  })
 })
 
 test('isRoomSlug', () => {
@@ -28,6 +33,12 @@ describe('mergeStored', () => {
   test('ignores bad fields', () => {
     expect(mergeStored({ graceSec: 'x', room: 'Bad Slug' })).toEqual(DEFAULTS)
     expect(mergeStored(null)).toEqual(DEFAULTS)
+  })
+  test('emoji defaults to on', () => {
+    expect(DEFAULTS.emoji).toBe(true)
+    expect(mergeStored({}).emoji).toBe(true)
+    expect(mergeStored({ emoji: false }).emoji).toBe(false)
+    expect(mergeStored({ emoji: 'no' }).emoji).toBe(true)
   })
   test('keeps good fields', () => {
     expect(mergeStored({ graceSec: 5 }).graceSec).toBe(5)

@@ -53,7 +53,7 @@ export const COPY = {
   statusUnfinished: 'Signed in, setup not finished. Run /coffee setup.',
   notSignedIn: 'Not signed in',
   settingsLine: (s: Settings) =>
-    `Room: ${s.room} · min wait ${s.minBusySec} s · grace ${s.graceSec} s · auto-open ${s.autoOpen ? 'on' : 'off'} · ${s.enabled ? 'enabled' : 'disabled'}`,
+    `Room: ${s.room} · min wait ${s.minBusySec} s · grace ${s.graceSec} s · auto-open ${s.autoOpen ? 'on' : 'off'} · emoji ${s.emoji ? 'on' : 'off'} · ${s.enabled ? 'enabled' : 'disabled'}`,
   onBreak: (yes: boolean) => `On break: ${yes ? 'yes' : 'no'}`,
   nameSet: (nick: string) => `Your nickname is now ${nick}.`,
   roomInvalid: 'Room names are 2–32 characters: a–z, 0–9 and -.',
@@ -64,7 +64,7 @@ export const COPY = {
   accountDeleted: 'Your coffee break profile was deleted.',
   commands: 'Commands: /coffee [setup|status|name|room|config|on|off|logout|delete-account]',
   paneHelp: (mod: boolean) =>
-    '/me <action> · /report <nick> <reason> · /leave' +
+    '/me <action> · /report <nick> <reason> · /leave · :) <3 :heart: → emoji' +
     (mod ? ' · /del <nick> [reason] · /mute <nick> <10|60|1440> <reason> · /ban <nick> <reason>' : ''),
 }
 

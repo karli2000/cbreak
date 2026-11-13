@@ -43,10 +43,11 @@ export interface SetupHost {
 type Step = 'signin' | 'nick' | 'rules' | 'done'
 type Subcommand = Exclude<CoffeeCommand, { kind: 'open' }>
 
-const FIELD: Record<SettingKey, 'minBusySec' | 'graceSec' | 'autoOpen'> = {
+const FIELD: Record<SettingKey, 'minBusySec' | 'graceSec' | 'autoOpen' | 'emoji'> = {
   'min-wait': 'minBusySec',
   grace: 'graceSec',
   'auto-open': 'autoOpen',
+  emoji: 'emoji',
 }
 
 function authLine(a: AuthState): string {

@@ -13,7 +13,7 @@ export type PaneCommand =
   | { kind: 'mute'; nickname: string; minutes: 10 | 60 | 1440; reason: string } | { kind: 'ban'; nickname: string; reason: string }
   | { kind: 'invalid'; error: string }
 
-const SETTING_KEYS: readonly string[] = ['min-wait', 'grace', 'auto-open']
+const SETTING_KEYS: readonly string[] = ['min-wait', 'grace', 'auto-open', 'emoji']
 
 const nick = (s: string) => s.replace(/^@/, '').toLowerCase()
 
@@ -38,7 +38,7 @@ export function parseCoffeeArgs(args: string): CoffeeCommand {
     case 'config': {
       if (!a) return { kind: 'config' }
       if (!SETTING_KEYS.includes(a) || b === undefined) {
-        return { kind: 'invalid', error: 'Usage: /coffee config [min-wait <s> | grace <s> | auto-open on|off]' }
+        return { kind: 'invalid', error: 'Usage: /coffee config [min-wait <s> | grace <s> | auto-open on|off | emoji on|off]' }
       }
       const r = validateSetting(a as SettingKey, b)
       return r.ok ? { kind: 'config_set', key: a as SettingKey, value: r.value } : { kind: 'invalid', error: r.error }

@@ -1,9 +1,9 @@
 // Mod settings: types, defaults, validation. Pure (runs in the mod environment).
-export type Settings = { room: string; minBusySec: number; graceSec: number; autoOpen: boolean; enabled: boolean }
+export type Settings = { room: string; minBusySec: number; graceSec: number; autoOpen: boolean; emoji: boolean; enabled: boolean }
 
-export const DEFAULTS: Settings = { room: 'lobby', minBusySec: 20, graceSec: 15, autoOpen: true, enabled: true }
+export const DEFAULTS: Settings = { room: 'lobby', minBusySec: 20, graceSec: 15, autoOpen: true, emoji: true, enabled: true }
 
-export type SettingKey = 'min-wait' | 'grace' | 'auto-open'
+export type SettingKey = 'min-wait' | 'grace' | 'auto-open' | 'emoji'
 
 export type SettingResult = { ok: true; value: number | boolean } | { ok: false; error: string }
 
@@ -25,11 +25,12 @@ export function validateSetting(key: SettingKey, raw: string): SettingResult {
       return intInRange(raw, 600, 'min-wait')
     case 'grace':
       return intInRange(raw, 300, 'grace')
-    case 'auto-open': {
+    case 'auto-open':
+    case 'emoji': {
       const t = raw.trim().toLowerCase()
       if (t === 'on' || t === 'true') return { ok: true, value: true }
       if (t === 'off' || t === 'false') return { ok: true, value: false }
-      return { ok: false, error: 'auto-open must be on or off.' }
+      return { ok: false, error: `${key} must be on or off.` }
     }
     default:
       return { ok: false, error: 'Unknown setting.' }
@@ -47,6 +48,7 @@ export function mergeStored(v: unknown): Settings {
     minBusySec: num(o.minBusySec, 600) ?? DEFAULTS.minBusySec,
     graceSec: num(o.graceSec, 300) ?? DEFAULTS.graceSec,
     autoOpen: typeof o.autoOpen === 'boolean' ? o.autoOpen : DEFAULTS.autoOpen,
+    emoji: typeof o.emoji === 'boolean' ? o.emoji : DEFAULTS.emoji,
     enabled: typeof o.enabled === 'boolean' ? o.enabled : DEFAULTS.enabled,
   }
 }
