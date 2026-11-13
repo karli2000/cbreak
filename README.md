@@ -27,7 +27,7 @@ When Claude has been busy for 20 seconds, Coffee Break opens the chat room in a 
 
 The pane needs a wide terminal (about 144 columns). In a narrower terminal it does not open by itself: you get a hint in the status line and a toast, and `/coffee` opens the room. The room can only be opened while Claude is busy.
 
-Rooms hold at most 50 people. A busy room is split into instances, and you are placed in one that has space.
+Rooms hold at most 50 people. A busy room is split into instances, and you are placed in one that has space. For the rest of your Claude Code session your breaks take you back to that same instance while it still has people and space, so you keep meeting the same people; a new session starts fresh.
 
 ## Commands
 

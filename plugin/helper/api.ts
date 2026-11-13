@@ -147,7 +147,7 @@ export const routes: Routes = {
     ctx.emit({ type: 'auth', state: 'signed_out' })
     return {}
   },
-  '/join': async (ctx, { room }) => (await roomOf(ctx)).join(room),
+  '/join': async (ctx, { room, instance }) => (await roomOf(ctx)).join(room, instance),
   '/leave': async (ctx) => {
     if (ctx.room) await ctx.room.leave()
     else await rpc(ctx.client, 'leave_room', { session_id: ctx.sessionId }).catch(() => {})

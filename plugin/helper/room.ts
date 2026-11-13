@@ -95,9 +95,14 @@ export class RoomSession {
     return this.info
   }
 
-  /** join_room, then subscribe to the instance's channel; emits `joined`, then `backlog`. */
-  async join(room: string): Promise<JoinInfo> {
-    const info = await rpc<JoinInfo>(this.client, 'join_room', { room_slug: room, session_id: this.sessionId })
+  /**
+   * join_room, then subscribe to the instance's channel; emits `joined`, then `backlog`.
+   * `prefer`: the instance to go back to (honoured while it has other live people and space).
+   */
+  async join(room: string, prefer?: number): Promise<JoinInfo> {
+    const args: Record<string, unknown> = { room_slug: room, session_id: this.sessionId }
+    if (typeof prefer === 'number') args.prefer_instance = prefer
+    const info = await rpc<JoinInfo>(this.client, 'join_room', args)
     await this.attach(info)
     return info
   }
@@ -184,8 +189,10 @@ export class RoomSession {
   }
 
   /** One re-join at a time (heartbeat, send and the reconnect loop may all hit not_in_room). */
+  /** A re-join asks for the instance the helper is in, so a blip never moves the person away. */
   private rejoin(room: string): Promise<JoinInfo> {
-    this.rejoining ??= this.join(room).finally(() => (this.rejoining = null))
+    const prefer = this.info?.room === room ? this.info.instance : undefined
+    this.rejoining ??= this.join(room, prefer).finally(() => (this.rejoining = null))
     return this.rejoining
   }
 
