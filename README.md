@@ -4,7 +4,7 @@
     <img src="brand/cbreak-logo.svg" alt="cbreak" width="420">
   </picture>
 </p>
-<p align="center"><b>c</b>offee · <b>c</b>hat · <b>c</b>ode · <b>c</b>laude</p>
+<p align="center"><b>c</b>offee · <b>c</b>hat · <b>c</b>ode · <b>c</b>laude<br><a href="https://cbreak.dev">cbreak.dev</a></p>
 
 # cbreak
 
