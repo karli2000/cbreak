@@ -60,6 +60,8 @@ export class Controller {
   private helper: Helper | null = null
   private auth: AuthState | null = null
   private join: JoinInfo | null = null
+  /** The last instance per room in this Claude Code session (one module load): the next break asks for it. */
+  private seats = new Map<string, number>()
   private lines: Line[] = []
   private draft = ''
   private manual = false
@@ -293,6 +295,9 @@ export class Controller {
     await Promise.all([this.lifecycle, this.settingsReady])
     if (gen !== this.gen) return
     if (!this.settings.enabled) return void (this.phase = 'idle')
+    // the room and this session's last instance there, as they are when the break starts
+    const room = this.settings.room
+    const seat = this.seats.get(room)
 
     const h = this.helper ?? this.spawn() // a command's helper is adopted, never a second one
     h.breakHeld = true
@@ -322,7 +327,7 @@ export class Controller {
       return this.fail(h, null)
     }
 
-    const join = this.call(h, '/join', { room: this.settings.room })
+    const join = this.call(h, '/join', seat === undefined ? { room } : { room, instance: seat })
     h.join = join
     const res = await join
     if (gen !== this.gen) return // whoever ended the break leaves now that the join has settled
@@ -332,6 +337,7 @@ export class Controller {
       return this.fail(h, text)
     }
     this.join ??= res.data
+    this.seats.set(res.data.room, res.data.instance)
     this.phase = 'break'
     this.lines = this.lines.filter((l) => !(l.kind === 'system' && l.text === COPY.joining))
     this.setup.dismiss()
@@ -590,6 +596,7 @@ export class Controller {
       case 'joined': {
         const prev = this.join
         this.join = { room: e.room, instance: e.instance, topic: e.topic, here: e.here }
+        this.seats.set(e.room, e.instance)
         if (prev && (prev.room !== e.room || prev.instance !== e.instance)) this.addLine(COPY.moved(e.room, e.instance))
         this.updateStatus()
         break

@@ -41,5 +41,5 @@ test('join, heartbeat and leave send the session id, also on the re-join after n
   expect(seq).toEqual(['join_room', 'heartbeat', 'join_room', 'heartbeat', 'leave_room'])
   for (const c of calls) expect(c.args).toMatchObject({ session_id: SID })
   expect(calls[0]!.args).toEqual({ room_slug: 'r', session_id: SID })
-  expect(calls[2]!.args).toEqual({ room_slug: 'r', session_id: SID })
+  expect(calls[2]!.args).toEqual({ room_slug: 'r', session_id: SID, prefer_instance: 1 })
 })

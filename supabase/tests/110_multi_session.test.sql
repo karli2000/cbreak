@@ -101,7 +101,7 @@ select table_privs_are('public', 'occupancy_sessions', 'anon', array[]::text[], 
 select hasnt_function('public', 'join_room', array['text'], 'old join_room(text) is gone');
 select hasnt_function('public', 'heartbeat', array[]::text[], 'old heartbeat() is gone');
 select hasnt_function('public', 'leave_room', array[]::text[], 'old leave_room() is gone');
-select is(has_function_privilege('anon', 'public.join_room(text, uuid)', 'execute')
+select is(has_function_privilege('anon', 'public.join_room(text, uuid, int)', 'execute')
   or has_function_privilege('anon', 'public.heartbeat(uuid)', 'execute')
   or has_function_privilege('anon', 'public.leave_room(uuid)', 'execute'), false, 'anon cannot execute');
 

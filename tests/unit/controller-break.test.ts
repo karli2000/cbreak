@@ -69,6 +69,31 @@ describe('Controller break lifecycle', () => {
     expect(c.view()).toMatchObject({ mode: 'chat', header: '☕ lobby · 3 here', busy: true, inputEnabled: true })
   })
 
+  test('the next break of this session asks for the same instance', async () => {
+    const { port, c } = await inBreak()
+    port.emit({ type: 'joined', room: 'lobby', instance: 2, topic: 'room:lobby:2', here: 4 })
+    c.turnComplete(false)
+    port.advance(15_000)
+    await tick()
+    expect(port.count('/leave')).toBe(1)
+
+    c.turnStart()
+    port.advance(20_000)
+    await helperUp(port)
+    const joins = port.calls.filter((x) => x.path === '/join')
+    expect(joins.map((x) => x.body)).toEqual([{ room: 'lobby' }, { room: 'lobby', instance: 2 }])
+
+    // another room setting: no preference for a room this session has not been in
+    c.turnComplete(false)
+    port.advance(15_000)
+    await tick()
+    expect(await c.command('room other')).toBe('Room set to other. It applies from your next break.')
+    c.turnStart()
+    port.advance(20_000)
+    await helperUp(port)
+    expect(port.calls.filter((x) => x.path === '/join').at(-1)?.body).toEqual({ room: 'other' })
+  })
+
   test('narrow terminal shows the hint', async () => {
     const port = new FakePort()
     port.placed = false

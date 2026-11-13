@@ -47,7 +47,8 @@ export type Api = {
   '/nickname/check': { req: { nick: string }; res: { available: boolean } }
   '/nickname/claim': { req: { nick: string }; res: { nickname: string } }
   '/rules/accept': { req: {}; res: {} }
-  '/join': { req: { room: string }; res: JoinInfo }
+  /** `instance`: the instance to go back to (this Claude Code session's last one in that room). */
+  '/join': { req: { room: string; instance?: number }; res: JoinInfo }
   '/leave': { req: {}; res: {} }
   '/send': { req: { body: string }; res: { id: number } }
   '/report': { req: { nickname: string; message_id: number | null; reason: string }; res: { report_id: number } }
