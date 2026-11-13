@@ -3,7 +3,6 @@
 // the panes, the store and the clock.
 import { expect, mock, test, type Engine } from 'claude-code/testing'
 import type { AgentInfo, HttpInit, On, PaneOpenArgs, ProcessSpawnChunk, ProcessSpawnRequest } from 'claude-code'
-import { isTabFromInput } from '../hooks/pane.ts'
 
 const PLUGIN = 'cbreak'
 const SECRET = 'SECRET-PROMPT-1234'
@@ -330,10 +329,12 @@ test('typing :token shows the emoji box above the input; a pressed row fills the
   expect(await ui.find({ type: 'Button', key: 'emoji:smile' })).toBeUndefined()
   await ui.input({ key: 'say', text: 'hi :smi', kind: 'change' })
   await w.clock.settle()
+  // best match first, drawn AFTER the input: the focus ring follows positions, so rows drawn before
+  // the input would take the ring off it while typing (spike S4, 0.3.6)
+  const keyed = (await ui.findAll({})).flatMap((el) => (typeof el.props.key === 'string' ? [el.props.key] : []))
+  expect(keyed).toEqual(['say', 'emoji:smile', 'emoji:smirk', 'emoji:smiley', 'emoji:smile_cat', 'emoji:smirk_cat'])
   const rows = await ui.findAll({ type: 'Button' })
-  // best match drawn last, right above the input, so Up reaches it first
-  expect(rows.map((r) => r.props.key)).toEqual(['emoji:smirk_cat', 'emoji:smile_cat', 'emoji:smiley', 'emoji:smirk', 'emoji:smile'])
-  expect(rows.at(-1)?.props).toMatchObject({ label: '😄  :smile:', plain: true, dimColor: true })
+  expect(rows[0]?.props).toMatchObject({ label: '😄  :smile:', plain: true, dimColor: true })
   await ui.press({ key: 'emoji:smirk' })
   await w.clock.settle()
   expect((await ui.find({ type: 'Input', key: 'say' }))?.props.value).toBe('hi 😏 ')
@@ -345,15 +346,6 @@ test('typing :token shows the emoji box above the input; a pressed row fills the
   const send = w.fetches.find((f) => new URL(f.url).pathname === '/send')
   expect(JSON.parse(String(send?.init?.body))).toEqual({ body: 'hi 😏 yo' })
   await ui.unmount()
-})
-
-test('only the person\'s Tab out of the chat input takes the best emoji row', async () => {
-  const person = { kind: 'person' }
-  expect(isTabFromInput('say', { origin: person })).toBe(true)
-  expect(isTabFromInput('say', { element: 'emoji:smile', origin: person })).toBe(false) // Up / Shift+Tab onto a row
-  expect(isTabFromInput('emoji:smile', { origin: person })).toBe(false)
-  expect(isTabFromInput(undefined, { origin: person })).toBe(false)
-  expect(isTabFromInput('say', { origin: { kind: 'plugin' } })).toBe(false)
 })
 
 test('the helper runs from the committed bundle with bun on PATH', async ($, on) => {

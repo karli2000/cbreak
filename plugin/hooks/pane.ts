@@ -14,17 +14,10 @@ export type PaneElements = {
 /** `pick`: an emoji row was pressed (Enter on it, or a click), by its name. */
 export type PaneHandlers = { input(v: string): void; submit(v: string): void; pick(name: string): void }
 
-/** The address of an emoji row: `ui.focus` names it, so register.ts can tell the rows from the input. */
+/** The chat input's key: register.ts hands the focus back to it after an emoji row was picked. */
 export const SAY_KEY = 'say'
 export const emojiKey = (name: string) => `emoji:${name}`
 
-/**
- * Whether a focus move is the person's Tab out of the chat input: from `say` to one of the engine's
- * stops (the pane's close mark; `element` absent). Up lands on our own last row instead.
- */
-export function isTabFromInput(focused: string | undefined, e: { element?: string; origin: { kind: string } }): boolean {
-  return focused === SAY_KEY && e.element === undefined && e.origin.kind === 'person'
-}
 
 /**
  * `fillRows`: the rows the tree should fill, so the input is always the pane's last row; the lines'
@@ -53,7 +46,6 @@ export function renderPane(view: PaneView, els: PaneElements, on: PaneHandlers, 
     children: [
       Text({ dimColor: true, children: view.header }),
       linesBox(view.lines.map((l) => lineElement(l, els))),
-      ...emojiBox(view.suggestions, els, on),
       // Always drawn: /leave and /help work outside a room too (room commands answer with a line).
       // autoFocus: whenever the pane takes the keyboard, the cursor lands in the field.
       // The grace countdown sits at its right, so it stays in view however long the chat is.
@@ -77,21 +69,23 @@ export function renderPane(view: PaneView, els: PaneElements, on: PaneHandlers, 
           ...(view.countdown ? [Text({ dimColor: true, children: ' ' + view.countdown })] : []),
         ],
       }),
+      ...emojiBox(view.suggestions, els, on),
     ],
   })
 }
 
 /**
- * The emoji box (spike S4): one plain, dim row per match (`😄  :smile:`) right above the input, best
- * match at the bottom, so Up from the input reaches it first (the focus ring follows the draw order;
- * Left/Right belong to the engine, so the rows stack). Tab in the input takes the best one (register.ts).
+ * The emoji box (spike S4): one plain, dim row per match (`😄  :smile:`) right BELOW the input, best
+ * first, as the prompt's own box. The focus ring follows the position in the draw order, not the key:
+ * rows drawn above the input would shift it and take the ring off the input while typing (0.3.5's
+ * bug), so they come after it. Down (or Tab) walks into them, Up back; Left/Right are the engine's.
  */
 function emojiBox(rows: EmojiSuggestion[], els: PaneElements, on: PaneHandlers): RenderElement[] {
   if (rows.length === 0) return []
   const { Box, Button } = els
-  const buttons = rows
-    .map((r) => Button({ key: emojiKey(r.name), label: `${r.emoji}  :${r.name}:`, plain: true, dimColor: true, onPress: () => on.pick(r.name) }))
-    .reverse()
+  const buttons = rows.map((r) =>
+    Button({ key: emojiKey(r.name), label: `${r.emoji}  :${r.name}:`, plain: true, dimColor: true, onPress: () => on.pick(r.name) }),
+  )
   return [Box({ flexDirection: 'column', children: buttons })]
 }
 
