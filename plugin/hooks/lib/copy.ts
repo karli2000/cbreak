@@ -63,7 +63,7 @@ export const COPY = {
   saveFailed: "Couldn't save the setting.",
   signedOut: 'Signed out.',
   accountDeleted: 'Your cbreak profile was deleted.',
-  commands: 'Commands: /cbreak [setup|status|name|room|config|on|off|logout|delete-account]',
+  commands: 'Commands: /cbreak [setup|status|name|room|config|bg|text|on|off|logout|delete-account]',
   paneHelp: (mod: boolean) =>
     '/me <action> · /report <nick> <reason> · /leave · :) <3 :heart: → emoji · :hea then ↓ and Enter picks one' +
     (mod ? ' · /del <nick> [reason] · /mute <nick> <10|60|1440> <reason> · /ban <nick> <reason>' : ''),

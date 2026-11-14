@@ -43,6 +43,13 @@ export function parseCoffeeArgs(args: string): CoffeeCommand {
       const r = validateSetting(a as SettingKey, b)
       return r.ok ? { kind: 'config_set', key: a as SettingKey, value: r.value } : { kind: 'invalid', error: r.error }
     }
+    // shortcuts for `config bg|text <color>` (0.3.10, owner)
+    case 'bg':
+    case 'text': {
+      if (!a || parts.length !== 2) return { kind: 'invalid', error: `Usage: /cbreak ${cmd} <color> (a color name, a hex color such as #2a1c15, or default)` }
+      const r = validateSetting(cmd, a)
+      return r.ok ? { kind: 'config_set', key: cmd, value: r.value } : { kind: 'invalid', error: r.error }
+    }
     case 'delete-account':
       return { kind: 'delete_account', confirmed: a === 'yes' }
     default:

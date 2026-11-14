@@ -78,6 +78,8 @@ export class Controller {
   private graceTick: Timer | null = null
   private graceExpired = false
   private draftKeptShown = false
+  /** A scroll to the pane's end is queued for the lines just added (`followEnd`). */
+  private followPending = false
   private closePending = false
   private setupHinted = false
   /** The automatic break start toasted the Bun line already (once per session, like the setup hint). */
@@ -810,6 +812,21 @@ export class Controller {
   private pushLine(l: Line): void {
     this.lines.push(l)
     if (this.lines.length > MAX_LINES) this.lines.splice(0, this.lines.length - MAX_LINES)
+    this.followEnd()
+  }
+
+  /**
+   * A new line scrolls the open pane to its end, focused or not (0.3.10, owner; spike S6: a
+   * plugin's `$.ui.scroll` moves its own pane without the keyboard). One scroll per batch of lines,
+   * after the redraw the adding code does synchronously.
+   */
+  private followEnd(): void {
+    if (this.followPending) return
+    this.followPending = true
+    void Promise.resolve().then(() => {
+      this.followPending = false
+      if (this.paneOpen && this.placed && !this.setup.showing()) this.port.scrollToEnd()
+    })
   }
 
   /** The emoji box for the draft: chat mode with the `emoji` setting on only. */
