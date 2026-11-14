@@ -142,3 +142,12 @@ Spike mod in tmux (160×40, 256 colors, pane docked), background `#2A1C15` (draw
 - Text `color` with `dimColor` stays dim on the colored background; `inverse` mentions and nickname colors draw as set.
 
 Outcome: background through `ui.open` on every open, text color on the Text elements (0.3.9).
+
+## S6: following new lines in an unfocused pane (2026-11-14, Claude Code 2.1.325)
+
+Spike mod in tmux (160×30): the pane opened without focus (the keyboard stays in Claude Code's prompt), 40 old lines, then one new line a second.
+
+- With `$.ui.invalidate('ui.render')` followed by `$.ui.scroll({ in: <pane id>, to: 'end' })` for each new line, the pane followed: the newest line stayed visible at the bottom while the prompt kept the keyboard. The scroll is not refused for a pane without focus.
+- Without the scroll call the window stayed where it was (`old line 22` at the bottom while new lines were added below).
+
+Outcome: the Controller scrolls the open pane to its end whenever it adds lines (0.3.10).

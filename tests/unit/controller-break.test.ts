@@ -405,7 +405,7 @@ describe('Controller break lifecycle', () => {
     expect(texts(c)).toEqual(['lena: hi'])
     expect(chat(c).header).toBe('☕ lobby · 3 here')
     expect(port.lastStatus).toBe('☕ 3 on break')
-    expect(port.scrolls).toBe(1)
+    expect(port.scrolls).toBe(2) // the backlog in the already open pane, then the join
   })
 
   test('cbreak without setup closes the early pane again', async () => {
@@ -720,6 +720,33 @@ describe('Controller chat', () => {
     expect(chat(c).draft).toBe('🎉 ')
     await c.submit(chat(c).draft + 'yay')
     expect(port.calls.at(-1)).toEqual({ path: '/send', body: { body: '🎉 yay' } })
+  })
+
+  test('new lines scroll the open pane to its end, one scroll per batch, focused or not', async () => {
+    const { port, c } = await inBreak()
+    const s0 = port.scrolls
+    port.emit({ type: 'message', ...msg(1, 'lena') })
+    await tick()
+    expect(port.scrolls).toBe(s0 + 1)
+    port.emit({ type: 'backlog', messages: [msg(2, 'bob'), msg(3, 'zoe'), msg(4, 'tom')] })
+    await tick()
+    expect(port.scrolls).toBe(s0 + 2)
+    port.emit({ type: 'presence', here: 4, joined: ['nina'], left: [] })
+    await tick()
+    expect(port.scrolls).toBe(s0 + 3)
+    // the scroll comes after the redraw that drew the line
+    expect(port.redraws).toBeGreaterThan(0)
+  })
+
+  test('no scroll while the pane is closed or not placed', async () => {
+    const port = new FakePort()
+    port.placed = false
+    const { c } = await inBreak(port)
+    const s0 = port.scrolls
+    port.emit({ type: 'message', ...msg(1, 'lena') })
+    await tick()
+    expect(port.scrolls).toBe(s0)
+    expect(texts(c)).toContain('lena: hi')
   })
 
   test('pane colors: default none; bg and text reach the view at once, nicknames follow the background', async () => {
