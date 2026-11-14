@@ -79,18 +79,22 @@ test('functions: github-age is deployed to the hosted project', () => {
   expect(runs(w, 'deploy')).toContain('bunx supabase functions deploy github-age --use-api --remote="$PROJECT_REF" --yes')
 })
 
-/** Files outside `home` that the TypeScript under `dir` imports (relative imports), sorted. */
+/** Files outside `home` that the TypeScript under `dir` imports (relative imports, followed transitively), sorted. */
 function importsOutside(dir: string, home: string): string[] {
   const outside = new Set<string>()
+  const scan = (p: string) => {
+    for (const m of readFileSync(p, 'utf8').matchAll(/from '(\.[^']+)'/g)) {
+      const target = relative(root, resolve(dirname(p), m[1]!))
+      if (target.startsWith(home) || outside.has(target)) continue
+      outside.add(target)
+      if (existsSync(join(root, target))) scan(join(root, target)) // what an imported file imports ships too
+    }
+  }
   const walk = (d: string) => {
     for (const e of readdirSync(d, { withFileTypes: true })) {
       const p = join(d, e.name)
       if (e.isDirectory()) walk(p)
-      else if (/\.tsx?$/.test(e.name))
-        for (const m of readFileSync(p, 'utf8').matchAll(/from '(\.[^']+)'/g)) {
-          const target = relative(root, resolve(dirname(p), m[1]!))
-          if (!target.startsWith(home)) outside.add(target)
-        }
+      else if (/\.tsx?$/.test(e.name)) scan(p)
     }
   }
   walk(join(root, dir))

@@ -28,6 +28,8 @@ export const emojiKey = (name: string) => `emoji:${name}`
 export function renderPane(view: PaneView, els: PaneElements, on: PaneHandlers, fillRows = 0): RenderElement {
   const { Box, Text, Input } = els
   const fill = fillRows > 0 ? { minHeight: fillRows } : {}
+  // the background is painted under the whole body by the pane's open (register.ts); text gets its color here
+  const fg = view.colors.text ? { color: view.colors.text } : {}
   const linesBox = (children: RenderElement[]) =>
     Box({ flexDirection: 'column', flexGrow: 1, justifyContent: 'flex-end', children })
   if (view.mode === 'setup') {
@@ -35,7 +37,7 @@ export function renderPane(view: PaneView, els: PaneElements, on: PaneHandlers, 
       flexDirection: 'column',
       ...fill,
       children: [
-        linesBox(view.lines.map((l) => Text({ children: l }))),
+        linesBox(view.lines.map((l) => Text({ ...fg, children: l }))),
         Input({ key: 'setup', placeholder: view.placeholder, value: view.draft, onInput: on.input, onSubmit: on.submit }),
       ],
     })
@@ -44,8 +46,8 @@ export function renderPane(view: PaneView, els: PaneElements, on: PaneHandlers, 
     flexDirection: 'column',
     ...fill,
     children: [
-      Text({ dimColor: true, children: view.header }),
-      linesBox(view.lines.map((l) => lineElement(l, els))),
+      Text({ dimColor: true, ...fg, children: view.header }),
+      linesBox(view.lines.map((l) => lineElement(l, els, fg))),
       // Always drawn: /leave and /help work outside a room too (room commands answer with a line).
       // autoFocus: whenever the pane takes the keyboard, the cursor lands in the field.
       // The grace countdown sits at its right, so it stays in view however long the chat is.
@@ -66,10 +68,10 @@ export function renderPane(view: PaneView, els: PaneElements, on: PaneHandlers, 
               }),
             ],
           }),
-          ...(view.countdown ? [Text({ dimColor: true, children: ' ' + view.countdown })] : []),
+          ...(view.countdown ? [Text({ dimColor: true, ...fg, children: ' ' + view.countdown })] : []),
         ],
       }),
-      ...emojiBox(view.suggestions, els, on),
+      ...emojiBox(view.suggestions, els, on, fg),
     ],
   })
 }
@@ -80,12 +82,14 @@ export function renderPane(view: PaneView, els: PaneElements, on: PaneHandlers, 
  * rows drawn above the input would shift it and take the ring off the input while typing (0.3.5's
  * bug), so they come after it. Down (or Tab) walks into them, Up back; Left/Right are the engine's.
  */
-function emojiBox(rows: EmojiSuggestion[], els: PaneElements, on: PaneHandlers): RenderElement[] {
+function emojiBox(rows: EmojiSuggestion[], els: PaneElements, on: PaneHandlers, fg: { color?: string }): RenderElement[] {
   if (rows.length === 0) return []
-  const { Box, Button } = els
-  const buttons = rows.map((r) =>
-    Button({ key: emojiKey(r.name), label: `${r.emoji}  :${r.name}:`, plain: true, dimColor: true, onPress: () => on.pick(r.name) }),
-  )
+  const { Box, Button, Text } = els
+  // the row's text is a Text child, so it takes the pane's text color (a Button has no color of its own)
+  const buttons = rows.map((r) => {
+    const label = `${r.emoji}  :${r.name}:`
+    return Button({ key: emojiKey(r.name), label, plain: true, dimColor: true, onPress: () => on.pick(r.name), children: [Text({ ...fg, children: label })] })
+  })
   return [Box({ flexDirection: 'column', children: buttons })]
 }
 
@@ -94,17 +98,17 @@ function emojiBox(rows: EmojiSuggestion[], els: PaneElements, on: PaneHandlers):
  * wraps inside its own column. So a long body's continuation rows start under the body, not at
  * the left edge, and cannot read like a system line (those are dim and start at column 0).
  */
-function lineElement(l: Line, els: PaneElements): RenderElement {
+function lineElement(l: Line, els: PaneElements, fg: { color?: string }): RenderElement {
   const { Box, Text } = els
-  if (l.kind === 'system') return Text({ dimColor: true, children: l.text })
+  if (l.kind === 'system') return Text({ dimColor: true, ...fg, children: l.text })
   const nick = Text({ color: l.color, bold: true, children: l.nickname })
   const body = l.segments.map((s) => (s.mention ? Text({ bold: true, inverse: true, children: s.text }) : s.text))
-  const head = l.action ? Text({ italic: true, children: ['* ', nick, ' '] }) : Text({ children: [nick, ': '] })
+  const head = l.action ? Text({ italic: true, ...fg, children: ['* ', nick, ' '] }) : Text({ ...fg, children: [nick, ': '] })
   return Box({
     flexDirection: 'row',
     children: [
       Box({ flexShrink: 0, children: [head] }),
-      Box({ flexGrow: 1, flexShrink: 1, children: [l.action ? Text({ italic: true, children: body }) : Text({ children: body })] }),
+      Box({ flexGrow: 1, flexShrink: 1, children: [l.action ? Text({ italic: true, ...fg, children: body }) : Text({ ...fg, children: body })] }),
     ],
   })
 }

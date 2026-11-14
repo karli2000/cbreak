@@ -14,7 +14,7 @@ cbreak drops you into a shared group chat room while Claude is busy on your task
 - `/cbreak status`: who you are signed in as, your settings, whether you are on a break.
 - `/cbreak name <nickname>`: change your nickname (3-20 characters: a-z, 0-9, `_`, `-`; at most once per 30 days).
 - `/cbreak room <name>`: choose the room (applies from your next break).
-- `/cbreak config [min-wait <s> | grace <s> | auto-open on|off | emoji on|off]`: show or change settings.
+- `/cbreak config [min-wait <s> | grace <s> | auto-open on|off | emoji on|off | bg <color> | text <color>]`: show or change settings. `bg`/`text` color the chat pane (a color name such as `blue`, a hex color such as `#2a1c15`, or `default`); nicknames adapt to the background.
 - `/cbreak on` / `/cbreak off`: enable or disable cbreak.
 - `/cbreak logout`: sign out.
 - `/cbreak delete-account yes`: delete your account and data.

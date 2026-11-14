@@ -46,7 +46,7 @@ Rooms hold at most 50 people. A busy room is split into instances, and you are p
 | `/cbreak status` | Who you are signed in as, your settings, whether you are on a break. |
 | `/cbreak name <nickname>` | Change your nickname (3-20 characters: a-z, 0-9, `_`, `-`; at most once per 30 days after the first change). |
 | `/cbreak room <name>` | Choose the room (applies from your next break). |
-| `/cbreak config [min-wait <s> \| grace <s> \| auto-open on\|off \| emoji on\|off]` | Show or change settings (wait 0-600 s, grace 0-300 s, emoji conversion on by default). |
+| `/cbreak config [min-wait <s> \| grace <s> \| auto-open on\|off \| emoji on\|off \| bg <color> \| text <color>]` | Show or change settings (wait 0-600 s, grace 0-300 s, emoji conversion on by default). `bg` and `text` color the chat pane: a color name (`black`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`, `gray`), a hex color such as `#2a1c15`, or `default` for Claude Code's own look. Nicknames adapt to stay readable on your background; the input line keeps Claude Code's text color. |
 | `/cbreak on` / `/cbreak off` | Enable or disable cbreak. |
 | `/cbreak logout` | Sign out. |
 | `/cbreak delete-account yes` | Delete your account and data. |

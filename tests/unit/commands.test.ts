@@ -23,6 +23,9 @@ describe('parseCoffeeArgs', () => {
     expect(parseCoffeeArgs('config emoji off')).toEqual({ kind: 'config_set', key: 'emoji', value: false })
     expect(parseCoffeeArgs('config grace').kind).toBe('invalid')
     expect(parseCoffeeArgs('config nope 1').kind).toBe('invalid')
+    expect(parseCoffeeArgs('config bg #2A1C15')).toEqual({ kind: 'config_set', key: 'bg', value: '#2a1c15' })
+    expect(parseCoffeeArgs('config text default')).toEqual({ kind: 'config_set', key: 'text', value: null })
+    expect(parseCoffeeArgs('config bg rgb(1,2,3)').kind).toBe('invalid')
   })
   test('delete-account and invalid', () => {
     expect(parseCoffeeArgs('delete-account')).toEqual({ kind: 'delete_account', confirmed: false })

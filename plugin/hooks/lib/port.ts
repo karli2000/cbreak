@@ -35,6 +35,9 @@ export type Line =
   | { kind: 'message'; id: number; nickname: string; color: string; action: boolean; segments: Segment[]; role?: Role }
   | { kind: 'system'; text: string }
 
+/** The pane's colors: `bg` painted under the whole body (null = Claude Code's look), `text` for its text (null = default). */
+export type PaneColors = { bg: string | null; text: string | null }
+
 export type PaneView =
   /**
    * `countdown`: drawn at the right of the input while the grace period runs (`closes in N s`), else null.
@@ -49,5 +52,6 @@ export type PaneView =
       inputEnabled: boolean
       countdown: string | null
       suggestions: EmojiSuggestion[]
+      colors: PaneColors
     }
-  | { mode: 'setup'; lines: string[]; draft: string; placeholder: string }
+  | { mode: 'setup'; lines: string[]; draft: string; placeholder: string; colors: PaneColors }
