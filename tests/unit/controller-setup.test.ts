@@ -362,7 +362,7 @@ describe('Controller /cbreak commands', () => {
   test('invalid lists the commands', async () => {
     const { c } = await make()
     expect(await c.command('bogus')).toBe(
-      'Unknown command "bogus". Try /cbreak, /cbreak setup, /cbreak status.\nCommands: /cbreak [setup|status|name|room|config|on|off|logout|delete-account]',
+      'Unknown command "bogus". Try /cbreak, /cbreak setup, /cbreak status.\nCommands: /cbreak [setup|status|name|room|config|bg|text|on|off|logout|delete-account]',
     )
   })
 

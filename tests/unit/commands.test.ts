@@ -27,6 +27,14 @@ describe('parseCoffeeArgs', () => {
     expect(parseCoffeeArgs('config text default')).toEqual({ kind: 'config_set', key: 'text', value: null })
     expect(parseCoffeeArgs('config bg rgb(1,2,3)').kind).toBe('invalid')
   })
+  test('bg and text shortcuts', () => {
+    expect(parseCoffeeArgs('bg #202020')).toEqual({ kind: 'config_set', key: 'bg', value: '#202020' })
+    expect(parseCoffeeArgs('BG Blue')).toEqual({ kind: 'config_set', key: 'bg', value: 'blue' })
+    expect(parseCoffeeArgs('text default')).toEqual({ kind: 'config_set', key: 'text', value: null })
+    expect(parseCoffeeArgs('bg').kind).toBe('invalid')
+    expect(parseCoffeeArgs('bg red blue').kind).toBe('invalid')
+    expect(parseCoffeeArgs('text purple').kind).toBe('invalid')
+  })
   test('delete-account and invalid', () => {
     expect(parseCoffeeArgs('delete-account')).toEqual({ kind: 'delete_account', confirmed: false })
     expect(parseCoffeeArgs('delete-account yes')).toEqual({ kind: 'delete_account', confirmed: true })

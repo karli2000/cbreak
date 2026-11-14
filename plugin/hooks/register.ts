@@ -326,7 +326,7 @@ export const register: Register = (on) => {
     await $.command.register({
       name: 'cbreak',
       description: 'Chat with other people in the cbreak room while Claude works',
-      argumentHint: '[setup|status|name|room|config|on|off|logout|delete-account]',
+      argumentHint: '[setup|status|name|room|config|bg|text|on|off|logout|delete-account]',
       immediate: true,
     })
     return next(e)
