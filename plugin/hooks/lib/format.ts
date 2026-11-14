@@ -1,13 +1,20 @@
 // Pure text helpers for the pane. Runs in the mod environment (no Node, no DOM).
+import { nickLightness, toRgb } from './colors.ts'
 
-/** Stable per-nickname color: FNV-1a of the lowercased nick -> hue, fixed saturation/lightness. */
-export function nickColor(nick: string): string {
+/**
+ * Stable per-nickname color: FNV-1a of the lowercased nick -> hue, saturation 65 %, lightness 55 %.
+ * With the person's pane background (`bg`, a stored color), the lightness moves until the name
+ * reads on it (`nickLightness`); the hue stays, so a name keeps its color family. The moderator site
+ * calls it without `bg`.
+ */
+export function nickColor(nick: string, bg?: string | null): string {
   let h = 0x811c9dc5
   for (const ch of nick.toLowerCase()) {
     h ^= ch.codePointAt(0) ?? 0
     h = Math.imul(h, 0x01000193) >>> 0
   }
-  return hslToHex(h % 360, 65, 55)
+  const rgb = bg ? toRgb(bg) : null
+  return hslToHex(h % 360, 65, rgb ? nickLightness(h % 360, 65, rgb, hslToHex) : 55)
 }
 
 function hslToHex(h: number, s: number, l: number): string {

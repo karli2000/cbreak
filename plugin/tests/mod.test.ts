@@ -348,6 +348,43 @@ test('typing :token shows the emoji box above the input; a pressed row fills the
   await ui.unmount()
 })
 
+test('pane colors: every open paints the chosen background, text takes the text color, default drops both', async ($, on) => {
+  const w = world(on)
+  await startSession($)
+  expect((await runCbreak($, 'config bg #2a1c15')).text).toBe('Saved.')
+  await $.turn.start({ text: 'long task', turnId: 't1' })
+  await w.clock.advance(20_000)
+  helperJoins(w)
+  await w.clock.settle()
+  w.helper.emit({ type: 'message', id: 7, user_id: 'u-lena', nickname: 'lena', body: 'hi', created_at: '2026-11-14T10:00:00Z', role: 'user' })
+  await w.clock.settle()
+  expect(w.opens.length).toBeGreaterThan(0)
+  for (const o of w.opens) expect(o.backgroundColor).toBe('#2a1c15')
+  const ui = await $.ui.mount({
+    plugin: PLUGIN,
+    surface: 'terminal',
+    component: 'Pane',
+    requestId: 'cbreak',
+    props: { title: '☕ lobby · 2 here', isFocused: true, bodyColumns: 80, placement: 'inline', scroll: { offset: 0, bodyRows: 20 }, view: {} },
+  })
+  // no text color chosen: a readable one on the dark background
+  expect((await ui.find({ type: 'Text', text: 'hi' }))?.props.color).toBe('#f2f2f2')
+  const nick = (await ui.findAll({ type: 'Text', text: 'lena' })).at(-1)
+  expect(nick?.props.color).not.toBe('#f2f2f2')
+  await ui.input({ key: 'say', text: ':smi', kind: 'change' })
+  await w.clock.settle()
+  expect((await ui.find({ type: 'Text', text: '😄  :smile:' }))?.props.color).toBe('#f2f2f2')
+
+  // back to Claude Code's look: the pane is opened again without a background, text without a color
+  const before = w.opens.length
+  await runCbreak($, 'config bg default')
+  await w.clock.settle()
+  expect(w.opens.length).toBe(before + 1)
+  expect(w.opens.at(-1)?.backgroundColor).toBeUndefined()
+  expect((await ui.find({ type: 'Text', text: 'hi' }))?.props.color).toBeUndefined()
+  await ui.unmount()
+})
+
 test('the helper runs from the committed bundle with bun on PATH', async ($, on) => {
   const w = world(on)
   await startSession($)

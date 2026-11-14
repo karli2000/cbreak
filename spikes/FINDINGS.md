@@ -131,3 +131,14 @@ Question: can the pane's chat input get the `:shortcode` emoji box the main prom
 Outcome: feasible. Tab takes the best match, Up/Down + Enter pick another, a click works too; nothing typed is lost.
 
 S4 addendum (0.3.6, owner report "after selecting an emoji the entry line does not get the focus again"): the spike had drawn its rows permanently. With rows that come and go (as in the plugin), the focus ring turned out to follow **positions in the draw order, not keys**: rows appearing above the focused Input moved the ring onto the first row (highlighted; the next typed letter went to Claude Code's prompt, `❯ i`), and a pick that removed the rows left the ring on a position that no longer existed. Rows drawn **below** the Input leave its position alone: typing stays in the Input while the box comes and goes. Tab from the Input then lands on the first row, as Down does (a `ui.focus` hook cannot tell them apart, so Tab-accept is gone). A pick that calls `$.ui.focus` on the Input **first** and redraws after it keeps the ring in the Input (`press e2 -> "ab 😀 "`, `refocus {}`, then `z` typed into the Input).
+
+## S5: pane background and text color (2026-11-14, Claude Code 2.1.325)
+
+Spike mod in tmux (160×40, 256 colors, pane docked), background `#2A1C15` (drawn as `48;5;58`), text `#F6EFE6`.
+
+- A `backgroundColor` on the pane's root Box, on the lines' Box or on a full-width (`width: '100%'`) Box per line colors **only the cells that hold text**: empty rows and the cells after a short line keep the terminal's background. Only the Input row came out filled. (tmux `capture-pane` trims trailing blanks; `-N` keeps them, needed to see fills.)
+- `$.ui.open({ id, title, backgroundColor })` paints the **whole pane body**: every empty row, every line end, the input row and the emoji row.
+- Every `ui.open` sets it anew: a retitle (`$.ui.open({ id, title })`) without `backgroundColor` dropped the color again. So each open, retitles included, must carry it.
+- Text `color` with `dimColor` stays dim on the colored background; `inverse` mentions and nickname colors draw as set.
+
+Outcome: background through `ui.open` on every open, text color on the Text elements (0.3.9).

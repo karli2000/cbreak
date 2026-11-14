@@ -3,6 +3,8 @@ import { Controller, type Line, type PaneView } from '../../plugin/hooks/lib/con
 import { COPY, errorText } from '../../plugin/hooks/lib/copy.ts'
 import type { AuthState, ChatMessage } from '../../plugin/shared/protocol.ts'
 import { FakePort, tick } from './fake-port.ts'
+import { contrast, NICK_CONTRAST, toRgb } from '../../plugin/hooks/lib/colors.ts'
+import { nickColor } from '../../plugin/hooks/lib/format.ts'
 
 const READY: AuthState = { state: 'ready', nickname: 'me', role: 'user', muted_until: null }
 
@@ -718,6 +720,32 @@ describe('Controller chat', () => {
     expect(chat(c).draft).toBe('🎉 ')
     await c.submit(chat(c).draft + 'yay')
     expect(port.calls.at(-1)).toEqual({ path: '/send', body: { body: '🎉 yay' } })
+  })
+
+  test('pane colors: default none; bg and text reach the view at once, nicknames follow the background', async () => {
+    const { port, c } = await inBreak()
+    port.emit({ type: 'message', ...msg(1, 'lena') })
+    await tick()
+    expect(chat(c).colors).toEqual({ bg: null, text: null })
+    const plain = messages(c)[0]!.color
+    expect(plain).toBe(nickColor('lena'))
+
+    const r0 = port.redraws
+    expect(await c.command('config bg #f6efe6')).toBe('Saved.')
+    expect(port.redraws).toBeGreaterThan(r0)
+    // no text color chosen: a readable one for the background
+    expect(chat(c).colors).toEqual({ bg: '#f6efe6', text: '#101010' })
+    expect(messages(c)[0]!.color).toBe(nickColor('lena', '#f6efe6'))
+    expect(contrast(toRgb(messages(c)[0]!.color)!, toRgb('#f6efe6')!)).toBeGreaterThanOrEqual(NICK_CONTRAST)
+
+    await c.command('config text #2a1c15')
+    expect(chat(c).colors).toEqual({ bg: '#f6efe6', text: '#2a1c15' })
+    expect(port.saved.at(-1)).toMatchObject({ bg: '#f6efe6', text: '#2a1c15' })
+
+    await c.command('config bg default')
+    await c.command('config text default')
+    expect(chat(c).colors).toEqual({ bg: null, text: null })
+    expect(messages(c)[0]!.color).toBe(plain)
   })
 
   test('emoji off: no box', async () => {

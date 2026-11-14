@@ -7,6 +7,7 @@ on:
     branches: [main]
     paths:
       - 'site/**'
+      - 'plugin/hooks/lib/colors.ts'
       - 'plugin/hooks/lib/format.ts'
       - 'plugin/shared/backend.ts'
   workflow_dispatch:

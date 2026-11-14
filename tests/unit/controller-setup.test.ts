@@ -44,7 +44,7 @@ function setup(c: Controller): Extract<PaneView, { mode: 'setup' }> {
   return v
 }
 
-const SETTINGS_LINE = 'Room: lobby · min wait 15 s · grace 15 s · auto-open on · emoji on · enabled'
+const SETTINGS_LINE = 'Room: lobby · min wait 15 s · grace 15 s · auto-open on · emoji on · bg default · text default · enabled'
 
 describe('Controller setup flow', () => {
   test('each step that needs typing asks for the keyboard again', async () => {
@@ -312,7 +312,7 @@ describe('Controller /cbreak commands', () => {
     expect(port.saved.at(-1)).toMatchObject({ graceSec: 30 })
     expect(await c.command('config min-wait 5')).toBe('Saved.')
     expect(await c.command('config auto-open off')).toBe('Saved.')
-    expect(await c.command('config')).toBe('Room: lobby · min wait 5 s · grace 30 s · auto-open off · emoji on · enabled')
+    expect(await c.command('config')).toBe('Room: lobby · min wait 5 s · grace 30 s · auto-open off · emoji on · bg default · text default · enabled')
   })
 
   test('off during a break leaves', async () => {

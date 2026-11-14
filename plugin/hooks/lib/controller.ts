@@ -5,6 +5,7 @@
 import type { Api, ApiPath, ApiResult, AuthState, ChatMessage, HelperEvent, JoinInfo } from '../../shared/protocol.ts'
 import { parseCoffeeArgs, parsePaneInput, type PaneCommand } from './commands.ts'
 import { COPY, errorText } from './copy.ts'
+import { effectiveText } from './colors.ts'
 import { applySuggestion, emojiSuggest, emojify, type EmojiSuggestion } from './emoji.ts'
 import { isAction, nickColor, segments } from './format.ts'
 import type { Line, PaneView, Port, Timer } from './port.ts'
@@ -257,17 +258,21 @@ export class Controller {
   }
 
   view(): PaneView {
-    if (this.setup.showing()) return this.setup.view()
+    const { bg, text } = this.settings
+    const colors = { bg, text: effectiveText(bg, text) }
+    if (this.setup.showing()) return { ...this.setup.view(), colors }
     const j = this.join
     return {
       mode: 'chat',
       header: COPY.title(j?.room ?? this.settings.room, j?.here ?? 0),
       busy: this.busy,
-      lines: this.lines.slice(),
+      // nickname colors follow the current background (they adapt to stay readable on it)
+      lines: this.lines.map((l) => (l.kind === 'message' ? { ...l, color: nickColor(l.nickname, bg) } : l)),
       draft: this.draft,
       inputEnabled: this.inRoom() && !!this.helper?.socket,
       countdown: this.graceLeft === null ? null : COPY.closingIn(this.graceLeft),
       suggestions: this.suggestions(),
+      colors,
     }
   }
 
@@ -471,7 +476,9 @@ export class Controller {
   }
 
   private async saveSettings(s: Settings): Promise<boolean> {
+    const recolor = s.bg !== this.settings.bg || s.text !== this.settings.text
     this.settings = s // applies for this session even if storing fails
+    if (recolor) this.port.redraw() // an open pane takes the new colors at once
     try {
       await this.port.saveSettings(s)
       return true

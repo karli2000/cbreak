@@ -36,6 +36,15 @@ let starting: { cancelled: boolean } | null = null
 let argvLookup: Promise<string[] | null> | null = null
 /** The pane is open (placed or waiting) under this title; null when closed. */
 let paneTitle: string | null = null
+/** The background the open pane was opened with (every `ui.open` sets it anew, so a retitle must repeat it). */
+let paneBg: string | null = null
+
+/** The person's pane background as `ui.open` takes it: painted under the whole body; none = Claude Code's look. */
+function bgOpt(): { backgroundColor?: string } {
+  const bg = controller?.view().colors.bg ?? null
+  paneBg = bg
+  return bg ? { backgroundColor: bg } : {}
+}
 
 /** Every event hook goes through here: it moves the Port to this `$` and builds the Controller once. */
 function ctl($: Engine): Controller {
@@ -262,7 +271,7 @@ async function callHelper<P extends ApiPath>(
 
 async function openPane($: Engine, focus: boolean, title: string): Promise<{ placed: boolean }> {
   paneTitle = title
-  const res = await $.ui.open({ id: PANE, title, ...(focus ? { focus: true as const } : {}) })
+  const res = await $.ui.open({ id: PANE, title, ...bgOpt(), ...(focus ? { focus: true as const } : {}) })
   return { placed: res.isPlaced }
 }
 
@@ -281,13 +290,18 @@ async function closePane($: Engine): Promise<boolean> {
   return ok
 }
 
-/** Redraws the pane, and retitles it when the header (room · N here) changed while it is open. */
+/**
+ * Redraws the pane, and re-opens it (no focus) when the header (room · N here) or the background
+ * changed while it is open: the title and the painted background are both set by `ui.open`.
+ */
 function redraw($: Engine): void {
   $.ui.invalidate('ui.render')
   const view = controller?.view()
-  if (paneTitle === null || view?.mode !== 'chat' || view.header === paneTitle) return
-  paneTitle = view.header
-  $.ui.open({ id: PANE, title: view.header }).catch(() => {})
+  if (paneTitle === null || !view) return
+  const title = view.mode === 'chat' ? view.header : paneTitle
+  if (title === paneTitle && view.colors.bg === paneBg) return
+  paneTitle = title
+  $.ui.open({ id: PANE, title, ...bgOpt() }).catch(() => {})
 }
 
 function scrollToEnd($: Engine): void {

@@ -54,7 +54,7 @@ export const COPY = {
   statusUnfinished: 'Signed in, setup not finished. Run /cbreak setup.',
   notSignedIn: 'Not signed in',
   settingsLine: (s: Settings) =>
-    `Room: ${s.room} · min wait ${s.minBusySec} s · grace ${s.graceSec} s · auto-open ${s.autoOpen ? 'on' : 'off'} · emoji ${s.emoji ? 'on' : 'off'} · ${s.enabled ? 'enabled' : 'disabled'}`,
+    `Room: ${s.room} · min wait ${s.minBusySec} s · grace ${s.graceSec} s · auto-open ${s.autoOpen ? 'on' : 'off'} · emoji ${s.emoji ? 'on' : 'off'} · bg ${s.bg ?? 'default'} · text ${s.text ?? 'default'} · ${s.enabled ? 'enabled' : 'disabled'}`,
   onBreak: (yes: boolean) => `On break: ${yes ? 'yes' : 'no'}`,
   nameSet: (nick: string) => `Your nickname is now ${nick}.`,
   roomInvalid: 'Room names are 2–32 characters: a–z, 0–9 and -.',

@@ -1,10 +1,10 @@
 // Parsers for `/cbreak …` arguments and pane input. Pure (runs in the mod environment).
 import { validateSetting } from './settings.ts'
-import type { SettingKey } from './settings.ts'
+import type { SettingKey, SettingValue } from './settings.ts'
 
 export type CoffeeCommand =
   | { kind: 'open' } | { kind: 'setup' } | { kind: 'status' } | { kind: 'name'; nick: string } | { kind: 'room'; slug: string }
-  | { kind: 'config' } | { kind: 'config_set'; key: SettingKey; value: number | boolean } | { kind: 'on' } | { kind: 'off' }
+  | { kind: 'config' } | { kind: 'config_set'; key: SettingKey; value: SettingValue } | { kind: 'on' } | { kind: 'off' }
   | { kind: 'logout' } | { kind: 'delete_account'; confirmed: boolean } | { kind: 'invalid'; error: string }
 
 export type PaneCommand =
@@ -13,7 +13,7 @@ export type PaneCommand =
   | { kind: 'mute'; nickname: string; minutes: 10 | 60 | 1440; reason: string } | { kind: 'ban'; nickname: string; reason: string }
   | { kind: 'invalid'; error: string }
 
-const SETTING_KEYS: readonly string[] = ['min-wait', 'grace', 'auto-open', 'emoji']
+const SETTING_KEYS: readonly string[] = ['min-wait', 'grace', 'auto-open', 'emoji', 'bg', 'text']
 
 const nick = (s: string) => s.replace(/^@/, '').toLowerCase()
 
@@ -38,7 +38,7 @@ export function parseCoffeeArgs(args: string): CoffeeCommand {
     case 'config': {
       if (!a) return { kind: 'config' }
       if (!SETTING_KEYS.includes(a) || b === undefined) {
-        return { kind: 'invalid', error: 'Usage: /cbreak config [min-wait <s> | grace <s> | auto-open on|off | emoji on|off]' }
+        return { kind: 'invalid', error: 'Usage: /cbreak config [min-wait <s> | grace <s> | auto-open on|off | emoji on|off | bg <color> | text <color>]' }
       }
       const r = validateSetting(a as SettingKey, b)
       return r.ok ? { kind: 'config_set', key: a as SettingKey, value: r.value } : { kind: 'invalid', error: r.error }

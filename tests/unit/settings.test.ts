@@ -47,3 +47,22 @@ describe('mergeStored', () => {
     expect(mergeStored({ graceSec: 5000 }).graceSec).toBe(DEFAULTS.graceSec)
   })
 })
+
+describe('pane colors', () => {
+  test('bg and text take names, hex and default', () => {
+    expect(validateSetting('bg', '#2A1C15')).toEqual({ ok: true, value: '#2a1c15' })
+    expect(validateSetting('text', 'White')).toEqual({ ok: true, value: 'white' })
+    expect(validateSetting('bg', '#abc')).toEqual({ ok: true, value: '#aabbcc' })
+    expect(validateSetting('bg', 'default')).toEqual({ ok: true, value: null })
+    const bad = validateSetting('bg', 'purple')
+    expect(bad.ok).toBe(false)
+    if (!bad.ok) expect(bad.error).toContain('#2a1c15')
+  })
+  test('default to none; stored values are checked again', () => {
+    expect(DEFAULTS.bg).toBeNull()
+    expect(DEFAULTS.text).toBeNull()
+    expect(mergeStored({ bg: '#2a1c15', text: 'white' })).toMatchObject({ bg: '#2a1c15', text: 'white' })
+    expect(mergeStored({ bg: '#2A1C15', text: 'url(x)' })).toMatchObject({ bg: null, text: null })
+    expect(mergeStored({ bg: 7 }).bg).toBeNull()
+  })
+})

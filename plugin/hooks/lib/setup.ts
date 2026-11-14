@@ -43,11 +43,13 @@ export interface SetupHost {
 type Step = 'signin' | 'nick' | 'rules' | 'done'
 type Subcommand = Exclude<CoffeeCommand, { kind: 'open' }>
 
-const FIELD: Record<SettingKey, 'minBusySec' | 'graceSec' | 'autoOpen' | 'emoji'> = {
+const FIELD: Record<SettingKey, 'minBusySec' | 'graceSec' | 'autoOpen' | 'emoji' | 'bg' | 'text'> = {
   'min-wait': 'minBusySec',
   grace: 'graceSec',
   'auto-open': 'autoOpen',
   emoji: 'emoji',
+  bg: 'bg',
+  text: 'text',
 }
 
 function authLine(a: AuthState): string {
@@ -120,7 +122,8 @@ export class Setup {
 
   // ---- setup pane ----
 
-  view(): PaneView {
+  /** The setup pane; the Controller adds the pane colors. */
+  view(): Omit<Extract<PaneView, { mode: 'setup' }>, 'colors'> {
     return {
       mode: 'setup',
       lines: this.check ? [...this.lines, this.check] : this.lines.slice(),
