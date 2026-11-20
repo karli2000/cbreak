@@ -65,6 +65,6 @@ Backend, function, moderator-site and homepage changes deploy automatically when
 ## Before a public launch
 
 - Move Supabase to a paid plan (Realtime connection and pause limits).
-- Publish an imprint and privacy page on the static site (spec section 6.7: the operator's legal notice, if launched publicly in the EU).
+- Done (2026-11-20): imprint and privacy page on cbreak.dev (`web/public/imprint.html`, `web/public/privacy.html`). Still to do: set up the `info@cbreak.dev` mailbox, and accept Supabase's data processing agreement (dashboard → organization → legal documents); Cloudflare's is part of its self-serve terms.
 - Ship compiled helper binaries (about 110 MB each) so people without Bun can install.
 - Consider CI on pull requests (only the deploy workflows run, on merges into `main`).

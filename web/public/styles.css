@@ -123,6 +123,20 @@ p { max-width: var(--measure); }
 .foot-links { display: flex; flex-wrap: wrap; gap: 8px 28px; font-family: var(--mono); font-size: 16px; margin: 0 0 16px; }
 .foot-links a { padding: 6px 0; }
 
+/* ---------- imprint and privacy ---------- */
+.hero.slim { padding-bottom: 8px; }
+.hero.slim .hero-copy { padding: 56px 0 24px; }
+.doc section { padding-top: 56px; }
+.doc h2 { font-size: clamp(22px, 2.6vw, 28px); margin: 48px 0 14px; }
+.doc h2:first-child { margin-top: 0; }
+.doc p, .doc ul { margin: 0 0 14px; }
+.doc ul { max-width: var(--measure); padding-left: 22px; }
+.doc li { margin: 0 0 8px; }
+.doc table { width: 100%; max-width: 820px; border-collapse: collapse; margin: 0 0 18px; font-size: 15px; }
+.doc th { text-align: left; font: 700 13px var(--mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--roast); border-bottom: 2px solid var(--espresso); padding: 8px 12px 8px 0; }
+.doc td { border-bottom: 1px solid #E2D4C4; padding: 10px 12px 10px 0; vertical-align: top; }
+.doc td:first-child { width: 55%; }
+
 /* ---------- small screens ---------- */
 @media (max-width: 860px) {
   .term { grid-template-columns: minmax(0, 1fr); font-size: 13px; }
