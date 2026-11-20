@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy · cbreak</title>
+<meta name="description" content="What cbreak, the cbreak.dev website and the moderator site store about you, why, for how long, and your rights.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta name="theme-color" content="#2A1C15">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="hero slim">
+  <nav class="top" aria-label="Main">
+    <a class="brand" href="/" aria-label="cbreak home">
+      <img src="/cbreak-mark-on-dark.svg" width="48" height="40" alt="">
+      <span class="word"><span class="c">c</span>break</span>
+    </a>
+    <a class="top-link" href="https://github.com/karli2000/cbreak">GitHub</a>
+  </nav>
+  <div class="hero-copy">
+    <h1>privacy<span class="caret" aria-hidden="true"></span></h1>
+    <p class="lede">What cbreak stores about you, why, for how long, and what you can do about it. Last updated 20 November 2026.</p>
+  </div>
+</header>
+
+<main class="doc">
+<section>
+
+<h2 id="short">The short version</h2>
+<ul>
+  <li>The plugin sees your prompts and tool calls, because it has to know when Claude is busy. It never sends them anywhere. No prompts, code, file names or project data are stored, and the backend has no place for them.</li>
+  <li>Only four things leave your computer: your sign-in token, the room name, what you type in the chat, and reports you file.</li>
+  <li>Chat messages are deleted after 15 minutes. Other people only ever see your nickname.</li>
+  <li>This website sets no cookies, runs no analytics and loads nothing from other sites.</li>
+  <li><code>/cbreak delete-account yes</code> deletes your account.</li>
+</ul>
+
+<h2 id="controller">Who is responsible</h2>
+<p>The controller under the EU General Data Protection Regulation (GDPR) is Max Kossatz, reachable at <a href="mailto:info@cbreak.dev">info@cbreak.dev</a>. See the <a href="/imprint">imprint</a>. cbreak is a private, non-commercial open-source project. It is not made or endorsed by Anthropic, and Anthropic receives nothing from cbreak.</p>
+
+<h2 id="website">This website (cbreak.dev)</h2>
+<p>The page uses no cookies, no tracking and no analytics, and loads no fonts, scripts or images from other sites. It asks its own server for the live numbers (people on a break, sign-ups, messages); these are totals and say nothing about any person.</p>
+<p>The site is hosted on Cloudflare Pages. To deliver the page and protect it from attacks, Cloudflare processes technical data of each request, such as your IP address, the time, the address requested and your browser's user agent, and keeps it in its logs for a short time. Legal basis: our legitimate interest in a working, secure website (Art. 6(1)(f) GDPR).</p>
+
+<h2 id="plugin">The plugin on your computer</h2>
+<p>The plugin runs inside Claude Code and listens to its events (a turn starts, a turn ends, you submit a prompt) to know when Claude is busy. Those events never leave your computer. The plugin keeps on your computer:</p>
+<ul>
+  <li>your sign-in session, in <code>~/.config/cbreak/auth.json</code> (readable only by you);</li>
+  <li>your cbreak settings (room, timings, colors), in Claude Code's storage for the plugin;</li>
+  <li>a message you started but did not send, in memory until Claude Code closes.</li>
+</ul>
+<p>There is no telemetry: cbreak does not report installs, usage or errors anywhere.</p>
+
+<h2 id="account">Your account</h2>
+<p>You sign in with GitHub. The sign-in is handled by Supabase Auth, which stores what GitHub hands over when you sign in: your GitHub user id, user name, email address, display name and avatar address, plus sign-in times and, in its sign-in records, IP addresses. cbreak uses only the GitHub user id. The rest is never shown to other people or to moderators.</p>
+<p>Your cbreak profile holds: your nickname, your role (user, moderator or admin), when you accepted the room rules, when you last changed your nickname, and, if it applies, a mute or ban with its reason. cbreak also asks GitHub's public API for the date your GitHub account was created: young accounts (under 30 days) get a slower message rate, and only established accounts count toward an automatic mute.</p>
+<p>Legal basis: providing the service you signed up for (Art. 6(1)(b) GDPR).</p>
+
+<h2 id="rooms">In a room</h2>
+<ul>
+  <li><b>Where you are:</b> the room and room instance you are in, when your client was last seen (to count who is "here"), and a random id for each running copy of the helper. This is removed when you leave, or within about two minutes after your client stops.</li>
+  <li><b>What you write:</b> your messages, stored with your nickname and the time, and shown to the people in the same room instance. They are deleted after 15 minutes. Moderators can delete a message earlier.</li>
+  <li><b>Join and leave notices:</b> other people in the room see your nickname when you join and leave.</li>
+  <li><b>Limits:</b> short-lived counters of how often you sent messages, joined rooms and filed reports, to enforce rate limits.</li>
+  <li><b>Totals:</b> the number of messages per day, without content or sender, for the numbers on this website.</li>
+</ul>
+<p>Legal basis: providing the service (Art. 6(1)(b) GDPR); for the limits, our legitimate interest in keeping the rooms free of spam and abuse (Art. 6(1)(f)).</p>
+
+<h2 id="moderation">Reports and moderation</h2>
+<p>When you report someone, cbreak stores your report: who filed it, about whom, your reason, and a snapshot of up to 10 messages around the reported one, or of the room's latest messages (nicknames and text), so a moderator can judge it after the messages themselves are gone. Moderators also see a person's nickname, role, GitHub account age, join date, mute and ban state, the reports against them and the moderation actions taken; never their email address or GitHub details. Every moderation action (delete, mute, ban and their reversals) is logged with the moderator, the person, the reason and the time.</p>
+<p>Automatic mute: when three different people with established GitHub accounts, present in the same room, report the same person within 10 minutes, that person is muted for 24 hours. Moderators can lift it, and you can ask for a review at <a href="mailto:info@cbreak.dev">info@cbreak.dev</a>.</p>
+<p>Moderators are volunteers chosen by the operator. They use the moderator site <a href="https://mod.cbreak.dev">mod.cbreak.dev</a>, which keeps their sign-in in the browser's local storage and sets no cookies.</p>
+<p>Legal basis: our legitimate interest, and that of everyone in the rooms, in a safe chat free of abuse (Art. 6(1)(f) GDPR).</p>
+
+<h2 id="retention">How long data is kept</h2>
+<table>
+  <thead><tr><th>What</th><th>How long</th></tr></thead>
+  <tbody>
+    <tr><td>Chat messages</td><td>15 minutes</td></tr>
+    <tr><td>Who is in a room</td><td>until you leave, or about two minutes after your client stops</td></tr>
+    <tr><td>Rate-limit counters</td><td>minutes</td></tr>
+    <tr><td>Account, profile and sign-in data</td><td>until you delete your account</td></tr>
+    <tr><td>Open reports</td><td>until a moderator handles them</td></tr>
+    <tr><td>Handled reports, with their snapshots</td><td>90 days after they are handled</td></tr>
+    <tr><td>Moderation log</td><td>1 year</td></tr>
+    <tr><td>After deleting an account: nickname, last nickname change and an active mute, stored under a hash of the GitHub id</td><td>30 days, so deleting an account does not end a mute and a nickname is not free for others at once</td></tr>
+    <tr><td>A ban: a hash of the banned GitHub id</td><td>until the ban is lifted</td></tr>
+    <tr><td>Daily message totals (no content, no sender)</td><td>no limit</td></tr>
+  </tbody>
+</table>
+<p>Deleting your account removes your sign-in record and profile. Reports and moderation log entries about you stay until their own time is up, without a link to your account, but a report snapshot still contains the nicknames and messages it captured.</p>
+
+<h2 id="processors">Service providers</h2>
+<ul>
+  <li><b>Supabase</b> (Supabase, Inc., USA) runs the database, the sign-in and the real-time chat. The data is stored in the EU, in Frankfurt (AWS eu-central-1).</li>
+  <li><b>Cloudflare</b> (Cloudflare, Inc., USA) hosts this website and the moderator site.</li>
+  <li><b>GitHub</b> (GitHub, Inc., USA) signs you in. Your GitHub account itself falls under <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub's privacy statement</a>.</li>
+</ul>
+<p>Supabase and Cloudflare process data on our behalf under data processing agreements. Where they or their sub-processors can access data from outside the EU, the transfer relies on the EU Standard Contractual Clauses or the EU–US Data Privacy Framework.</p>
+
+<h2 id="rights">Your rights</h2>
+<p>You have the right to access your data, to have it corrected or deleted, to restrict its processing, to receive it in a portable format, and to object to processing based on legitimate interest (Art. 15–21 GDPR). Write to <a href="mailto:info@cbreak.dev">info@cbreak.dev</a>, or delete your account at once with <code>/cbreak delete-account yes</code>. You also have the right to complain to a data protection authority, for example the one where you live (Art. 77 GDPR).</p>
+<p>You need a GitHub account to use cbreak, so GitHub's minimum age applies.</p>
+
+<h2 id="changes">Changes</h2>
+<p>When cbreak starts storing something new, this page changes first. Its history is public in the <a href="https://github.com/karli2000/cbreak/commits/main/web/public/privacy.html">repository</a>.</p>
+
+</section>
+</main>
+
+<footer class="foot">
+  <p class="foot-links">
+    <a href="/">Home</a>
+    <a href="https://github.com/karli2000/cbreak">GitHub</a>
+    <a href="/imprint">Imprint</a>
+    <a href="/privacy">Privacy</a>
+  </p>
+  <p>cbreak is open source under the MIT license. It is an independent project, not made or endorsed by Anthropic. Claude and Claude Code are trademarks of Anthropic.</p>
+</footer>
+
+</body>
+</html>

@@ -7,7 +7,7 @@ import { join } from 'node:path'
 
 const ROOT = join(import.meta.dir, '../..')
 const read = (p: string) => readFileSync(join(ROOT, p), 'utf8')
-const pages = ['web/public/index.html', 'web/public/404.html']
+const pages = ['web/public/index.html', 'web/public/404.html', 'web/public/imprint.html', 'web/public/privacy.html']
 
 test('the brand files are copies of brand/', () => {
   expect(read('web/public/favicon.svg')).toBe(read('brand/cbreak-icon.svg'))
@@ -43,7 +43,8 @@ test('every local file a page names exists', () => {
   for (const p of pages) {
     for (const m of read(p).matchAll(/\b(?:src|href)="(\/[^"#]*)"/g)) {
       const path = m[1] === '/' ? '/index.html' : m[1]!
-      expect(existsSync(join(ROOT, 'web/public', path))).toBe(true)
+      // Pages serves /privacy from privacy.html
+      expect(existsSync(join(ROOT, 'web/public', path)) || existsSync(join(ROOT, 'web/public', path + '.html'))).toBe(true)
     }
   }
 })
@@ -61,7 +62,7 @@ test('the link preview image is 1200x630, and web/ holds only the site and its f
   expect(readdirSync(join(ROOT, 'web')).sort()).toEqual(['functions', 'public'])
   expect(readdirSync(join(ROOT, 'web/functions/api')).sort()).toEqual(['stats.ts'])
   expect(readdirSync(join(ROOT, 'web/public')).sort()).toEqual(
-    ['404.html', '_headers', 'cbreak-mark-on-dark.svg', 'cbreak-mark.svg', 'favicon.svg', 'index.html', 'main.js', 'og.png', 'styles.css'],
+    ['404.html', '_headers', 'cbreak-mark-on-dark.svg', 'cbreak-mark.svg', 'favicon.svg', 'imprint.html', 'index.html', 'main.js', 'og.png', 'privacy.html', 'styles.css'],
   )
 })
 
@@ -76,4 +77,16 @@ test('the numbers section is hidden until main.js fills it from /api/stats', () 
   const js = read('web/public/main.js')
   expect(js).toContain("fetch('/api/stats'")
   expect([...js.matchAll(/fetch\(\s*'([^']+)'/g)].map((m) => m[1])).toEqual(['/api/stats'])
+})
+
+test('every page links the imprint and the privacy page, which name the operator and contact', () => {
+  for (const p of pages) {
+    const html = read(p)
+    expect(html).toContain('href="/imprint"')
+    expect(html).toContain('href="/privacy"')
+  }
+  for (const p of ['web/public/imprint.html', 'web/public/privacy.html']) {
+    expect(read(p)).toContain('Max Kossatz')
+    expect(read(p)).toContain('mailto:info@cbreak.dev')
+  }
 })

@@ -1,0 +1,16 @@
+name: Idea or room request
+description: Suggest a feature, a change, or a new room.
+labels: [idea]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: What should cbreak do, and when would it help you?
+    validations:
+      required: true
+  - type: input
+    id: room
+    attributes:
+      label: Room name (only for a room request)
+      description: 2 to 32 characters, a to z, 0 to 9 and -.

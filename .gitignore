@@ -8,3 +8,6 @@ site/node_modules
 site/dist
 .wrangler/
 *.code-workspace
+
+# Private marketing material (owner only, never published)
+marketing/

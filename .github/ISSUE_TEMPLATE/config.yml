@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security problem
+    url: https://github.com/karli2000/cbreak/security/advisories/new
+    about: Please report vulnerabilities privately, not in a public issue.
+  - name: Report a person in a room
+    url: https://github.com/karli2000/cbreak#room-rules
+    about: Use /report in the chat pane; moderators see it right away.
